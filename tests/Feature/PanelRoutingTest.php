@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\AdminPanel;
 use App\Enums\Role;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
 
 beforeEach(function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -21,9 +23,24 @@ beforeEach(function (): void {
 */
 
 it('serves the platform panel on the root domain', function (): void {
-    $this->get('http://restaurant-app.test/admin/login')
+    $this->get('http://restaurant-app.test/super-admin/login')
         ->assertOk()
         ->assertSee('Restaurant Platform');
+});
+
+it('serves each panel from the path its enum declares', function (AdminPanel $panel): void {
+    expect(Filament::getPanel($panel->value)->getPath())->toBe($panel->path());
+})->with(AdminPanel::cases());
+
+it('keeps the platform panel off the restaurant panel path', function (): void {
+    $this->get('http://restaurant-app.test/super-admin/restaurants')
+        ->assertRedirect('http://restaurant-app.test/super-admin/login');
+});
+
+it('does not serve the platform panel from a restaurant subdomain', function (): void {
+    Restaurant::factory()->create(['slug' => 't1']);
+
+    $this->get('http://t1.restaurant-app.test/super-admin/login')->assertNotFound();
 });
 
 it('serves the restaurant panel on a restaurant subdomain', function (): void {
@@ -34,8 +51,10 @@ it('serves the restaurant panel on a restaurant subdomain', function (): void {
         ->assertDontSee('Restaurant Platform');
 });
 
-it('keeps the two panels on separate hosts', function (): void {
+it('keeps the two panels on separate hosts and paths', function (): void {
     expect(route('filament.super-admin.auth.login'))
+        ->toBe('http://restaurant-app.test/super-admin/login')
+        ->and(route('filament.admin.auth.login'))
         ->toBe('http://restaurant-app.test/admin/login');
 });
 
@@ -46,11 +65,29 @@ it('keeps the two panels on separate hosts', function (): void {
 */
 
 it('lets a super admin into the platform panel', function (): void {
-    $user = User::factory()->create();
-    $user->assignRole(Role::SuperAdmin->value);
+    $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin')
+        ->get('http://restaurant-app.test/super-admin')
+        ->assertOk();
+});
+
+it('gates the platform panel on the is_super_admin column alone', function (): void {
+    $user = User::factory()->create();
+
+    // Every restaurant role there is, and still no way in.
+    foreach (Role::cases() as $role) {
+        $user->assignRole($role->value);
+    }
+
+    $this->actingAs($user)
+        ->get('http://restaurant-app.test/super-admin')
+        ->assertForbidden();
+
+    $user->forceFill(['is_super_admin' => true])->save();
+
+    $this->actingAs($user->fresh())
+        ->get('http://restaurant-app.test/super-admin')
         ->assertOk();
 });
 
@@ -61,7 +98,7 @@ it('keeps a restaurant admin out of the platform panel', function (): void {
     $user->assignRole(Role::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin')
+        ->get('http://restaurant-app.test/super-admin')
         ->assertForbidden();
 });
 
@@ -94,8 +131,7 @@ it('stops a restaurant admin reaching another restaurant by changing the subdoma
 it('lets a super admin support any restaurant panel', function (): void {
     Restaurant::factory()->create(['slug' => 't1']);
 
-    $user = User::factory()->create();
-    $user->assignRole(Role::SuperAdmin->value);
+    $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
         ->get('http://t1.restaurant-app.test/admin')

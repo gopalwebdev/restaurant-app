@@ -14,12 +14,12 @@ beforeEach(function (): void {
 });
 
 it('persists every permission declared in the enum', function (): void {
-    expect(PermissionModel::pluck('name')->all())
+    expect(PermissionModel::query()->pluck('name')->all())
         ->toEqualCanonicalizing(Permission::values());
 });
 
 it('persists every role declared in the enum', function (): void {
-    expect(RoleModel::pluck('name')->all())
+    expect(RoleModel::query()->pluck('name')->all())
         ->toEqualCanonicalizing(Role::values());
 });
 
@@ -32,8 +32,8 @@ it('grants each role exactly the permissions it declares', function (Role $role)
 it('can be seeded repeatedly without duplicating rows', function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);
 
-    expect(RoleModel::count())->toBe(count(Role::cases()))
-        ->and(PermissionModel::count())->toBe(count(Permission::cases()));
+    expect(RoleModel::query()->count())->toBe(count(Role::cases()))
+        ->and(PermissionModel::query()->count())->toBe(count(Permission::cases()));
 });
 
 it('gives a customer ordering rights but no management rights', function (): void {
@@ -46,9 +46,10 @@ it('gives a customer ordering rights but no management rights', function (): voi
         ->and($user->can(Permission::UserManage->value))->toBeFalse();
 });
 
-it('gives a super admin every permission', function (): void {
-    $user = User::factory()->create();
-    $user->assignRole(Role::SuperAdmin->value);
+it('gives a super admin every permission without holding a role', function (): void {
+    $user = User::factory()->superAdmin()->create();
+
+    expect($user->roles)->toBeEmpty();
 
     foreach (Permission::cases() as $permission) {
         expect($user->can($permission->value))->toBeTrue();

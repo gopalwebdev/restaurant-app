@@ -10,4 +10,10 @@ parameters:
         - database/
         - routes/
 
-    level: 7
+    level: 8
+
+    # Framework docblocks are often more optimistic than the code they describe
+    # (Seeder::$command is documented non-nullable but is an untyped property
+    # defaulting to null). Without this, guarding against reality is reported
+    # as a redundant check.
+    treatPhpDocTypesAsCertain: false

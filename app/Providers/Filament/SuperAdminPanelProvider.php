@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Enums\AdminPanel;
+use App\Filament\SuperAdmin\Auth\Login;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -19,10 +21,11 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The platform panel, served at the root domain: restaurant-app.com/admin.
+ * The platform panel, served at restaurant-app.com/super-admin.
  *
  * It is bound to the bare host so it can never be reached from a tenant
- * subdomain, and it is the default panel because it carries no tenancy.
+ * subdomain, and it is the default panel because it carries no tenancy. Its
+ * own path keeps it clear of the per-restaurant panel at /admin.
  */
 class SuperAdminPanelProvider extends PanelProvider
 {
@@ -30,10 +33,10 @@ class SuperAdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-            ->id('super-admin')
-            ->path('admin')
+            ->id(AdminPanel::SuperAdmin->value)
+            ->path(AdminPanel::SuperAdmin->path())
             ->domain(config('app.domain'))
-            ->login()
+            ->login(Login::class)
             ->brandName('Restaurant Platform')
             ->colors([
                 'primary' => Color::Indigo,

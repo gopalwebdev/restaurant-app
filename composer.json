@@ -9,13 +9,14 @@
         "php": "^8.4",
         "filament/filament": "^5.0",
         "inertiajs/inertia-laravel": "^3.0",
-        "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.17",
+        "laravel/horizon": "^5.48",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
         "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {
+        "driftingly/rector-laravel": "^2.6",
         "fakerphp/faker": "^1.24",
         "larastan/larastan": "^3.9",
         "laravel/boost": "^2.7",
@@ -25,7 +26,9 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.9.3",
         "pestphp/pest": "^5.1",
-        "pestphp/pest-plugin-laravel": "^5.0"
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "phpstan/phpstan": "^2.2",
+        "rector/rector": "^2.6"
     },
     "autoload": {
         "psr-4": {
@@ -69,14 +72,22 @@
             "Composer\\Config::disableProcessTimeout",
             "npm run check",
             "npm run types:check",
+            "npm run test",
             "@test"
         ],
         "types:check": [
             "phpstan analyse --memory-limit=1G"
         ],
+        "refactor": [
+            "rector process"
+        ],
+        "refactor:check": [
+            "rector process --dry-run"
+        ],
         "test": [
             "@php artisan config:clear --ansi",
             "@lint:check",
+            "@refactor:check",
             "@types:check",
             "@php artisan test"
         ],

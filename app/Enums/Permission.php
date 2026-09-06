@@ -19,6 +19,9 @@ enum Permission: string
     case OrderManage = 'order.manage';
     case UserManage = 'user.manage';
 
+    /** Change one restaurant's own configuration. */
+    case SettingsManage = 'settings.manage';
+
     /** Platform-level: create, suspend, and delete restaurants. */
     case RestaurantManage = 'restaurant.manage';
 

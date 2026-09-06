@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -45,6 +46,16 @@ class Restaurant extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    /**
+     * How this restaurant is configured.
+     *
+     * @return HasOne<RestaurantSetting, $this>
+     */
+    public function settings(): HasOne
+    {
+        return $this->hasOne(RestaurantSetting::class);
     }
 
     /**

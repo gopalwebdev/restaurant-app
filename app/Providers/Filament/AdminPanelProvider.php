@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Enums\AdminPanel;
+use App\Filament\Admin\Auth\Login;
 use App\Models\Restaurant;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -30,11 +32,11 @@ class AdminPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         return $panel
-            ->id('admin')
-            ->path('admin')
+            ->id(AdminPanel::Admin->value)
+            ->path(AdminPanel::Admin->path())
             ->tenant(Restaurant::class, slugAttribute: 'slug')
             ->tenantDomain('{tenant:slug}.'.config('app.domain'))
-            ->login()
+            ->login(Login::class)
             ->colors([
                 'primary' => Color::Amber,
             ])

@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -26,6 +28,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureAuthorization();
+    }
+
+    /**
+     * Grant platform staff every permission.
+     *
+     * Returning null rather than false leaves every other check to run
+     * normally, so this only ever widens access for a super admin.
+     */
+    protected function configureAuthorization(): void
+    {
+        Gate::before(static fn (User $user): ?bool => $user->isSuperAdmin() ? true : null);
     }
 
     /**

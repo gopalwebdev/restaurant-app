@@ -3,16 +3,17 @@
 namespace App\Enums;
 
 /**
- * The roles a user may hold.
+ * The roles a user may hold inside a restaurant.
+ *
+ * Platform ownership is not here: it is the users.is_super_admin column, and a
+ * super admin is granted everything by a Gate::before check rather than by
+ * holding a role.
  *
  * Each role owns the definitive list of permissions granted to it, so the
  * seeder stays a thin projection of what is declared here.
  */
 enum Role: string
 {
-    /** Platform owner. Manages every restaurant from the root domain. */
-    case SuperAdmin = 'super-admin';
-
     case Admin = 'admin';
     case Manager = 'manager';
     case Staff = 'staff';
@@ -26,7 +27,6 @@ enum Role: string
     public function permissions(): array
     {
         return match ($this) {
-            self::SuperAdmin => Permission::cases(),
             // A restaurant admin owns everything inside their own tenant, but
             // may not manage the roster of restaurants on the platform.
             self::Admin => self::everyPermissionExcept(Permission::RestaurantManage),

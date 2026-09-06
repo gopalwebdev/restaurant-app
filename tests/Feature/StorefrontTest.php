@@ -11,7 +11,7 @@ it('serves a restaurant storefront from its own subdomain', function (): void {
 
     $this->get('http://t1.restaurant-app.test/')
         ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
             ->component('storefront')
             ->where('restaurant.name', $restaurant->name)
             ->where('restaurant.slug', 't1'),
@@ -21,7 +21,7 @@ it('serves a restaurant storefront from its own subdomain', function (): void {
 it('serves the marketing page on the root domain', function (): void {
     $this->get('http://restaurant-app.test/')
         ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page->component('welcome'));
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page->component('welcome'));
 });
 
 it('returns 404 for a subdomain with no restaurant behind it', function (): void {

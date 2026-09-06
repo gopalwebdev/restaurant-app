@@ -11,20 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Accounts carry no password: sign-in is by emailed one-time code only,
+        // so there is no password column and no password reset token table.
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+
+            // Platform staff, as opposed to the people who run one restaurant.
+            // This is the only thing that grants the super admin panel, so it
+            // is a column rather than a role that could be handed out.
+            $table->boolean('is_super_admin')->default(false)->index();
+
             $table->rememberToken();
             $table->timestamps();
-        });
-
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
         });
 
         Schema::create('sessions', function (Blueprint $table) {
@@ -43,7 +44,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
 };

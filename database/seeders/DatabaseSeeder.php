@@ -2,9 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Role;
-use App\Models\Restaurant;
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -13,30 +10,17 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the database with one platform owner and one worked example tenant.
+     * Seed the platform owner and the restaurants that exist so far.
+     *
+     * Every seeder here is idempotent, so this is safe to re-run. Run
+     * `php artisan accounts:list` afterwards to see who can now sign in.
      */
     public function run(): void
     {
-        $this->call(RolesAndPermissionsSeeder::class);
-
-        User::factory()
-            ->create(['name' => 'Super Admin', 'email' => 'super@example.com'])
-            ->assignRole(Role::SuperAdmin->value);
-
-        $restaurant = Restaurant::factory()->create([
-            'name' => 'Tenant One',
-            'slug' => 't1',
+        $this->call([
+            RolesAndPermissionsSeeder::class,
+            SuperAdminSeeder::class,
+            RestaurantSeeder::class,
         ]);
-
-        $admin = User::factory()->create([
-            'name' => 'Tenant One Admin',
-            'email' => 'admin@example.com',
-        ]);
-        $admin->assignRole(Role::Admin->value);
-        $admin->restaurants()->attach($restaurant);
-
-        User::factory()
-            ->create(['name' => 'Test User', 'email' => 'test@example.com'])
-            ->assignRole(Role::Customer->value);
     }
 }
