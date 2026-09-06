@@ -28,8 +28,7 @@ class UsersTable
                 TextColumn::make('roles.name')
                     ->label('Roles')
                     ->badge()
-                    ->placeholder('None')
-                    ->visibleFrom('md'),
+                    ->placeholder('None'),
                 TextColumn::make('created_at')
                     ->label('Account created')
                     ->dateTime()

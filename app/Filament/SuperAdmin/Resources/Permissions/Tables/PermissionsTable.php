@@ -22,8 +22,7 @@ class PermissionsTable
                     ->sortable(),
                 TextColumn::make('label')
                     ->label('Reads as')
-                    ->state(fn (Permission $record): string => $record->label())
-                    ->visibleFrom('md'),
+                    ->state(fn (Permission $record): string => $record->label()),
                 IconColumn::make('is_built_in')
                     ->label('Built in')
                     ->state(fn (Permission $record): bool => $record->isBuiltIn())
@@ -31,8 +30,7 @@ class PermissionsTable
                     ->tooltip('Built-in permissions are checked by name from code, so they are read-only.'),
                 TextColumn::make('roles_count')
                     ->label('Roles')
-                    ->counts('roles')
-                    ->visibleFrom('md'),
+                    ->counts('roles'),
             ])
             ->recordActions([
                 ViewAction::make(),

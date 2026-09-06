@@ -12,5 +12,7 @@ Do not co-locate a spec inside `resources/js/pages/` — Inertia resolves every 
 
 `resources/js/tests/setup.ts` stubs Inertia's `<Head>`, which otherwise throws because its head manager only exists after createInertiaApp has run.
 
-## Every page is built for mobile, laptop and larger screens
-The storefront and every React page are used on phones as much as on laptops, so lay out mobile-first with Tailwind and add sm:/md:/lg: as the screen grows — never a fixed pixel width, and never a layout only checked at desktop size. Tap targets stay comfortable on touch, tables and wide content scroll inside their own container rather than pushing the page sideways, and nothing depends on hover alone to be usable. Check a narrow viewport before calling a page done.
+## The customer UI is a phone UI
+Guests reach a restaurant on their phone, so every customer-facing React page is designed at phone width and judged there. Lay out for one narrow column, size tap targets for thumbs, and never rely on hover to make something usable. Desktop breakpoints are not the job: reach for sm:/md:/lg: only to stop a page looking stretched on a wider screen, never to build a second layout, and never let a phone carry the cost of one.
+
+Staff tools are the opposite — see the panel rule in .ai/rules/filament.md, which is laptop-and-larger.

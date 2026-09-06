@@ -27,8 +27,7 @@ class RestaurantsTable
                 TextColumn::make('phone')
                     ->label('Mobile')
                     ->state(fn (Restaurant $record): string => $record->dialablePhone())
-                    ->searchable()
-                    ->visibleFrom('md'),
+                    ->searchable(),
                 TextColumn::make('email')
                     ->searchable()
                     ->placeholder('None')
@@ -50,8 +49,7 @@ class RestaurantsTable
                     ->boolean(),
                 TextColumn::make('users_count')
                     ->label('Staff')
-                    ->counts('users')
-                    ->visibleFrom('md'),
+                    ->counts('users'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

@@ -27,12 +27,10 @@ class RolesTable
                     ->tooltip('Built-in roles are declared in code and seeded, so they are read-only.'),
                 TextColumn::make('permissions_count')
                     ->label('Permissions')
-                    ->counts('permissions')
-                    ->visibleFrom('md'),
+                    ->counts('permissions'),
                 TextColumn::make('users_count')
                     ->label('Users')
-                    ->counts('users')
-                    ->visibleFrom('md'),
+                    ->counts('users'),
             ])
             ->recordActions([
                 ViewAction::make(),
