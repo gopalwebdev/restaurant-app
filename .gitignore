@@ -28,3 +28,8 @@ yarn-error.log
 /.vscode
 /.zed
 /.claude/settings.local.json
+
+# Filament publishes its compiled assets here; regenerate with `filament:assets`.
+/public/css/filament
+/public/js/filament
+/public/fonts/filament

@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Enums;
 
 /**
@@ -20,6 +18,9 @@ enum Permission: string
     case OrderViewAny = 'order.view-any';
     case OrderManage = 'order.manage';
     case UserManage = 'user.manage';
+
+    /** Platform-level: create, suspend, and delete restaurants. */
+    case RestaurantManage = 'restaurant.manage';
 
     /**
      * The backing values of every permission.

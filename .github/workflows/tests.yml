@@ -46,6 +46,7 @@ jobs:
           php artisan key:generate
           touch database/database.sqlite
           php artisan migrate --force
+          php artisan filament:assets
 
       # The Inertia views resolve assets through the Vite manifest, so the
       # bundle has to exist before the feature tests render any page.

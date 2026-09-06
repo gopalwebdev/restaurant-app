@@ -74,6 +74,8 @@ export default defineConfig({
             'CLAUDE.md',
             '.github/**',
             'composer.json',
+            // Build output and vendor-published assets are not ours to format.
+            'public/**',
             'resources/js/components/ui/*',
             'resources/views/mail/*',
         ],

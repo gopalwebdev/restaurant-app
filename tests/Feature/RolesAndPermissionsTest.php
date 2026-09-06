@@ -46,11 +46,26 @@ it('gives a customer ordering rights but no management rights', function (): voi
         ->and($user->can(Permission::UserManage->value))->toBeFalse();
 });
 
-it('gives an admin every permission', function (): void {
+it('gives a super admin every permission', function (): void {
+    $user = User::factory()->create();
+    $user->assignRole(Role::SuperAdmin->value);
+
+    foreach (Permission::cases() as $permission) {
+        expect($user->can($permission->value))->toBeTrue();
+    }
+});
+
+it('gives a restaurant admin everything except platform management', function (): void {
     $user = User::factory()->create();
     $user->assignRole(Role::Admin->value);
 
+    expect($user->can(Permission::RestaurantManage->value))->toBeFalse();
+
     foreach (Permission::cases() as $permission) {
+        if ($permission === Permission::RestaurantManage) {
+            continue;
+        }
+
         expect($user->can($permission->value))->toBeTrue();
     }
 });

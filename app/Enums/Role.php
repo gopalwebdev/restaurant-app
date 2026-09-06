@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Enums;
 
 /**
@@ -12,6 +10,9 @@ namespace App\Enums;
  */
 enum Role: string
 {
+    /** Platform owner. Manages every restaurant from the root domain. */
+    case SuperAdmin = 'super-admin';
+
     case Admin = 'admin';
     case Manager = 'manager';
     case Staff = 'staff';
@@ -25,7 +26,10 @@ enum Role: string
     public function permissions(): array
     {
         return match ($this) {
-            self::Admin => Permission::cases(),
+            self::SuperAdmin => Permission::cases(),
+            // A restaurant admin owns everything inside their own tenant, but
+            // may not manage the roster of restaurants on the platform.
+            self::Admin => self::everyPermissionExcept(Permission::RestaurantManage),
             self::Manager => [
                 Permission::MenuView,
                 Permission::MenuManage,
@@ -44,6 +48,19 @@ enum Role: string
                 Permission::OrderViewOwn,
             ],
         };
+    }
+
+    /**
+     * Every permission except the ones named.
+     *
+     * @return list<Permission>
+     */
+    private static function everyPermissionExcept(Permission ...$excluded): array
+    {
+        return array_values(array_filter(
+            Permission::cases(),
+            static fn (Permission $permission): bool => ! in_array($permission, $excluded, strict: true),
+        ));
     }
 
     /**
