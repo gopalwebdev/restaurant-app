@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use Filament\Support\Icons\Heroicon;
+
 /**
  * The Filament panels this application serves.
  *
@@ -23,6 +25,31 @@ enum AdminPanel: string
     public function path(): string
     {
         return $this->value;
+    }
+
+    /**
+     * The mark this panel is branded with.
+     *
+     * A single storefront for the panel that runs one restaurant, and the
+     * block of them for the panel that runs the platform.
+     */
+    public function icon(): Heroicon
+    {
+        return match ($this) {
+            self::SuperAdmin => Heroicon::OutlinedBuildingOffice2,
+            self::Admin => Heroicon::OutlinedBuildingStorefront,
+        };
+    }
+
+    /**
+     * The name this panel is branded with.
+     */
+    public function brandName(): string
+    {
+        return match ($this) {
+            self::SuperAdmin => 'Restaurant Platform',
+            self::Admin => (string) config('app.name'),
+        };
     }
 
     /**

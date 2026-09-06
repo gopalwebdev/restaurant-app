@@ -60,13 +60,24 @@ it('gives a restaurant admin everything except platform management', function ()
     $user = User::factory()->create();
     $user->assignRole(Role::Admin->value);
 
-    expect($user->can(Permission::RestaurantManage->value))->toBeFalse();
-
     foreach (Permission::cases() as $permission) {
-        if ($permission === Permission::RestaurantManage) {
-            continue;
-        }
-
-        expect($user->can($permission->value))->toBeTrue();
+        expect($user->can($permission->value))->toBe(! $permission->isPlatformOnly());
     }
+});
+
+it('withholds every platform permission from every restaurant role', function (Role $role): void {
+    $user = User::factory()->create();
+    $user->assignRole($role->value);
+
+    foreach (Permission::platformOnly() as $permission) {
+        expect($user->can($permission->value))->toBeFalse();
+    }
+})->with(Role::cases());
+
+it('counts managing restaurants, roles and permissions as platform only', function (): void {
+    expect(Permission::platformOnlyValues())->toEqualCanonicalizing([
+        Permission::RestaurantManage->value,
+        Permission::RoleManage->value,
+        Permission::PermissionManage->value,
+    ]);
 });

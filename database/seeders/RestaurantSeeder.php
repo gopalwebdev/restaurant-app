@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
 use App\Enums\Role;
 use App\Models\Restaurant;
@@ -22,12 +23,16 @@ class RestaurantSeeder extends Seeder
     /**
      * The restaurants to seed, keyed by the slug that becomes their subdomain.
      *
-     * @var list<array{slug: string, name: string, admin_name: string, admin_email: string}>
+     * @var list<array{slug: string, name: string, address: string, pincode: string, email: string, phone: string, admin_name: string, admin_email: string}>
      */
     public const array RESTAURANTS = [
         [
             'slug' => 'spice',
             'name' => 'Spice Garden',
+            'address' => '12 Mount Road, Chennai',
+            'pincode' => '600002',
+            'email' => 'hello@spicegarden.example.com',
+            'phone' => '9876543210',
             'admin_name' => 'Spice Garden Admin',
             'admin_email' => 'gopalwebdev+spice@gmail.com',
         ],
@@ -38,7 +43,15 @@ class RestaurantSeeder extends Seeder
         foreach (self::RESTAURANTS as $definition) {
             $restaurant = Restaurant::query()->updateOrCreate(
                 ['slug' => $definition['slug']],
-                ['name' => $definition['name'], 'is_active' => true],
+                [
+                    'name' => $definition['name'],
+                    'address' => $definition['address'],
+                    'pincode' => $definition['pincode'],
+                    'email' => $definition['email'],
+                    'phone_country_code' => CountryCallingCode::India,
+                    'phone' => $definition['phone'],
+                    'is_active' => true,
+                ],
             );
 
             $restaurant->settings()->firstOrCreate([], [

@@ -3,6 +3,7 @@
 use App\Enums\AdminPanel;
 use App\Enums\Role;
 use App\Filament\Admin\Auth\Login as AdminLogin;
+use App\Filament\Auth\OtpLogin;
 use App\Filament\SuperAdmin\Auth\Login as SuperAdminLogin;
 use App\Models\Restaurant;
 use App\Models\User;
@@ -34,6 +35,68 @@ function restaurantAdmin(Restaurant $restaurant): User
 
     return $user;
 }
+
+/**
+ * Each panel's sign-in page, with an account that may use it.
+ *
+ * @return array<string, Closure(): array{class-string<OtpLogin>, User}>
+ */
+dataset('sign-in pages', [
+    'platform panel' => [fn (): array => [
+        SuperAdminLogin::class,
+        tap(superAdmin(), fn (): mixed => Filament::setCurrentPanel(AdminPanel::SuperAdmin->value)),
+    ]],
+    'restaurant panel' => [fn (): array => [
+        AdminLogin::class,
+        tap(
+            restaurantAdmin(Restaurant::factory()->create(['slug' => 't1'])),
+            fn (): mixed => Filament::setCurrentPanel(AdminPanel::Admin->value),
+        ),
+    ]],
+]);
+
+/*
+|--------------------------------------------------------------------------
+| Moving from asking for a code to entering it
+|--------------------------------------------------------------------------
+|
+| Both steps are one Livewire component, and the content schema is built
+| before the action that moves between them runs. Anything the form resolves
+| eagerly therefore describes the step that has just been left, which is how
+| the page came to show "Email me a code" while asking for the code.
+|
+*/
+
+it('asks for an address before it asks for a code', function (Closure $setUp): void {
+    [$page] = $setUp();
+
+    Livewire::test($page)
+        ->assertSee('Email me a code')
+        ->assertDontSee('Send a new code')
+        ->assertDontSee('Use a different email');
+})->with('sign-in pages');
+
+it('offers to sign in, not to send another first code, once a code is out', function (Closure $setUp): void {
+    [$page, $user] = $setUp();
+
+    Livewire::test($page)
+        ->fillForm(['email' => $user->email])
+        ->call('requestCode')
+        ->assertSee('Enter your code')
+        ->assertSee('Sign in')
+        ->assertSee('Send a new code')
+        ->assertSee('Use a different email')
+        ->assertDontSee('Email me a code');
+})->with('sign-in pages');
+
+it('submits the code rather than asking for another one', function (Closure $setUp): void {
+    [$page, $user] = $setUp();
+
+    Livewire::test($page)
+        ->fillForm(['email' => $user->email])
+        ->call('requestCode')
+        ->assertSeeHtml('wire:submit="authenticate"');
+})->with('sign-in pages');
 
 /*
 |--------------------------------------------------------------------------
@@ -181,21 +244,30 @@ it('goes back to the address step on request', function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('holds back the sign-in button until every digit is typed', function (): void {
+it('keeps the sign-in button disabled until every digit is typed', function (string $code, bool $isEnabled): void {
     Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
     $user = superAdmin();
-    $length = (int) config('otp.length');
 
     $component = Livewire::test(SuperAdminLogin::class)
         ->fillForm(['email' => $user->email])
-        ->call('requestCode');
-
-    $component->fillForm(['code' => str_repeat('1', $length - 1)])
-        ->assertDontSee('Sign in');
-
-    $component->fillForm(['code' => str_repeat('1', $length)])
+        ->call('requestCode')
+        ->fillForm(['email' => $user->email, 'code' => $code])
         ->assertSee('Sign in');
-});
+
+    // The disabled submit button, as rendered. Filament's action assertions
+    // only reach actions registered on the component, and these live in the
+    // form's footer schema.
+    $disabledSubmitButton = 'disabled="disabled" type="submit"';
+
+    $isEnabled
+        ? $component->assertDontSeeHtml($disabledSubmitButton)
+        : $component->assertSeeHtml($disabledSubmitButton);
+})->with([
+    'nothing typed' => ['', false],
+    'half a code' => ['123', false],
+    'one digit short' => ['12345', false],
+    'every digit' => ['123456', true],
+]);
 
 it('says how many digits the code has', function (): void {
     Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
@@ -260,6 +332,53 @@ it('signs a restaurant admin into their own tenant panel', function (): void {
         ->assertHasNoFormErrors();
 
     $this->assertAuthenticatedAs($user);
+});
+
+it('signs platform staff in on a restaurant subdomain they staff no part of', function (): void {
+    // The users resource in the tenant panel puts a tenancy global scope on
+    // User, and sign-in looks accounts up by address. Platform staff are on no
+    // restaurant's roster, so were that scope to reach the lookup they would
+    // be told their own account does not exist. Booting the panel is what
+    // registers the scope, so this signs in with it in place.
+    $user = superAdmin();
+
+    Restaurant::factory()->create(['slug' => 't1']);
+    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::bootCurrentPanel();
+
+    $component = Livewire::test(AdminLogin::class)
+        ->fillForm(['email' => $user->email])
+        ->call('requestCode')
+        ->assertHasNoFormErrors();
+
+    $component
+        ->fillForm(['email' => $user->email, 'code' => ($this->readCodes)()[0]])
+        ->call('authenticate')
+        ->assertHasNoFormErrors();
+
+    $this->assertAuthenticatedAs($user);
+});
+
+it('identifies no restaurant until someone has signed in', function (): void {
+    // Why the scope above cannot reach sign-in: Filament resolves the tenant
+    // from the authenticated user, so a visitor at the login page has none,
+    // and the scope leaves every query alone while that is true.
+    Restaurant::factory()->create(['slug' => 't1']);
+
+    $this->get('http://t1.restaurant-app.test/admin/login')->assertOk();
+
+    expect(Filament::getTenant())->toBeNull();
+});
+
+it('still refuses a code to an address with no account at all', function (): void {
+    Restaurant::factory()->create(['slug' => 't1']);
+    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::bootCurrentPanel();
+
+    Livewire::test(AdminLogin::class)
+        ->fillForm(['email' => 'nobody@example.com'])
+        ->call('requestCode')
+        ->assertHasFormErrors(['email']);
 });
 
 it('marks the address verified once a code has been used', function (): void {

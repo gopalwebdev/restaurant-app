@@ -11,4 +11,5 @@ Before planning or editing, find the row whose globs match the file's path and r
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Models/User.php | .ai/rules/models.md |
 | app/Actions/Otp/** | .ai/rules/otp.md |
+| app/Actions/Restaurants/** | .ai/rules/restaurants.md |
 | routes/** | .ai/rules/routes.md |

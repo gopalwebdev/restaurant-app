@@ -14,6 +14,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets\AccountWidget;
+use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -37,6 +38,9 @@ class AdminPanelProvider extends PanelProvider
             ->tenant(Restaurant::class, slugAttribute: 'slug')
             ->tenantDomain('{tenant:slug}.'.config('app.domain'))
             ->login(Login::class)
+            ->brandName(AdminPanel::Admin->brandName())
+            ->brandLogo(fn (): View => view('filament.brand', ['panel' => AdminPanel::Admin]))
+            ->brandLogoHeight('2rem')
             ->colors([
                 'primary' => Color::Amber,
             ])

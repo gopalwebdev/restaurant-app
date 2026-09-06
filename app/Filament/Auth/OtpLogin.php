@@ -21,6 +21,8 @@ use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Validation\ValidationException;
@@ -187,12 +189,21 @@ abstract class OtpLogin extends BaseLogin
     {
         return Form::make([EmbeddedSchema::make('form')])
             ->id('form')
-            ->livewireSubmitHandler($this->hasRequestedCode ? 'authenticate' : 'requestCode')
+            // Both of these are closures on purpose. The content schema is built
+            // once per request, before the action that moves the page to step
+            // two has run, so anything resolved eagerly here describes the step
+            // the visitor has just left.
+            ->livewireSubmitHandler(fn (): string => $this->hasRequestedCode ? 'authenticate' : 'requestCode')
             ->footer([
-                Actions::make($this->getFormActions())
-                    ->alignment($this->getFormActionsAlignment())
-                    ->fullWidth($this->hasFullWidthFormActions())
+                // Two groups rather than one row: the button that submits the
+                // form runs the full width, and the ways out sit under it as
+                // links. In one row the third label wrapped onto two lines.
+                Actions::make($this->getPrimaryFormActions())
+                    ->fullWidth()
                     ->key('form-actions'),
+                Actions::make($this->getSecondaryFormActions())
+                    ->alignment(Alignment::Center)
+                    ->key('form-secondary-actions'),
             ]);
     }
 
@@ -221,6 +232,8 @@ abstract class OtpLogin extends BaseLogin
             ->label('Email address')
             ->email()
             ->required()
+            ->prefixIcon(Heroicon::OutlinedEnvelope)
+            ->placeholder('you@example.com')
             ->autocomplete('username')
             ->autofocus(fn (): bool => ! $this->hasRequestedCode)
             ->readOnly(fn (): bool => $this->hasRequestedCode);
@@ -237,10 +250,15 @@ abstract class OtpLogin extends BaseLogin
             ->autocomplete('one-time-code')
             ->autofocus(fn (): bool => $this->hasRequestedCode)
             ->live(debounce: 200)
+            ->prefixIcon(Heroicon::OutlinedKey)
             ->extraInputAttributes([
                 'inputmode' => 'numeric',
                 'maxlength' => $length,
                 'placeholder' => str_repeat('0', $length),
+                // Digits set apart and centred, so a code reads as a code
+                // rather than as a number typed into a box.
+                'style' => 'text-align: center; letter-spacing: 0.45em; '
+                    .'font-size: 1.125rem; font-weight: 600; text-indent: 0.45em;',
             ])
             ->visible(fn (): bool => $this->hasRequestedCode);
     }
@@ -256,8 +274,9 @@ abstract class OtpLogin extends BaseLogin
     /**
      * Whether every digit of the code has been typed.
      *
-     * The sign-in button only appears once this is true, so the form is never
-     * submitted half-filled.
+     * The sign-in button stays disabled until this is true, so the form is
+     * never submitted half-filled. The code field is live, so each keystroke
+     * asks this again.
      */
     protected function hasCompleteCode(): bool
     {
@@ -265,49 +284,86 @@ abstract class OtpLogin extends BaseLogin
     }
 
     /**
+     * Every action the form can show, in the order it shows them.
+     *
+     * The list is fixed and each action decides whether it belongs on the step
+     * being rendered. Returning a different list per step would not work: this
+     * runs while the schema is built, which is before the action that changed
+     * the step has run.
+     *
      * @return array<Action|ActionGroup>
      */
     protected function getFormActions(): array
     {
-        if (! $this->hasRequestedCode) {
-            return [$this->getRequestCodeFormAction()];
-        }
+        return [
+            ...$this->getPrimaryFormActions(),
+            ...$this->getSecondaryFormActions(),
+        ];
+    }
 
-        return array_values(array_filter([
-            $this->hasCompleteCode() ? $this->getAuthenticateFormAction() : null,
+    /**
+     * The one button that submits the form, whichever step it is on.
+     *
+     * @return array<Action|ActionGroup>
+     */
+    protected function getPrimaryFormActions(): array
+    {
+        return [
+            $this->getRequestCodeFormAction(),
+            $this->getAuthenticateFormAction(),
+        ];
+    }
+
+    /**
+     * The ways out of step two, shown beneath the button as links.
+     *
+     * @return array<Action|ActionGroup>
+     */
+    protected function getSecondaryFormActions(): array
+    {
+        return [
             $this->getResendCodeFormAction(),
             $this->getStartOverFormAction(),
-        ]));
+        ];
     }
 
     protected function getRequestCodeFormAction(): Action
     {
         return Action::make('requestCode')
             ->label('Email me a code')
-            ->submit('requestCode');
+            ->icon(Heroicon::OutlinedPaperAirplane)
+            ->submit('requestCode')
+            ->visible(fn (): bool => ! $this->hasRequestedCode);
     }
 
     protected function getAuthenticateFormAction(): Action
     {
         return Action::make('authenticate')
             ->label('Sign in')
-            ->submit('authenticate');
+            ->icon(Heroicon::OutlinedArrowRightOnRectangle)
+            ->submit('authenticate')
+            ->visible(fn (): bool => $this->hasRequestedCode)
+            ->disabled(fn (): bool => ! $this->hasCompleteCode());
     }
 
     protected function getResendCodeFormAction(): Action
     {
         return Action::make('resendCode')
             ->label('Send a new code')
+            ->icon(Heroicon::OutlinedArrowPath)
             ->link()
-            ->action('requestCode');
+            ->action('requestCode')
+            ->visible(fn (): bool => $this->hasRequestedCode);
     }
 
     protected function getStartOverFormAction(): Action
     {
         return Action::make('startOver')
             ->label('Use a different email')
+            ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->link()
-            ->action('startOver');
+            ->action('startOver')
+            ->visible(fn (): bool => $this->hasRequestedCode);
     }
 
     /**

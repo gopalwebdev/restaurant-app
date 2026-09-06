@@ -27,9 +27,12 @@ enum Role: string
     public function permissions(): array
     {
         return match ($this) {
-            // A restaurant admin owns everything inside their own tenant, but
-            // may not manage the roster of restaurants on the platform.
-            self::Admin => self::everyPermissionExcept(Permission::RestaurantManage),
+            // A restaurant admin owns everything inside their own tenant, and
+            // nothing at platform level: the roster of restaurants, and the
+            // roles and permissions every restaurant draws from, stay with
+            // platform staff. Deriving the exclusions from the enum means a
+            // new platform permission is withheld here the day it is added.
+            self::Admin => self::everyPermissionExcept(...Permission::platformOnly()),
             self::Manager => [
                 Permission::MenuView,
                 Permission::MenuManage,

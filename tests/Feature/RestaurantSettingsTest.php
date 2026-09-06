@@ -14,23 +14,6 @@ beforeEach(function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);
 });
 
-/**
- * Sign in as a user of the given restaurant and put the panel in that
- * restaurant's context, the way a request to its subdomain would.
- */
-function enterRestaurantPanel(Restaurant $restaurant, Role $role): User
-{
-    $user = User::factory()->create();
-    $user->assignRole($role->value);
-    $user->restaurants()->attach($restaurant);
-
-    test()->actingAs($user);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
-    Filament::setTenant($restaurant);
-
-    return $user;
-}
-
 /*
 |--------------------------------------------------------------------------
 | Reading settings
