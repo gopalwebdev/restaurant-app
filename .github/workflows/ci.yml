@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+# A branch that is pushed again makes the run already in flight redundant.
+# Runs on main are left alone so every commit there keeps its own result.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  code-style:
+    name: Code style
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Check formatting
+        run: composer lint:check
+
+      - name: Check refactorings
+        run: composer refactor:check
+
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Analyse types
+        run: composer types:check
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node: 'true'
+          wayfinder: 'true'
+
+      - name: Check formatting and lints
+        run: npm run check
+
+      - name: Check types
+        run: npm run types:check
+
+      # Vitest starts Vite in dev-server mode, which laravel-vite-plugin refuses
+      # to do whenever CI is set. This is the escape hatch the plugin documents.
+      - name: Run frontend tests
+        env:
+          LARAVEL_BYPASS_ENV_CHECK: '1'
+        run: npm run test
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          node: 'true'
+
+      - name: Migrate the database
+        run: php artisan migrate --force
+
+      - name: Publish Filament assets
+        run: php artisan filament:assets
+
+      # The Inertia views resolve assets through the Vite manifest, so the
+      # bundle has to exist before the feature tests render any page.
+      - name: Build assets
+        run: npm run build
+
+      - name: Run tests
+        run: php artisan test

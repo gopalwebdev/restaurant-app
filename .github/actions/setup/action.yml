@@ -1,0 +1,94 @@
+name: Setup
+description: Installs PHP and Composer dependencies, and optionally Node, for a CI job.
+
+inputs:
+  php-version:
+    description: PHP version to install.
+    required: false
+    default: '8.4'
+  node-version:
+    description: Node version to install. Ignored unless `node` is true.
+    required: false
+    default: '24'
+  node:
+    description: Install Node and the npm dependencies.
+    required: false
+    default: 'false'
+  wayfinder:
+    description: Generate the Wayfinder route and action modules the TypeScript sources import.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+
+  steps:
+    - name: Setup PHP
+      uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: bcmath, curl, gd, intl, mbstring, pcntl, pdo_sqlite, sqlite3, xml, zip
+        tools: composer:v2
+        coverage: none
+
+    # The runner has no Redis, and nothing in CI needs one: phpunit.xml already
+    # pins the suite to the array and sync drivers. The artisan commands run
+    # outside the suite (migrate, wayfinder:generate) read .env instead, where
+    # the defaults are Redis, so they would try to connect and fail. Real
+    # environment variables win over .env, which is what these exports rely on.
+    # They match phpunit.xml, because a PHPUnit <env> does not overwrite a
+    # variable that is already set — the suite must not see anything else here.
+    - name: Select drivers that need no services
+      shell: bash
+      run: |
+        {
+          echo "CACHE_STORE=array"
+          echo "QUEUE_CONNECTION=sync"
+          echo "SESSION_DRIVER=array"
+        } >> "$GITHUB_ENV"
+
+    - name: Resolve the Composer cache directory
+      id: composer-cache
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Composer downloads
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: composer-${{ runner.os }}-php-${{ inputs.php-version }}-${{ hashFiles('composer.lock') }}
+        restore-keys: |
+          composer-${{ runner.os }}-php-${{ inputs.php-version }}-
+
+    - name: Install PHP dependencies
+      shell: bash
+      run: composer install --no-interaction --prefer-dist --no-progress
+
+    - name: Prepare the application
+      shell: bash
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+        touch database/database.sqlite
+
+    - name: Setup Node
+      if: inputs.node == 'true'
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    # `npm ci` rather than `npm install`: it installs from the lockfile and
+    # reliably materialises the platform-specific oxlint/rolldown binaries.
+    - name: Install Node dependencies
+      if: inputs.node == 'true'
+      shell: bash
+      run: npm ci
+
+    # The generated modules are gitignored, and every page imports them, so the
+    # type check and the frontend tests need them on disk. `npm run build`
+    # generates them too, via the Wayfinder Vite plugin.
+    - name: Generate Wayfinder modules
+      if: inputs.wayfinder == 'true'
+      shell: bash
+      run: php artisan wayfinder:generate
