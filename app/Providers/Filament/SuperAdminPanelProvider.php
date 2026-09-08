@@ -22,7 +22,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The platform panel, served at restaurant-app.com/super-admin.
+ * The product team panel, served at restaurant-app.com/super-admin.
  *
  * It is bound to the bare host so it can never be reached from a tenant
  * subdomain, and it is the default panel because it carries no tenancy. Its
@@ -53,6 +53,11 @@ class SuperAdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
             ])
+            // A resource with no policy, or a policy missing the method being
+            // asked about, is refused rather than waved through. Without this a
+            // page added tomorrow is open to anyone who can reach the panel,
+            // and nothing says so.
+            ->strictAuthorization()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -25,12 +26,13 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $name
  * @property string $email
  * @property Carbon|null $email_verified_at
+ * @property int|null $tenant_id
  * @property bool $is_super_admin
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'is_super_admin'])]
+#[Fillable(['name', 'email', 'tenant_id', 'is_super_admin'])]
 #[Hidden(['remember_token'])]
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
@@ -38,15 +40,30 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     use HasFactory, HasRoles, Notifiable;
 
     /**
-     * The database default for is_super_admin only applies once a row is
-     * written. Declaring it here means a User that has not been saved yet
-     * still answers isSuperAdmin() instead of throwing under strict mode.
+     * Column defaults only apply once a row is written. Declaring them here
+     * means a User that has not been saved yet still answers isSuperAdmin()
+     * and belongsToProductTeam() instead of throwing under strict mode.
      *
      * @var array<string, mixed>
      */
     protected $attributes = [
+        'tenant_id' => null,
         'is_super_admin' => false,
     ];
+
+    /**
+     * The restaurant this account belongs to, if any.
+     *
+     * The product team belong to none, so this is null for them. It is not what
+     * grants them anything, though: is_super_admin is the only thing that
+     * does, and an ordinary account not yet put on a roster also has no tenant.
+     *
+     * @return BelongsTo<Restaurant, $this>
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
+    }
 
     /**
      * The restaurants this user staffs or administers.
@@ -95,9 +112,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     }
 
     /**
-     * Whether this user administers the whole platform rather than one restaurant.
+     * Whether this account is on the product team that runs the platform.
      *
-     * This is a column rather than a role: platform ownership is global and
+     * This is a column rather than a role: product team ownership is global and
      * granted deliberately, where roles are what someone does inside a single
      * restaurant. AppServiceProvider grants a super admin every permission.
      */
@@ -107,7 +124,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     }
 
     /**
-     * Limit the query to platform staff.
+     * Limit the query to the product team.
      *
      * @param  Builder<$this>  $query
      */
@@ -117,10 +134,23 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     }
 
     /**
+     * Whether this account belongs to the product team rather than to a restaurant.
+     *
+     * This is how the product team panel labels a row, and it is a question about
+     * the tenant column alone. Do not use it to decide what someone may do:
+     * isSuperAdmin() answers that, and the two differ for an account that has
+     * not been put on a roster yet.
+     */
+    public function belongsToProductTeam(): bool
+    {
+        return $this->tenant_id === null;
+    }
+
+    /**
      * Gate entry to each Filament panel.
      *
-     * The super admin panel is reserved for platform staff. The tenant panel is
-     * open to anyone attached to a restaurant, plus platform staff for support.
+     * The super admin panel is reserved for the product team. The tenant panel is
+     * open to anyone attached to a restaurant, plus the product team for support.
      * A panel this application does not know about is closed to everyone.
      */
     public function canAccessPanel(Panel $panel): bool
@@ -167,6 +197,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     {
         return [
             'email_verified_at' => 'datetime',
+            'tenant_id' => 'integer',
             'is_super_admin' => 'boolean',
         ];
     }

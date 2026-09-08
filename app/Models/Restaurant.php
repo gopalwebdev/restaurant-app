@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\AdminPanel;
 use App\Enums\CountryCallingCode;
+use App\Enums\Currency;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,6 +81,49 @@ class Restaurant extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * The currency this restaurant prices in.
+     *
+     * Every price on a menu shares one, so resolve it once and pass it down
+     * rather than asking per dish. Reaching through $this->settings would be a
+     * lazy load, which Model::shouldBeStrict() turns into an exception outside
+     * production, so a settings row that was not eager loaded is fetched by the
+     * single column this needs.
+     */
+    public function currency(): Currency
+    {
+        if ($this->relationLoaded('settings')) {
+            $settings = $this->getRelation('settings');
+
+            return $settings instanceof RestaurantSetting ? $settings->currency : Currency::IndianRupee;
+        }
+
+        $stored = RestaurantSetting::query()
+            ->where('restaurant_id', $this->getKey())
+            ->value('currency');
+
+        return $stored instanceof Currency ? $stored : Currency::IndianRupee;
+    }
+
+    /**
+     * Where this restaurant's staff sign in.
+     *
+     * The panel's own login route carries no domain — signing in happens before
+     * a tenant is known, so it answers on any host — which means the subdomain
+     * has to be put on here, from the slug that defines it. The path comes from
+     * AdminPanel so it cannot drift from the panel it opens.
+     */
+    public function adminSignInUrl(): string
+    {
+        return sprintf(
+            '%s://%s.%s/%s/login',
+            str_starts_with((string) config('app.url'), 'https') ? 'https' : 'http',
+            $this->slug,
+            config('app.domain'),
+            AdminPanel::Admin->path(),
+        );
     }
 
     /**

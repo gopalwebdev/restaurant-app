@@ -32,7 +32,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Grant platform staff every permission.
+     * Grant the product team every permission.
      *
      * Returning null rather than false leaves every other check to run
      * normally, so this only ever widens access for a super admin.

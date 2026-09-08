@@ -22,12 +22,12 @@ beforeEach(function (): void {
 |--------------------------------------------------------------------------
 |
 | restaurant.manage is granted to no role, so the roster of restaurants is
-| platform staff's alone. These check the policy directly, so a failure names
+| the product team's alone. These check the policy directly, so a failure names
 | the rule rather than a status code.
 |
 */
 
-it('lets platform staff manage restaurants', function (): void {
+it('lets the product team manage restaurants', function (): void {
     $user = User::factory()->superAdmin()->create();
     $restaurant = Restaurant::factory()->create();
 
@@ -59,7 +59,7 @@ it('keeps a restaurant admin out of the restaurants page', function (): void {
         ->assertForbidden();
 });
 
-it('serves the restaurants page to platform staff', function (): void {
+it('serves the restaurants page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
@@ -84,7 +84,7 @@ it('hides the restaurants module from anyone without the permission', function (
 */
 
 it('creates a restaurant with its address and contact details', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -116,7 +116,7 @@ it('creates a restaurant with its address and contact details', function (): voi
 });
 
 it('creates a restaurant without the optional contact details', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -139,7 +139,7 @@ it('creates a restaurant without the optional contact details', function (): voi
 });
 
 it('suggests a subdomain from the name', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm(['name' => 'Spice Garden'])
@@ -153,7 +153,7 @@ it('suggests a subdomain from the name', function (): void {
 */
 
 it('requires everything a restaurant cannot trade without', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -176,7 +176,7 @@ it('requires everything a restaurant cannot trade without', function (): void {
 });
 
 it('refuses a subdomain that is not a valid DNS label', function (string $slug): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -200,7 +200,7 @@ it('refuses a subdomain that is not a valid DNS label', function (string $slug):
 
 it('refuses a subdomain another restaurant already serves', function (): void {
     Restaurant::factory()->create(['slug' => 'spice']);
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -215,7 +215,7 @@ it('refuses a subdomain another restaurant already serves', function (): void {
 });
 
 it('refuses an address that is not an email address', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -231,7 +231,7 @@ it('refuses an address that is not an email address', function (): void {
 });
 
 it('refuses a mobile number that is not ten digits', function (string $phone): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -254,7 +254,7 @@ it('refuses a mobile number that is not ten digits', function (string $phone): v
 ]);
 
 it('requires a country code for a secondary number', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRestaurant::class)
         ->fillForm([
@@ -290,7 +290,7 @@ it('writes a number back out with its country code', function (): void {
 
 it('lists every restaurant on the platform', function (): void {
     $restaurants = Restaurant::factory()->count(3)->create();
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(ListRestaurants::class)
         ->assertCanSeeTableRecords($restaurants);
@@ -298,7 +298,7 @@ it('lists every restaurant on the platform', function (): void {
 
 it('updates a restaurant', function (): void {
     $restaurant = Restaurant::factory()->create(['phone' => '9000000000']);
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(EditRestaurant::class, ['record' => $restaurant->getRouteKey()])
         ->fillForm([
@@ -316,7 +316,7 @@ it('updates a restaurant', function (): void {
 
 it('deletes a restaurant', function (): void {
     $restaurant = Restaurant::factory()->create();
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(EditRestaurant::class, ['record' => $restaurant->getRouteKey()])
         ->callAction('delete');

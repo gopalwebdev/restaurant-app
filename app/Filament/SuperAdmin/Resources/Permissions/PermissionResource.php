@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * The permissions roles are built from, on the platform panel.
+ * The permissions roles are built from, on the product team panel.
  *
  * As with roles, a built-in permission — one declared in App\Enums\Permission
  * — is read-only here: its name is what the application checks with can(), so
@@ -59,9 +59,13 @@ class PermissionResource extends Resource
         return (! $record instanceof Permission || ! $record->isBuiltIn()) && parent::canEdit($record);
     }
 
+    /**
+     * A permission is deletable only when no role holds it and the code does
+     * not declare it. Permission::undeletableReason() owns that question.
+     */
     public static function canDelete(Model $record): bool
     {
-        return (! $record instanceof Permission || ! $record->isBuiltIn()) && parent::canDelete($record);
+        return (! $record instanceof Permission || $record->undeletableReason() === null) && parent::canDelete($record);
     }
 
     public static function getPages(): array

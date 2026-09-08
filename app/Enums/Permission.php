@@ -24,28 +24,52 @@ enum Permission: string
     /** Change one restaurant's own configuration. */
     case SettingsManage = 'settings.manage';
 
-    /** Platform-level: create, suspend, and delete restaurants. */
+    /** Product-team-level: create, suspend, and delete restaurants. */
     case RestaurantManage = 'restaurant.manage';
 
-    /** Platform-level: define the roles every restaurant assigns from. */
+    /** Product-team-level: define the roles every restaurant assigns from. */
     case RoleManage = 'role.manage';
 
-    /** Platform-level: define the permissions those roles are built from. */
+    /** Product-team-level: define the permissions those roles are built from. */
     case PermissionManage = 'permission.manage';
 
     /**
-     * Whether this permission belongs to platform staff alone.
+     * Whether this permission belongs to the product team alone.
      *
-     * A platform permission is never granted to a restaurant role, and a role
+     * A product team permission is never granted to a restaurant role, and a role
      * holding one is never offered inside a restaurant panel. Together those
-     * two rules are what stop a restaurant admin handing out platform access.
+     * two rules are what stop a restaurant admin handing out product team access.
      */
-    public function isPlatformOnly(): bool
+    public function isProductTeamOnly(): bool
     {
         return match ($this) {
             self::RestaurantManage, self::RoleManage, self::PermissionManage => true,
             default => false,
         };
+    }
+
+    /**
+     * The category this permission is shown under.
+     *
+     * Derived from the name rather than listed case by case, so a declared
+     * permission and one added from the panel are grouped by the same rule.
+     */
+    public function group(): PermissionGroup
+    {
+        return PermissionGroup::forPermissionName($this->value);
+    }
+
+    /**
+     * Every permission in one group.
+     *
+     * @return list<self>
+     */
+    public static function inGroup(PermissionGroup $group): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            static fn (self $permission): bool => $permission->group() === $group,
+        ));
     }
 
     /**
@@ -61,28 +85,28 @@ enum Permission: string
     }
 
     /**
-     * Every permission reserved for platform staff.
+     * Every permission reserved for the product team.
      *
      * @return list<self>
      */
-    public static function platformOnly(): array
+    public static function productTeamOnly(): array
     {
         return array_values(array_filter(
             self::cases(),
-            static fn (self $permission): bool => $permission->isPlatformOnly(),
+            static fn (self $permission): bool => $permission->isProductTeamOnly(),
         ));
     }
 
     /**
-     * The backing values of every permission reserved for platform staff.
+     * The backing values of every permission reserved for the product team.
      *
      * @return list<string>
      */
-    public static function platformOnlyValues(): array
+    public static function productTeamOnlyValues(): array
     {
         return array_map(
             static fn (self $permission): string => $permission->value,
-            self::platformOnly(),
+            self::productTeamOnly(),
         );
     }
 

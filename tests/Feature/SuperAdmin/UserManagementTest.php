@@ -1,0 +1,506 @@
+<?php
+
+use App\Enums\Permission as PermissionEnum;
+use App\Enums\Role as RoleEnum;
+use App\Filament\SuperAdmin\Resources\Users\Pages\CreateUser;
+use App\Filament\SuperAdmin\Resources\Users\Pages\EditUser;
+use App\Filament\SuperAdmin\Resources\Users\Pages\ListUsers;
+use App\Filament\SuperAdmin\Resources\Users\UserResource;
+use App\Models\Restaurant;
+use App\Models\User;
+use App\Notifications\AccountCreatedNotification;
+use App\Notifications\SignInCodeNotification;
+use App\Policies\UserPolicy;
+use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Facades\Notification;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
+
+beforeEach(function (): void {
+    $this->seed(RolesAndPermissionsSeeder::class);
+});
+
+/**
+ * Sign in as the product team and walk the create page as far as the code step.
+ *
+ * Returns the code that was issued, read back out of the otp log the way the
+ * sign-in tests do.
+ *
+ * @param  array<string, mixed>  $details
+ * @return array{0: Testable, 1: string}
+ */
+function startCreatingAccount(array $details): array
+{
+    $readCodes = captureIssuedCodes();
+
+    $page = Livewire::test(CreateUser::class)
+        ->fillForm($details)
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $codes = $readCodes();
+
+    expect($codes)->toHaveCount(1);
+
+    return [$page, $codes[0]];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Who may reach the page
+|--------------------------------------------------------------------------
+*/
+
+it('serves the accounts page to the product team', function (): void {
+    $user = User::factory()->superAdmin()->create();
+
+    $this->actingAs($user)
+        ->get('http://restaurant-app.test/super-admin/users')
+        ->assertOk();
+});
+
+it('serves the create, view and edit pages to the product team', function (): void {
+    $platform = User::factory()->superAdmin()->create();
+    $other = User::factory()->create();
+
+    $this->actingAs($platform);
+
+    $this->get('http://restaurant-app.test/super-admin/users/create')->assertOk();
+    $this->get("http://restaurant-app.test/super-admin/users/{$other->getKey()}")->assertOk();
+    $this->get("http://restaurant-app.test/super-admin/users/{$other->getKey()}/edit")->assertOk();
+});
+
+it('keeps a restaurant admin off the accounts page', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $user = User::factory()->ofRestaurant($restaurant)->create();
+    $user->assignRole(RoleEnum::Admin->value);
+
+    $this->actingAs($user)
+        ->get('http://restaurant-app.test/super-admin/users')
+        ->assertForbidden();
+});
+
+it('hides the accounts resource from everyone but the product team', function (RoleEnum $roleEnum): void {
+    $restaurant = Restaurant::factory()->create();
+    $user = User::factory()->ofRestaurant($restaurant)->create();
+    $user->assignRole($roleEnum->value);
+
+    $this->actingAs($user);
+
+    // user.manage is held by restaurant roles, so the policy alone would let
+    // Admin through. The resource is what keeps this product-team-only.
+    expect(UserResource::canAccess())->toBeFalse();
+})->with(RoleEnum::cases());
+
+it('shows the accounts resource to the product team', function (): void {
+    enterProductTeamPanel();
+
+    expect(UserResource::canAccess())->toBeTrue();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Listing every account, platform wide
+|--------------------------------------------------------------------------
+*/
+
+it('lists accounts from every restaurant and the platform', function (): void {
+    $first = Restaurant::factory()->create();
+    $second = Restaurant::factory()->create();
+
+    $firstStaff = User::factory()->ofRestaurant($first)->create();
+    $secondStaff = User::factory()->ofRestaurant($second)->create();
+
+    $platform = enterProductTeamPanel();
+
+    Livewire::test(ListUsers::class)
+        ->assertCanSeeTableRecords([$firstStaff, $secondStaff, $platform]);
+});
+
+it('shows an account with no tenant as belonging to the platform', function (): void {
+    $platform = enterProductTeamPanel();
+
+    expect($platform->tenant_id)->toBeNull()
+        ->and($platform->belongsToProductTeam())->toBeTrue();
+
+    Livewire::test(ListUsers::class)
+        ->assertTableColumnStateSet('tenant.name', null, $platform);
+});
+
+it('shows a restaurant account under its restaurant', function (): void {
+    $restaurant = Restaurant::factory()->create(['name' => 'Spice Garden']);
+    $staff = User::factory()->ofRestaurant($restaurant)->create();
+
+    enterProductTeamPanel();
+
+    expect($staff->belongsToProductTeam())->toBeFalse();
+
+    Livewire::test(ListUsers::class)
+        ->assertTableColumnStateSet('tenant.name', 'Spice Garden', $staff);
+});
+
+it('does not treat an account without a tenant as the product team', function (): void {
+    // The trap in "null tenant means super admin": an account that has not been
+    // put on a roster yet has no tenant either, and must stay powerless.
+    $stranded = User::factory()->create();
+
+    expect($stranded->tenant_id)->toBeNull()
+        ->and($stranded->belongsToProductTeam())->toBeTrue()
+        ->and($stranded->isSuperAdmin())->toBeFalse()
+        ->and($stranded->can(PermissionEnum::UserManage->value))->toBeFalse();
+
+    $this->actingAs($stranded)
+        ->get('http://restaurant-app.test/super-admin/users')
+        ->assertForbidden();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Creating an account, confirmed by one-time code
+|--------------------------------------------------------------------------
+*/
+
+it('emails the super admin a code instead of creating the account straight away', function (): void {
+    Notification::fake();
+
+    $platform = enterProductTeamPanel();
+
+    [$page] = startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+    ]);
+
+    $page->assertSet('hasRequestedCode', true);
+
+    expect(User::query()->where('email', 'nadia@example.com')->exists())->toBeFalse();
+
+    // The code goes to the person doing the creating, not to the new account.
+    Notification::assertSentTo($platform, SignInCodeNotification::class);
+    Notification::assertNothingSentTo(User::factory()->make(['email' => 'nadia@example.com']));
+});
+
+it('creates the account once the right code is entered', function (): void {
+    Notification::fake();
+
+    $restaurant = Restaurant::factory()->create();
+
+    enterProductTeamPanel();
+
+    [$page, $code] = startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+        'tenant_id' => $restaurant->getKey(),
+        'roles' => [RoleEnum::Staff->value],
+    ]);
+
+    $page->fillForm(['confirmation_code' => $code])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $created = User::query()->where('email', 'nadia@example.com')->sole();
+
+    expect($created->name)->toBe('Nadia Rao')
+        ->and($created->tenant_id)->toBe($restaurant->getKey())
+        ->and($created->isSuperAdmin())->toBeFalse()
+        ->and($created->roles->pluck('name')->all())->toBe([RoleEnum::Staff->value])
+        // The tenant column and the roster are written together, or the row
+        // would name a restaurant the account cannot actually open.
+        ->and($created->restaurants->pluck('id')->all())->toBe([$restaurant->getKey()]);
+});
+
+it('tells the new account that it exists', function (): void {
+    Notification::fake();
+
+    $restaurant = Restaurant::factory()->create();
+
+    enterProductTeamPanel();
+
+    [$page, $code] = startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+        'tenant_id' => $restaurant->getKey(),
+    ]);
+
+    $page->fillForm(['confirmation_code' => $code])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $created = User::query()->where('email', 'nadia@example.com')->sole();
+
+    Notification::assertSentTo($created, AccountCreatedNotification::class);
+});
+
+it('creates the product team with no restaurant', function (): void {
+    Notification::fake();
+
+    enterProductTeamPanel();
+
+    [$page, $code] = startCreatingAccount([
+        'name' => 'Priya Menon',
+        'email' => 'priya@example.com',
+        'is_super_admin' => true,
+    ]);
+
+    $page->fillForm(['confirmation_code' => $code])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $created = User::query()->where('email', 'priya@example.com')->sole();
+
+    expect($created->tenant_id)->toBeNull()
+        ->and($created->isSuperAdmin())->toBeTrue()
+        ->and($created->restaurants)->toBeEmpty();
+});
+
+it('refuses a wrong code and creates nothing', function (): void {
+    Notification::fake();
+
+    enterProductTeamPanel();
+
+    [$page] = startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+    ]);
+
+    $page->fillForm(['confirmation_code' => '000000'])
+        ->call('create')
+        ->assertHasFormErrors(['confirmation_code']);
+
+    expect(User::query()->where('email', 'nadia@example.com')->exists())->toBeFalse();
+});
+
+it('will not let one code create a second account', function (): void {
+    Notification::fake();
+
+    enterProductTeamPanel();
+
+    [$page, $firstCode] = startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+    ]);
+
+    $page->fillForm(['confirmation_code' => $firstCode])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    // Past the resend cooldown, so a second code may be asked for at all.
+    $this->travel((int) config('otp.resend_cooldown') + 1)->seconds();
+
+    $second = Livewire::test(CreateUser::class)
+        ->fillForm(['name' => 'Second Account', 'email' => 'second@example.com'])
+        ->call('create')
+        ->assertSet('hasRequestedCode', true);
+
+    // The first code was consumed creating the first account, and issuing the
+    // second retired it besides. Each creation is confirmed on its own.
+    $second->fillForm(['confirmation_code' => $firstCode])
+        ->call('create')
+        ->assertHasFormErrors(['confirmation_code']);
+
+    expect(User::query()->where('email', 'second@example.com')->exists())->toBeFalse();
+});
+
+it('will not issue a second code before the cooldown is up', function (): void {
+    Notification::fake();
+
+    enterProductTeamPanel();
+
+    startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+    ]);
+
+    // Straight back for another, well inside the cooldown.
+    Livewire::test(CreateUser::class)
+        ->fillForm(['name' => 'Second Account', 'email' => 'second@example.com'])
+        ->call('create')
+        ->assertSet('hasRequestedCode', false);
+});
+
+it('sends no code for details that would be rejected anyway', function (?string $email): void {
+    Notification::fake();
+
+    enterProductTeamPanel();
+
+    Livewire::test(CreateUser::class)
+        ->fillForm(['name' => 'Nadia Rao', 'email' => $email])
+        ->call('create')
+        ->assertHasFormErrors(['email'])
+        ->assertSet('hasRequestedCode', false);
+
+    Notification::assertNothingSent();
+})->with([
+    'missing' => null,
+    'not an address' => 'not-an-email',
+]);
+
+it('refuses an email address that already has an account', function (): void {
+    Notification::fake();
+
+    $existing = User::factory()->create(['email' => 'taken@example.com']);
+
+    enterProductTeamPanel();
+
+    Livewire::test(CreateUser::class)
+        ->fillForm(['name' => 'Nadia Rao', 'email' => $existing->email])
+        ->call('create')
+        ->assertHasFormErrors(['email' => 'unique'])
+        ->assertSet('hasRequestedCode', false);
+
+    Notification::assertNothingSent();
+});
+
+it('lets the details be changed before the code is entered', function (): void {
+    Notification::fake();
+
+    enterProductTeamPanel();
+
+    [$page] = startCreatingAccount([
+        'name' => 'Nadia Rao',
+        'email' => 'nadia@example.com',
+    ]);
+
+    $page->call('startOver')
+        ->assertSet('hasRequestedCode', false);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Editing an account
+|--------------------------------------------------------------------------
+*/
+
+it('updates an account and moves it to another restaurant', function (): void {
+    $from = Restaurant::factory()->create();
+    $to = Restaurant::factory()->create();
+    $staff = User::factory()->ofRestaurant($from)->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditUser::class, ['record' => $staff->getKey()])
+        ->fillForm([
+            'name' => 'Renamed Person',
+            'tenant_id' => $to->getKey(),
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $staff->refresh();
+
+    expect($staff->name)->toBe('Renamed Person')
+        ->and($staff->tenant_id)->toBe($to->getKey())
+        // Rostered at the new restaurant, and still at the old one: belonging
+        // somewhere is not the same as being taken off everywhere else.
+        ->and($staff->restaurants->pluck('id')->all())->toEqualCanonicalizing([$from->getKey(), $to->getKey()]);
+});
+
+it('syncs roles so a permission check answers from the new set immediately', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $staff = User::factory()->ofRestaurant($restaurant)->create();
+    $staff->assignRole(RoleEnum::Staff->value);
+
+    enterProductTeamPanel();
+
+    // Warm Spatie's registrar cache with the old set, which is what a bare
+    // pivot sync would then leave stale for the rest of the request.
+    expect($staff->can(PermissionEnum::MenuManage->value))->toBeFalse();
+
+    Livewire::test(EditUser::class, ['record' => $staff->getKey()])
+        ->fillForm(['roles' => [RoleEnum::Admin->value]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $staff->refresh();
+
+    expect($staff->roles->pluck('name')->all())->toBe([RoleEnum::Admin->value])
+        ->and($staff->can(PermissionEnum::MenuManage->value))->toBeTrue();
+});
+
+it('clears every role when none are chosen', function (): void {
+    $staff = User::factory()->create();
+    $staff->assignRole(RoleEnum::Admin->value);
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditUser::class, ['record' => $staff->getKey()])
+        ->fillForm(['roles' => []])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($staff->refresh()->roles)->toBeEmpty();
+});
+
+it('may hand out a role carrying a product team permission', function (): void {
+    $staff = User::factory()->create();
+
+    enterProductTeamPanel();
+
+    // The one place this is allowed: a restaurant panel filters these out, and
+    // deciding who is the product team is exactly what this panel is for.
+    Livewire::test(EditUser::class, ['record' => $staff->getKey()])
+        ->fillForm(['roles' => [RoleEnum::Admin->value]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($staff->refresh()->roles->pluck('name')->all())->toBe([RoleEnum::Admin->value]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Deleting an account
+|--------------------------------------------------------------------------
+*/
+
+it('deletes another account', function (): void {
+    $other = User::factory()->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditUser::class, ['record' => $other->getKey()])
+        ->callAction('delete');
+
+    expect(User::query()->whereKey($other->getKey())->exists())->toBeFalse();
+});
+
+it('never offers to delete your own account', function (): void {
+    $platform = enterProductTeamPanel();
+
+    // Gate::before answers the policy true for a super admin before it runs, so
+    // this rule has to live on the resource to bind them at all.
+    expect(UserResource::canDelete($platform))->toBeFalse();
+
+    Livewire::test(ListUsers::class)
+        ->assertTableActionHidden('delete', $platform);
+});
+
+it('offers to delete somebody else', function (): void {
+    $other = User::factory()->create();
+
+    enterProductTeamPanel();
+
+    expect(UserResource::canDelete($other))->toBeTrue();
+
+    Livewire::test(ListUsers::class)
+        ->assertTableActionVisible('delete', $other);
+});
+
+it('refuses self deletion at the policy too', function (): void {
+    $platform = User::factory()->superAdmin()->create();
+    $other = User::factory()->create();
+
+    expect($platform->can('delete', $other))->toBeTrue()
+        ->and((new UserPolicy)->delete($platform, $platform))->toBeFalse();
+});
+
+it('leaves an account standing when its restaurant is deleted', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $staff = User::factory()->ofRestaurant($restaurant)->create();
+
+    $restaurant->delete();
+
+    // The tenant column falls back to null rather than taking the account with
+    // it: accounts are platform-wide and outlive any one restaurant.
+    expect(User::query()->whereKey($staff->getKey())->exists())->toBeTrue()
+        ->and($staff->refresh()->tenant_id)->toBeNull()
+        ->and($staff->isSuperAdmin())->toBeFalse();
+});

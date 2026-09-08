@@ -36,6 +36,22 @@ class UserPolicy
     }
 
     /**
+     * Delete an account outright.
+     *
+     * Accounts are platform-wide, so only the product team may remove one; a
+     * restaurant takes someone off its own roster instead, which is what
+     * removeFromRestaurant() below is for.
+     *
+     * Nobody may delete their own account. UserResource states that rule again
+     * because Gate::before answers this method true for a super admin before it
+     * ever runs.
+     */
+    public function delete(User $user, User $model): bool
+    {
+        return $user->isSuperAdmin() && ! $user->is($model);
+    }
+
+    /**
      * Take a user off this restaurant's roster.
      *
      * Nobody may remove themselves: it is the one move that can leave a

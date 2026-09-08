@@ -209,3 +209,15 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 - IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
 
 </laravel-boost-guidelines>
+
+## Keeping the project rules current
+
+`.ai/rules` is the shared memory of this codebase, and a stale rule is worse than a missing one because the next agent trusts it.
+
+Every change that touches behaviour must leave those files true **in the same change**:
+
+- It established something durable → add it with `record-rule`.
+- It contradicts an existing rule → rewrite that rule, do not leave it stale.
+- It only moved code around → nothing to do.
+
+Treat this as part of the definition of done, alongside `vendor/bin/pint --dirty` and the tests. Check it before reporting any work as complete.

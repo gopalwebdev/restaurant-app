@@ -9,7 +9,7 @@ use App\Models\User;
 /**
  * Who may manage the roster of restaurants on the platform.
  *
- * restaurant.manage is a platform permission, so it is granted to no role at
+ * restaurant.manage is a product team permission, so it is granted to no role at
  * all: in practice only a super admin passes these checks, through the
  * Gate::before in AppServiceProvider.
  */

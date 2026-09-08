@@ -32,9 +32,13 @@ class AddUserToRestaurant
             ->first();
 
         if (! $user instanceof User) {
+            // A brand new account belongs to the restaurant that opened it.
+            // An existing one keeps whichever tenant it already had: it may
+            // staff several, and this panel does not get to move it.
             $user = User::query()->create([
                 'name' => $name,
                 'email' => $email,
+                'tenant_id' => $restaurant->getKey(),
             ]);
         }
 

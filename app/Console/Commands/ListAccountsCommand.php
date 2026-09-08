@@ -23,7 +23,7 @@ class ListAccountsCommand extends Command
     public function handle(): int
     {
         $rows = [
-            ...$this->platformRows(),
+            ...$this->productTeamRows(),
             ...$this->restaurantRows(),
         ];
 
@@ -41,11 +41,11 @@ class ListAccountsCommand extends Command
     }
 
     /**
-     * The platform staff, who sign in on the root domain.
+     * The the product team, who sign in on the root domain.
      *
      * @return list<array{string, string, string}>
      */
-    private function platformRows(): array
+    private function productTeamRows(): array
     {
         $rows = [];
 

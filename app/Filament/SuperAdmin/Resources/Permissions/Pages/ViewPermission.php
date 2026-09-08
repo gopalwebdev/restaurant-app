@@ -6,6 +6,7 @@ use App\Filament\SuperAdmin\Resources\Permissions\PermissionResource;
 use App\Models\Permission;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Icons\Heroicon;
 
 class ViewPermission extends ViewRecord
 {
@@ -15,6 +16,7 @@ class ViewPermission extends ViewRecord
     {
         return [
             EditAction::make()
+                ->icon(Heroicon::OutlinedPencilSquare)
                 ->visible(fn (Permission $record): bool => PermissionResource::canEdit($record)),
         ];
     }

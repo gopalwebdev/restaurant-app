@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Filament\Admin\Resources\MenuItems;
+
+use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Admin\Resources\MenuItems\Tables\MenuItemsTable;
+use App\Models\MenuItem;
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
+use UnitEnum;
+
+/**
+ * What this restaurant sells.
+ *
+ * Scoping is Filament's: the panel has a tenant, so every query here is limited
+ * to the restaurant in the subdomain and new rows are stamped with it. The
+ * composite foreign key on (menu_category_id, restaurant_id) is the second
+ * half of that — even a tampered form cannot file an item under another
+ * restaurant's section, because the database refuses the row.
+ *
+ * Who may use the page is MenuItemPolicy's business: menu.view to look,
+ * menu.manage to change anything.
+ */
+class MenuItemResource extends Resource
+{
+    protected static ?string $model = MenuItem::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedListBullet;
+
+    protected static string|UnitEnum|null $navigationGroup = 'Menu';
+
+    protected static ?int $navigationSort = 20;
+
+    protected static ?string $recordTitleAttribute = 'name';
+
+    protected static ?string $tenantOwnershipRelationshipName = 'restaurant';
+
+    public static function form(Schema $schema): Schema
+    {
+        return MenuItemForm::configure($schema);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return MenuItemsTable::configure($table);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListMenuItems::route('/'),
+        ];
+    }
+}

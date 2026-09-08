@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Users\Pages;
 use App\Filament\Admin\Resources\Users\UserResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Icons\Heroicon;
 
 class ListUsers extends ListRecords
 {
@@ -14,7 +15,8 @@ class ListUsers extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('Add someone'),
+                ->label('Add someone')
+                ->icon(Heroicon::OutlinedUserPlus),
         ];
     }
 }

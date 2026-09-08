@@ -26,7 +26,7 @@ class SetRestaurantUserRoles
         }
 
         // Only roles a restaurant may hand out, whatever arrived in the form:
-        // a role carrying a platform permission would mint platform staff.
+        // a role carrying a product team permission would mint the product team.
         $assignable = Role::query()
             ->assignableWithinRestaurant()
             ->whereIn('name', $roleNames)

@@ -16,7 +16,7 @@ beforeEach(function (): void {
 |--------------------------------------------------------------------------
 |
 | The queue carries jobs for every restaurant on the platform, so the
-| dashboard is platform staff only.
+| dashboard is the product team only.
 |
 */
 

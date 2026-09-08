@@ -92,9 +92,9 @@ function enterRestaurantPanel(Restaurant $restaurant, Role $role): User
 }
 
 /**
- * Sign in as platform staff, with the platform panel current.
+ * Sign in as a member of the product team, with their panel current.
  */
-function enterPlatformPanel(): User
+function enterProductTeamPanel(): User
 {
     $user = User::factory()->superAdmin()->create();
 

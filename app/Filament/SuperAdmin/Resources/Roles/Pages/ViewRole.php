@@ -6,6 +6,7 @@ use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
 use App\Models\Role;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Icons\Heroicon;
 
 class ViewRole extends ViewRecord
 {
@@ -15,6 +16,7 @@ class ViewRole extends ViewRecord
     {
         return [
             EditAction::make()
+                ->icon(Heroicon::OutlinedPencilSquare)
                 ->visible(fn (Role $record): bool => RoleResource::canEdit($record)),
         ];
     }

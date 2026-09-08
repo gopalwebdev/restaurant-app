@@ -19,14 +19,16 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * The roles every restaurant assigns from, on the platform panel.
+ * The roles every restaurant assigns from, on the product team panel.
  *
  * Access is RolePolicy's business. What this class adds is the one rule a
- * policy cannot express here: a built-in role — one declared in App\Enums\Role
- * — is read-only, and that has to hold for a super admin too. The Gate::before
- * in AppServiceProvider answers true for platform staff before any policy
- * runs, so the guard is stated here, where Filament asks before it renders an
- * action or a page.
+ * policy cannot express: whether a *particular* role may be deleted. A built-in
+ * role — one declared in App\Enums\Role — may have its permissions edited
+ * freely, but never renamed or deleted, because code refers to it by name.
+ *
+ * That guard is stated here rather than in the policy because the Gate::before
+ * in AppServiceProvider answers true for the product team before any policy
+ * method runs, and the product team is exactly who reaches this page.
  */
 class RoleResource extends Resource
 {
@@ -55,14 +57,13 @@ class RoleResource extends Resource
         return RolesTable::configure($table);
     }
 
-    public static function canEdit(Model $record): bool
-    {
-        return (! $record instanceof Role || ! $record->isBuiltIn()) && parent::canEdit($record);
-    }
-
+    /**
+     * A role is deletable only when nothing depends on it: Role::undeletableReason()
+     * owns that question, and the table shows whatever it says.
+     */
     public static function canDelete(Model $record): bool
     {
-        return (! $record instanceof Role || ! $record->isBuiltIn()) && parent::canDelete($record);
+        return (! $record instanceof Role || $record->undeletableReason() === null) && parent::canDelete($record);
     }
 
     public static function getPages(): array

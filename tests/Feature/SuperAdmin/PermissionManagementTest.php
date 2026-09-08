@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\Permission as PermissionEnum;
+use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
 use App\Filament\SuperAdmin\Resources\Permissions\Pages\CreatePermission;
 use App\Filament\SuperAdmin\Resources\Permissions\Pages\EditPermission;
 use App\Filament\SuperAdmin\Resources\Permissions\Pages\ListPermissions;
 use App\Filament\SuperAdmin\Resources\Permissions\PermissionResource;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Livewire\Livewire;
@@ -21,7 +23,7 @@ beforeEach(function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('lets platform staff manage permissions', function (): void {
+it('lets the product team manage permissions', function (): void {
     $user = User::factory()->superAdmin()->create();
     $permission = Permission::factory()->create();
 
@@ -51,7 +53,7 @@ it('keeps a restaurant admin off the permissions page', function (): void {
         ->assertForbidden();
 });
 
-it('serves the permissions page to platform staff', function (): void {
+it('serves the permissions page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
@@ -66,7 +68,7 @@ it('serves the permissions page to platform staff', function (): void {
 */
 
 it('lists every permission the application declares', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(ListPermissions::class)
         // More permissions than fit on a page, and this is about all of them.
@@ -75,7 +77,7 @@ it('lists every permission the application declares', function (): void {
 });
 
 it('creates a permission', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreatePermission::class)
         ->fillForm(['name' => 'table.reserve'])
@@ -87,7 +89,7 @@ it('creates a permission', function (): void {
 
 it('updates a custom permission', function (): void {
     $permission = Permission::factory()->create(['name' => 'table.reserve']);
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(EditPermission::class, ['record' => $permission->getKey()])
         ->fillForm(['name' => 'table.book'])
@@ -97,9 +99,9 @@ it('updates a custom permission', function (): void {
     expect($permission->refresh()->name)->toBe('table.book');
 });
 
-it('deletes a custom permission', function (): void {
+it('deletes a custom permission no role holds', function (): void {
     $permission = Permission::factory()->create();
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(EditPermission::class, ['record' => $permission->getKey()])
         ->callAction('delete');
@@ -107,8 +109,179 @@ it('deletes a custom permission', function (): void {
     expect(Permission::query()->whereKey($permission->getKey())->exists())->toBeFalse();
 });
 
+/*
+|--------------------------------------------------------------------------
+| A permission a role holds may not be deleted
+|--------------------------------------------------------------------------
+|
+| Deleting one out from under a role narrows what that role grants, and
+| nothing afterwards says it happened. It comes off every role first.
+|
+*/
+
+it('refuses to delete a permission a role holds', function (): void {
+    $permission = Permission::factory()->create();
+    $role = Role::factory()->create();
+    $role->givePermissionTo($permission->name);
+
+    enterProductTeamPanel();
+
+    expect($permission->isInUse())->toBeTrue()
+        ->and($permission->undeletableReason())->toContain('held by a role')
+        ->and(PermissionResource::canDelete($permission))->toBeFalse();
+
+    Livewire::test(ListPermissions::class)
+        ->assertTableActionHidden('delete', $permission);
+
+    expect(Permission::query()->whereKey($permission->getKey())->exists())->toBeTrue();
+});
+
+it('refuses to delete a permission a role holds from anywhere', function (): void {
+    $permission = Permission::factory()->create();
+    $role = Role::factory()->create();
+    $role->givePermissionTo($permission->name);
+
+    expect(fn () => $permission->delete())
+        ->toThrow(LogicException::class, 'A permission held by a role may not be deleted.');
+
+    expect(Permission::query()->whereKey($permission->getKey())->exists())->toBeTrue();
+});
+
+it('deletes a permission once no role holds it', function (): void {
+    $permission = Permission::factory()->create();
+    $role = Role::factory()->create();
+    $role->givePermissionTo($permission->name);
+
+    enterProductTeamPanel();
+
+    expect(PermissionResource::canDelete($permission))->toBeFalse();
+
+    $role->revokePermissionTo($permission->name);
+
+    expect($permission->refresh()->undeletableReason())->toBeNull()
+        ->and(PermissionResource::canDelete($permission))->toBeTrue();
+
+    Livewire::test(EditPermission::class, ['record' => $permission->getKey()])
+        ->callAction('delete');
+
+    expect(Permission::query()->whereKey($permission->getKey())->exists())->toBeFalse();
+});
+
+it('says on the table why a permission cannot be deleted', function (): void {
+    $held = Permission::factory()->create();
+    Role::factory()->create()->givePermissionTo($held->name);
+
+    $free = Permission::factory()->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(ListPermissions::class)
+        ->set('tableRecordsPerPage', 50)
+        ->assertTableColumnStateSet('is_deletable', false, $held)
+        ->assertTableColumnStateSet('is_deletable', true, $free);
+});
+
+it('refuses to delete a built-in permission every role holds', function (): void {
+    // Both guards apply to menu.view at once; the built-in one is reported,
+    // because it is the one that can never be worked around.
+    $permission = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
+
+    expect($permission->isInUse())->toBeTrue()
+        ->and($permission->undeletableReason())->toContain('declared in code')
+        ->and(PermissionResource::canDelete($permission))->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Permissions are shown by category
+|--------------------------------------------------------------------------
+|
+| Category is not a column: it is read off the subject half of the name, so a
+| permission added from the panel is filed without anything being declared
+| for it, and Other is whatever no group claims.
+|
+*/
+
+it('files every declared permission under a category', function (PermissionEnum $permissionEnum): void {
+    $permission = Permission::query()->where('name', $permissionEnum->value)->sole();
+
+    expect($permission->group())->toBe($permissionEnum->group())
+        ->and($permission->group())->not->toBe(PermissionGroup::Other);
+})->with(PermissionEnum::cases());
+
+it('files a permission by the subject half of its name', function (string $name, PermissionGroup $expected): void {
+    expect(PermissionGroup::forPermissionName($name))->toBe($expected);
+})->with([
+    'menu' => ['menu.view', PermissionGroup::Menu],
+    'order' => ['order.manage', PermissionGroup::Orders],
+    'user' => ['user.manage', PermissionGroup::People],
+    'settings' => ['settings.manage', PermissionGroup::Restaurant],
+    'restaurant' => ['restaurant.manage', PermissionGroup::ProductTeam],
+    'role' => ['role.manage', PermissionGroup::ProductTeam],
+    'permission' => ['permission.manage', PermissionGroup::ProductTeam],
+    'unknown subject' => ['kitchen.expedite', PermissionGroup::Other],
+]);
+
+it('keeps the product team category and the product-team-only list in step', function (): void {
+    // Two ways of asking the same question — the group a permission is shown
+    // under, and whether a restaurant may be offered a role holding it. If
+    // they drift, the panel files something as harmless that is not.
+    $byGroup = array_map(
+        fn (PermissionEnum $permission): string => $permission->value,
+        PermissionEnum::inGroup(PermissionGroup::ProductTeam),
+    );
+
+    expect($byGroup)->toEqualCanonicalizing(PermissionEnum::productTeamOnlyValues());
+});
+
+it('shows the category on each row', function (): void {
+    enterProductTeamPanel();
+
+    $menuView = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
+    $roleManage = Permission::query()->where('name', PermissionEnum::RoleManage->value)->sole();
+
+    Livewire::test(ListPermissions::class)
+        ->set('tableRecordsPerPage', 50)
+        ->assertTableColumnStateSet('category', 'Menu', $menuView)
+        ->assertTableColumnStateSet('category', 'Product team', $roleManage);
+});
+
+it('groups the table by category out of the box', function (): void {
+    enterProductTeamPanel();
+
+    Livewire::test(ListPermissions::class)
+        ->assertSet('tableGrouping', 'category:asc');
+});
+
+it('filters the table down to one category', function (): void {
+    enterProductTeamPanel();
+
+    $menu = Permission::query()->where('name', 'like', 'menu.%')->get();
+    $orders = Permission::query()->where('name', 'like', 'order.%')->get();
+
+    Livewire::test(ListPermissions::class)
+        ->set('tableRecordsPerPage', 50)
+        ->filterTable('category', PermissionGroup::Menu->value)
+        ->assertCanSeeTableRecords($menu)
+        ->assertCanNotSeeTableRecords($orders);
+});
+
+it('filters down to only the permissions no category claims', function (): void {
+    $custom = Permission::factory()->create(['name' => 'kitchen.expedite']);
+
+    enterProductTeamPanel();
+
+    Livewire::test(ListPermissions::class)
+        ->set('tableRecordsPerPage', 50)
+        ->filterTable('category', PermissionGroup::Other->value)
+        ->assertCanSeeTableRecords([$custom])
+        ->assertCanNotSeeTableRecords(
+            Permission::query()->where('name', 'like', 'menu.%')->get(),
+        );
+});
+
 it('requires a permission name written as subject.ability', function (?string $name): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreatePermission::class)
         ->fillForm(['name' => $name])
@@ -123,7 +296,7 @@ it('requires a permission name written as subject.ability', function (?string $n
 ]);
 
 it('refuses a permission name that already exists', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreatePermission::class)
         ->fillForm(['name' => PermissionEnum::MenuView->value])
@@ -141,8 +314,8 @@ it('refuses a permission name that already exists', function (): void {
 |
 */
 
-it('refuses to edit or delete a built-in permission, even for platform staff', function (PermissionEnum $permissionEnum): void {
-    enterPlatformPanel();
+it('refuses to edit or delete a built-in permission, even for the product team', function (PermissionEnum $permissionEnum): void {
+    enterProductTeamPanel();
 
     $permission = Permission::query()->where('name', $permissionEnum->value)->sole();
 
@@ -152,7 +325,7 @@ it('refuses to edit or delete a built-in permission, even for platform staff', f
 })->with(PermissionEnum::cases());
 
 it('allows editing and deleting a custom permission', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     $permission = Permission::factory()->create();
 
@@ -162,7 +335,7 @@ it('allows editing and deleting a custom permission', function (): void {
 });
 
 it('offers no edit or delete button against a built-in permission', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     $permission = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
 
@@ -173,7 +346,7 @@ it('offers no edit or delete button against a built-in permission', function ():
 });
 
 it('offers edit and delete against a custom permission', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     $permission = Permission::factory()->create();
 

@@ -17,7 +17,7 @@ beforeEach(function (): void {
 });
 
 /**
- * A platform administrator, who may use the super admin panel.
+ * A member of the product team, who may use the super admin panel.
  */
 function superAdmin(): User
 {
@@ -42,7 +42,7 @@ function restaurantAdmin(Restaurant $restaurant): User
  * @return array<string, Closure(): array{class-string<OtpLogin>, User}>
  */
 dataset('sign-in pages', [
-    'platform panel' => [fn (): array => [
+    'product team panel' => [fn (): array => [
         SuperAdminLogin::class,
         tap(superAdmin(), fn (): mixed => Filament::setCurrentPanel(AdminPanel::SuperAdmin->value)),
     ]],
@@ -334,9 +334,9 @@ it('signs a restaurant admin into their own tenant panel', function (): void {
     $this->assertAuthenticatedAs($user);
 });
 
-it('signs platform staff in on a restaurant subdomain they staff no part of', function (): void {
+it('signs the product team in on a restaurant subdomain they staff no part of', function (): void {
     // The users resource in the tenant panel puts a tenancy global scope on
-    // User, and sign-in looks accounts up by address. Platform staff are on no
+    // User, and sign-in looks accounts up by address. The product team are on no
     // restaurant's roster, so were that scope to reach the lookup they would
     // be told their own account does not exist. Booting the panel is what
     // registers the scope, so this signs in with it in place.

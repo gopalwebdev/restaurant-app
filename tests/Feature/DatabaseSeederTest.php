@@ -13,14 +13,14 @@ beforeEach(function (): void {
     $this->seed(DatabaseSeeder::class);
 });
 
-it('seeds exactly one platform owner', function (): void {
+it('seeds exactly one product team owner', function (): void {
     $superAdmins = User::query()->superAdmins()->get();
 
     expect($superAdmins)->toHaveCount(1)
         ->and($superAdmins->first()->email)->toBe(SuperAdminSeeder::EMAIL);
 });
 
-it('gives the platform owner no password to store', function (): void {
+it('gives the product team owner no password to store', function (): void {
     // The users table carries no password column at all, so there is nothing
     // to leave null and nothing to leak.
     expect(Schema::hasColumn('users', 'password'))->toBeFalse();
@@ -61,7 +61,7 @@ it('lets each restaurant admin into their own panel and no further', function ()
         ->assertForbidden();
 });
 
-it('lets the platform owner into the platform panel', function (): void {
+it('lets the product team owner into the product team panel', function (): void {
     $superAdmin = User::query()->where('email', SuperAdminSeeder::EMAIL)->firstOrFail();
 
     $this->actingAs($superAdmin)

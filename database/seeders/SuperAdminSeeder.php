@@ -7,7 +7,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
- * The platform owner.
+ * The founding member of the product team.
  *
  * There is exactly one, and the account carries no password: signing in means
  * receiving a one-time code at this address.

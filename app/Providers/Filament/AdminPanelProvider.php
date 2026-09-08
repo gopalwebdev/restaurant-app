@@ -53,6 +53,11 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
             ])
+            // A resource with no policy, or a policy missing the method being
+            // asked about, is refused rather than waved through. Without this a
+            // page added tomorrow is open to anyone who can reach the panel,
+            // and nothing says so.
+            ->strictAuthorization()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

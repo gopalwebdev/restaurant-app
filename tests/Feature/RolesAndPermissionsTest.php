@@ -36,9 +36,9 @@ it('can be seeded repeatedly without duplicating rows', function (): void {
         ->and(PermissionModel::query()->count())->toBe(count(Permission::cases()));
 });
 
-it('gives a customer ordering rights but no management rights', function (): void {
+it('gives a guest ordering rights but no management rights', function (): void {
     $user = User::factory()->create();
-    $user->assignRole(Role::Customer->value);
+    $user->assignRole(Role::Guest->value);
 
     expect($user->can(Permission::OrderCreate->value))->toBeTrue()
         ->and($user->can(Permission::MenuView->value))->toBeTrue()
@@ -56,26 +56,26 @@ it('gives a super admin every permission without holding a role', function (): v
     }
 });
 
-it('gives a restaurant admin everything except platform management', function (): void {
+it('gives a restaurant admin everything except product team management', function (): void {
     $user = User::factory()->create();
     $user->assignRole(Role::Admin->value);
 
     foreach (Permission::cases() as $permission) {
-        expect($user->can($permission->value))->toBe(! $permission->isPlatformOnly());
+        expect($user->can($permission->value))->toBe(! $permission->isProductTeamOnly());
     }
 });
 
-it('withholds every platform permission from every restaurant role', function (Role $role): void {
+it('withholds every product team permission from every restaurant role', function (Role $role): void {
     $user = User::factory()->create();
     $user->assignRole($role->value);
 
-    foreach (Permission::platformOnly() as $permission) {
+    foreach (Permission::productTeamOnly() as $permission) {
         expect($user->can($permission->value))->toBeFalse();
     }
 })->with(Role::cases());
 
-it('counts managing restaurants, roles and permissions as platform only', function (): void {
-    expect(Permission::platformOnlyValues())->toEqualCanonicalizing([
+it('counts managing restaurants, roles and permissions as product team only', function (): void {
+    expect(Permission::productTeamOnlyValues())->toEqualCanonicalizing([
         Permission::RestaurantManage->value,
         Permission::RoleManage->value,
         Permission::PermissionManage->value,

@@ -9,7 +9,7 @@ use App\Models\User;
 /**
  * Who may define the permissions roles are built from.
  *
- * permission.manage is a platform permission granted to no role, so only a
+ * permission.manage is a product team permission granted to no role, so only a
  * super admin passes. As with roles, the built-in guard lives on the resource
  * rather than here: Gate::before answers before a policy ever runs.
  */
@@ -35,8 +35,13 @@ class PermissionPolicy
         return $user->can(PermissionEnum::PermissionManage->value) && ! $permission->isBuiltIn();
     }
 
+    /**
+     * A permission is only deleted when no role holds it, and when it is not
+     * one the code declares. Gate::before waves a super admin past this, which
+     * is why PermissionResource states the same rule again.
+     */
     public function delete(User $user, Permission $permission): bool
     {
-        return $user->can(PermissionEnum::PermissionManage->value) && ! $permission->isBuiltIn();
+        return $user->can(PermissionEnum::PermissionManage->value) && $permission->undeletableReason() === null;
     }
 }

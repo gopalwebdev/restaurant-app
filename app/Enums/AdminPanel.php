@@ -13,7 +13,7 @@ use Filament\Support\Icons\Heroicon;
  */
 enum AdminPanel: string
 {
-    /** The platform panel, on the root domain at /super-admin. */
+    /** The product team panel, on the root domain at /super-admin. */
     case SuperAdmin = 'super-admin';
 
     /** One restaurant's own panel, on its subdomain at /admin. */

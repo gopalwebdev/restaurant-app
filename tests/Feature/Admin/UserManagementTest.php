@@ -24,7 +24,7 @@ beforeEach(function (): void {
 | Who may manage a roster
 |--------------------------------------------------------------------------
 |
-| user.manage is what opens this module, and the Admin and Manager roles hold
+| user.manage is what opens this module, and Admin is the only role that holds
 | it. The policy is checked directly so a failure names the rule.
 |
 */
@@ -36,7 +36,7 @@ it('lets the roles holding user.manage manage the roster', function (RoleEnum $r
     expect($user->can('viewAny', User::class))->toBeTrue()
         ->and($user->can('create', User::class))->toBeTrue()
         ->and($user->can('update', $user))->toBeTrue();
-})->with([RoleEnum::Admin, RoleEnum::Manager]);
+})->with([RoleEnum::Admin]);
 
 it('refuses the roster to roles without user.manage', function (RoleEnum $roleEnum): void {
     $user = User::factory()->create();
@@ -45,7 +45,7 @@ it('refuses the roster to roles without user.manage', function (RoleEnum $roleEn
     expect($user->can(PermissionEnum::UserManage->value))->toBeFalse()
         ->and($user->can('viewAny', User::class))->toBeFalse()
         ->and($user->can('create', User::class))->toBeFalse();
-})->with([RoleEnum::Staff, RoleEnum::Customer]);
+})->with([RoleEnum::Staff, RoleEnum::Guest]);
 
 it('keeps staff off the users page', function (): void {
     $restaurant = Restaurant::factory()->create(['slug' => 't1']);
@@ -144,7 +144,7 @@ it('joins an existing account to the restaurant rather than duplicating it', fun
 
     $existing = User::factory()->create(['email' => 'chef@example.com', 'name' => 'Chef']);
     $existing->restaurants()->attach($other);
-    $existing->assignRole(RoleEnum::Manager->value);
+    $existing->assignRole(RoleEnum::Admin->value);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -161,7 +161,7 @@ it('joins an existing account to the restaurant rather than duplicating it', fun
         ->and($existing->refresh()->restaurants()->count())->toBe(2)
         // Roles are held per account, so joining a second restaurant must not
         // rewrite what this person may do at the first.
-        ->and($existing->hasRole(RoleEnum::Manager->value))->toBeTrue()
+        ->and($existing->hasRole(RoleEnum::Admin->value))->toBeTrue()
         ->and($existing->hasRole(RoleEnum::Staff->value))->toBeFalse();
 });
 
@@ -207,34 +207,34 @@ it('requires a name and a real email address', function (array $data, array $err
 
 it('offers only the roles a restaurant may hand out', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $platformRole = Role::factory()->create();
-    $platformRole->givePermissionTo(PermissionEnum::RestaurantManage->value);
+    $productTeamRole = Role::factory()->create();
+    $productTeamRole->givePermissionTo(PermissionEnum::RestaurantManage->value);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
     Livewire::test(CreateUser::class)
-        ->assertFormFieldExists('roles', function (CheckboxList $field) use ($platformRole): bool {
+        ->assertFormFieldExists('roles', function (CheckboxList $field) use ($productTeamRole): bool {
             $offered = array_keys($field->getOptions());
 
             expect($offered)->toContain(RoleEnum::Staff->value)
                 ->and($offered)->toContain(RoleEnum::Admin->value)
-                ->and($offered)->not->toContain($platformRole->name);
+                ->and($offered)->not->toContain($productTeamRole->name);
 
             return true;
         });
 });
 
-it('refuses a platform role even when one is submitted anyway', function (): void {
+it('refuses a product team role even when one is submitted anyway', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $platformRole = Role::factory()->create();
-    $platformRole->givePermissionTo(PermissionEnum::RestaurantManage->value);
+    $productTeamRole = Role::factory()->create();
+    $productTeamRole->givePermissionTo(PermissionEnum::RestaurantManage->value);
 
     $member = User::factory()->create();
     $member->restaurants()->attach($restaurant);
 
-    app(SetRestaurantUserRoles::class)($member, [$platformRole->name, RoleEnum::Staff->value]);
+    app(SetRestaurantUserRoles::class)($member, [$productTeamRole->name, RoleEnum::Staff->value]);
 
-    expect($member->refresh()->hasRole($platformRole->name))->toBeFalse()
+    expect($member->refresh()->hasRole($productTeamRole->name))->toBeFalse()
         ->and($member->hasRole(RoleEnum::Staff->value))->toBeTrue()
         ->and($member->can(PermissionEnum::RestaurantManage->value))->toBeFalse();
 });
@@ -250,11 +250,11 @@ it('changes the roles of someone who staffs only this restaurant', function (): 
 
     Livewire::test(EditUser::class, ['record' => $member->getKey()])
         ->assertFormSet(['roles' => [RoleEnum::Staff->value]])
-        ->fillForm(['roles' => [RoleEnum::Manager->value]])
+        ->fillForm(['roles' => [RoleEnum::Admin->value]])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect($member->refresh()->getRoleNames()->all())->toBe([RoleEnum::Manager->value]);
+    expect($member->refresh()->getRoleNames()->all())->toBe([RoleEnum::Admin->value]);
 });
 
 it('leaves the roles of someone who staffs two restaurants alone', function (): void {
@@ -263,7 +263,7 @@ it('leaves the roles of someone who staffs two restaurants alone', function (): 
 
     $member = User::factory()->create();
     $member->restaurants()->attach([$restaurant->getKey(), $other->getKey()]);
-    $member->assignRole(RoleEnum::Manager->value);
+    $member->assignRole(RoleEnum::Staff->value);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -273,7 +273,7 @@ it('leaves the roles of someone who staffs two restaurants alone', function (): 
         ->assertHasNoFormErrors();
 
     expect($member->refresh()->name)->toBe('Renamed')
-        ->and($member->getRoleNames()->all())->toBe([RoleEnum::Manager->value]);
+        ->and($member->getRoleNames()->all())->toBe([RoleEnum::Staff->value]);
 });
 
 /*

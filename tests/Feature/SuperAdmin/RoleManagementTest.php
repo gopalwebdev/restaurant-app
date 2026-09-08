@@ -1,15 +1,20 @@
 <?php
 
+use App\Actions\Roles\SetRolePermissions;
 use App\Enums\Permission as PermissionEnum;
+use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
 use App\Filament\SuperAdmin\Resources\Roles\Pages\CreateRole;
 use App\Filament\SuperAdmin\Resources\Roles\Pages\EditRole;
 use App\Filament\SuperAdmin\Resources\Roles\Pages\ListRoles;
 use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
+use App\Filament\SuperAdmin\Resources\Roles\Schemas\RoleForm;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Forms\Components\CheckboxList;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
@@ -22,7 +27,7 @@ beforeEach(function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('lets platform staff manage roles', function (): void {
+it('lets the product team manage roles', function (): void {
     $user = User::factory()->superAdmin()->create();
     $role = Role::factory()->create();
 
@@ -52,7 +57,7 @@ it('keeps a restaurant admin off the roles page', function (): void {
         ->assertForbidden();
 });
 
-it('serves the roles page to platform staff', function (): void {
+it('serves the roles page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
@@ -68,7 +73,7 @@ it('serves the roles page to platform staff', function (): void {
 
 it('lists every role, built in and custom alike', function (): void {
     $custom = Role::factory()->create();
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(ListRoles::class)
         ->assertCanSeeTableRecords(Role::query()->get())
@@ -76,15 +81,18 @@ it('lists every role, built in and custom alike', function (): void {
 });
 
 it('creates a role with the permissions it is given', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     $menuView = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
     $orderManage = Permission::query()->where('name', PermissionEnum::OrderManage->value)->sole();
 
+    // Permissions are chosen per category, so the ids go to the category's
+    // own field rather than to one flat list.
     Livewire::test(CreateRole::class)
         ->fillForm([
             'name' => 'kitchen-porter',
-            'permissions' => [$menuView->getKey(), $orderManage->getKey()],
+            RoleForm::statePathFor(PermissionGroup::Menu) => [$menuView->getKey()],
+            RoleForm::statePathFor(PermissionGroup::Orders) => [$orderManage->getKey()],
         ])
         ->call('create')
         ->assertHasNoFormErrors();
@@ -98,12 +106,12 @@ it('creates a role with the permissions it is given', function (): void {
 it('updates a custom role', function (): void {
     $role = Role::factory()->create(['name' => 'kitchen-porter']);
     $menuView = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(EditRole::class, ['record' => $role->getKey()])
         ->fillForm([
             'name' => 'porter',
-            'permissions' => [$menuView->getKey()],
+            RoleForm::statePathFor(PermissionGroup::Menu) => [$menuView->getKey()],
         ])
         ->call('save')
         ->assertHasNoFormErrors();
@@ -112,9 +120,9 @@ it('updates a custom role', function (): void {
         ->and($role->permissions->pluck('name')->all())->toBe([PermissionEnum::MenuView->value]);
 });
 
-it('deletes a custom role', function (): void {
+it('deletes a custom role that nothing depends on', function (): void {
     $role = Role::factory()->create();
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(EditRole::class, ['record' => $role->getKey()])
         ->callAction('delete');
@@ -122,8 +130,325 @@ it('deletes a custom role', function (): void {
     expect(Role::query()->whereKey($role->getKey())->exists())->toBeFalse();
 });
 
+/*
+|--------------------------------------------------------------------------
+| A role in use may not be deleted
+|--------------------------------------------------------------------------
+|
+| Deleting a role someone holds revokes what it granted them without saying
+| so, and deleting one still carrying permissions loses the record of what it
+| granted. Both have to be undone deliberately first.
+|
+*/
+
+it('refuses to delete a role a user holds', function (): void {
+    $role = Role::factory()->create();
+    $user = User::factory()->create();
+    $user->assignRole($role->name);
+
+    enterProductTeamPanel();
+
+    expect($role->isInUse())->toBeTrue()
+        ->and($role->undeletableReason())->toContain('held by a user')
+        ->and(RoleResource::canDelete($role))->toBeFalse();
+
+    Livewire::test(ListRoles::class)
+        ->assertTableActionHidden('delete', $role);
+
+    expect(Role::query()->whereKey($role->getKey())->exists())->toBeTrue();
+});
+
+it('refuses to delete a role that still holds permissions', function (): void {
+    $role = Role::factory()->create();
+    $role->givePermissionTo(PermissionEnum::MenuView->value);
+
+    enterProductTeamPanel();
+
+    expect($role->isInUse())->toBeTrue()
+        ->and($role->undeletableReason())->toContain('still holds permissions')
+        ->and(RoleResource::canDelete($role))->toBeFalse();
+
+    Livewire::test(ListRoles::class)
+        ->assertTableActionHidden('delete', $role);
+});
+
+it('refuses to delete a role in use from anywhere', function (): void {
+    $held = Role::factory()->create();
+    User::factory()->create()->assignRole($held->name);
+
+    expect(fn () => $held->delete())
+        ->toThrow(LogicException::class, 'A role held by a user may not be deleted.');
+
+    $stocked = Role::factory()->create();
+    $stocked->givePermissionTo(PermissionEnum::MenuView->value);
+
+    expect(fn () => $stocked->delete())
+        ->toThrow(LogicException::class, 'A role holding permissions may not be deleted.');
+
+    expect(Role::query()->whereKey($held->getKey())->exists())->toBeTrue()
+        ->and(Role::query()->whereKey($stocked->getKey())->exists())->toBeTrue();
+});
+
+it('deletes a role once nothing depends on it any more', function (): void {
+    $role = Role::factory()->create();
+    $role->givePermissionTo(PermissionEnum::MenuView->value);
+    $user = User::factory()->create();
+    $user->assignRole($role->name);
+
+    enterProductTeamPanel();
+
+    expect(RoleResource::canDelete($role))->toBeFalse();
+
+    // Take the person off it, then empty it, and it becomes deletable.
+    $user->removeRole($role->name);
+    $role->syncPermissions([]);
+
+    expect($role->refresh()->undeletableReason())->toBeNull()
+        ->and(RoleResource::canDelete($role))->toBeTrue();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->callAction('delete');
+
+    expect(Role::query()->whereKey($role->getKey())->exists())->toBeFalse();
+});
+
+it('says on the table why a role cannot be deleted', function (): void {
+    $role = Role::factory()->create();
+    $role->givePermissionTo(PermissionEnum::MenuView->value);
+
+    enterProductTeamPanel();
+
+    Livewire::test(ListRoles::class)
+        ->assertTableColumnStateSet('is_deletable', false, $role);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Permissions are synced through Spatie, not through the pivot
+|--------------------------------------------------------------------------
+*/
+
+it('syncs a role\'s permissions so a check answers from the new set immediately', function (): void {
+    $role = Role::factory()->create();
+    $user = User::factory()->create();
+    $user->assignRole($role->name);
+
+    $menuManage = Permission::query()->where('name', PermissionEnum::MenuManage->value)->sole();
+
+    enterProductTeamPanel();
+
+    // Warm the registrar cache with the old set. Writing the pivot directly —
+    // which a Filament ->relationship() checkbox list does — would leave this
+    // answer standing for the rest of the request.
+    expect($user->can(PermissionEnum::MenuManage->value))->toBeFalse();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->fillForm([RoleForm::statePathFor(PermissionGroup::Menu) => [$menuManage->getKey()]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($user->fresh()->can(PermissionEnum::MenuManage->value))->toBeTrue();
+});
+
+it('sets a built-in role\'s permissions like any other', function (): void {
+    $role = Role::findByName(RoleEnum::Staff->value);
+    $menuView = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
+
+    app(SetRolePermissions::class)($role, [$menuView->getKey()]);
+
+    expect($role->refresh()->permissions->pluck('name')->all())
+        ->toBe([PermissionEnum::MenuView->value]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Permissions are chosen by category
+|--------------------------------------------------------------------------
+|
+| A flat list of `subject.ability` strings says nothing about what a role
+| does, so the form splits them into PermissionGroup sections, each with its
+| own select-all.
+|
+*/
+
+it('offers a checkbox list for every category that has permissions', function (PermissionGroup $group): void {
+    enterProductTeamPanel();
+
+    $expected = Permission::query()->get()
+        ->filter(fn (Permission $permission): bool => $permission->group() === $group);
+
+    $page = Livewire::test(CreateRole::class);
+
+    if ($expected->isEmpty()) {
+        $page->assertFormFieldDoesNotExist(RoleForm::statePathFor($group));
+
+        return;
+    }
+
+    // The list offers exactly that category's permissions, no more: options
+    // are ordered by name, so compare as sets rather than by position.
+    $page->assertFormFieldExists(
+        RoleForm::statePathFor($group),
+        function (CheckboxList $field) use ($expected): bool {
+            $offered = array_keys($field->getOptions());
+            sort($offered);
+
+            $wanted = $expected->pluck('id')->all();
+            sort($wanted);
+
+            return $offered === $wanted;
+        },
+    );
+})->with(PermissionGroup::ordered());
+
+it('leaves out a category with nothing in it', function (): void {
+    enterProductTeamPanel();
+
+    // Nothing is declared under Other until a permission is added from the
+    // panel, so the section has no reason to be rendered.
+    expect(Permission::query()->get()->filter(
+        fn (Permission $permission): bool => $permission->group() === PermissionGroup::Other,
+    ))->toBeEmpty();
+
+    Livewire::test(CreateRole::class)
+        ->assertFormFieldDoesNotExist(RoleForm::statePathFor(PermissionGroup::Other));
+});
+
+it('files a permission added from the panel under Other, and then offers it', function (): void {
+    $custom = Permission::factory()->create(['name' => 'kitchen.expedite']);
+
+    enterProductTeamPanel();
+
+    expect($custom->group())->toBe(PermissionGroup::Other);
+
+    Livewire::test(CreateRole::class)
+        ->assertFormFieldExists(
+            RoleForm::statePathFor(PermissionGroup::Other),
+            fn (CheckboxList $field): bool => array_key_exists($custom->getKey(), $field->getOptions()),
+        );
+});
+
+it('assigns permissions picked from several categories at once', function (): void {
+    enterProductTeamPanel();
+
+    $menu = Permission::query()->whereIn('name', [
+        PermissionEnum::MenuView->value,
+        PermissionEnum::MenuManage->value,
+    ])->pluck('id')->all();
+
+    $orders = Permission::query()->whereIn('name', [
+        PermissionEnum::OrderViewAny->value,
+        PermissionEnum::OrderManage->value,
+    ])->pluck('id')->all();
+
+    Livewire::test(CreateRole::class)
+        ->fillForm([
+            'name' => 'expediter',
+            RoleForm::statePathFor(PermissionGroup::Menu) => $menu,
+            RoleForm::statePathFor(PermissionGroup::Orders) => $orders,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Role::query()->where('name', 'expediter')->sole()->permissions->pluck('name')->all())
+        ->toEqualCanonicalizing([
+            PermissionEnum::MenuView->value,
+            PermissionEnum::MenuManage->value,
+            PermissionEnum::OrderViewAny->value,
+            PermissionEnum::OrderManage->value,
+        ]);
+});
+
+it('fills the edit form with each permission in its own category', function (): void {
+    $role = Role::factory()->create();
+    $role->syncPermissions([
+        PermissionEnum::MenuView->value,
+        PermissionEnum::OrderManage->value,
+        PermissionEnum::RoleManage->value,
+    ]);
+
+    enterProductTeamPanel();
+
+    $menuView = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
+    $orderManage = Permission::query()->where('name', PermissionEnum::OrderManage->value)->sole();
+    $roleManage = Permission::query()->where('name', PermissionEnum::RoleManage->value)->sole();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->assertFormSet([
+            RoleForm::statePathFor(PermissionGroup::Menu) => [$menuView->getKey()],
+            RoleForm::statePathFor(PermissionGroup::Orders) => [$orderManage->getKey()],
+            RoleForm::statePathFor(PermissionGroup::ProductTeam) => [$roleManage->getKey()],
+            RoleForm::statePathFor(PermissionGroup::People) => [],
+        ]);
+});
+
+it('clears a category when everything in it is unticked', function (): void {
+    $role = Role::factory()->create();
+    $role->syncPermissions([PermissionEnum::MenuView->value, PermissionEnum::OrderManage->value]);
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->fillForm([RoleForm::statePathFor(PermissionGroup::Menu) => []])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    // Only Menu was emptied; Orders was never touched and stays.
+    expect($role->refresh()->permissions->pluck('name')->all())
+        ->toBe([PermissionEnum::OrderManage->value]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| The roles the application ships with
+|--------------------------------------------------------------------------
+*/
+
+it('ships exactly the roles a restaurant needs', function (): void {
+    // Four kinds of account in the application: the product team, who are the
+    // is_super_admin column rather than a role, and these three.
+    expect(RoleEnum::values())->toBe(['admin', 'staff', 'guest'])
+        ->and(Role::query()->orderBy('name')->pluck('name')->all())
+        ->toBe(['admin', 'guest', 'staff']);
+});
+
+it('seeds a guest role that reads the menu and orders for itself', function (): void {
+    $guest = Role::findByName(RoleEnum::Guest->value);
+
+    expect($guest->isBuiltIn())->toBeTrue()
+        ->and($guest->permissions->pluck('name')->all())->toEqualCanonicalizing([
+            PermissionEnum::MenuView->value,
+            PermissionEnum::OrderCreate->value,
+            PermissionEnum::OrderViewOwn->value,
+        ]);
+});
+
+it('seeds staff who work orders but do not change the menu', function (): void {
+    $staff = Role::findByName(RoleEnum::Staff->value);
+
+    expect($staff->permissions->pluck('name')->all())->toEqualCanonicalizing([
+        PermissionEnum::MenuView->value,
+        PermissionEnum::OrderViewAny->value,
+        PermissionEnum::OrderManage->value,
+    ])
+        ->and($staff->hasPermissionTo(PermissionEnum::MenuManage->value))->toBeFalse()
+        ->and($staff->hasPermissionTo(PermissionEnum::UserManage->value))->toBeFalse();
+});
+
+it('gives a restaurant admin everything but the product team\'s own powers', function (): void {
+    $admin = Role::findByName(RoleEnum::Admin->value);
+
+    expect($admin->permissions->pluck('name')->all())
+        ->toEqualCanonicalizing(array_diff(PermissionEnum::values(), PermissionEnum::productTeamOnlyValues()));
+});
+
+it('offers the guest role to restaurants', function (): void {
+    expect(Role::query()->assignableWithinRestaurant()->pluck('name')->all())
+        ->toContain(RoleEnum::Guest->value);
+});
+
 it('requires a role name in the shape code refers to it by', function (?string $name): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRole::class)
         ->fillForm(['name' => $name])
@@ -137,37 +462,108 @@ it('requires a role name in the shape code refers to it by', function (?string $
 ]);
 
 it('refuses a role name that is already taken', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     Livewire::test(CreateRole::class)
-        ->fillForm(['name' => RoleEnum::Manager->value])
+        ->fillForm(['name' => RoleEnum::Staff->value])
         ->call('create')
         ->assertHasFormErrors(['name' => 'unique']);
 });
 
 /*
 |--------------------------------------------------------------------------
-| Built-in roles are owned by the code
+| The list page costs the same whatever is on it
+|--------------------------------------------------------------------------
+*/
+
+it('does not spend a query per row working out what may be deleted', function (): void {
+    // Whether a role may be deleted depends on how many people hold it and how
+    // many permissions it grants — both of which the table already loads with
+    // withCount(). Asking the model again per row cost 57 extra queries here
+    // before Role::holderCount() started preferring the loaded value.
+    Role::factory()->count(30)->create()->each(function (Role $role): void {
+        $role->givePermissionTo(PermissionEnum::MenuView->value);
+        User::factory()->create()->assignRole($role->name);
+    });
+
+    enterProductTeamPanel();
+
+    DB::enableQueryLog();
+
+    Livewire::test(ListRoles::class)
+        ->set('tableRecordsPerPage', 50)
+        ->assertOk();
+
+    $queries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    // Generous, and the point is that it does not grow with the row count:
+    // a per-row lookup over 33 roles would be an order of magnitude more.
+    expect($queries)->toBeLessThan(15);
+});
+
+/*
+|--------------------------------------------------------------------------
+| A built-in role's name is fixed; what it grants is not
 |--------------------------------------------------------------------------
 |
-| App\Enums\Role declares them and the seeder owns their permissions, so the
-| panel offers no way to change one — including to a super admin, who
-| Gate::before would otherwise wave past any policy.
+| Code refers to a role by name, so renaming or deleting one silently revokes
+| access. What it grants is the product team's to change whenever they like,
+| which is the whole point of the roles page.
 |
 */
 
-it('refuses to edit or delete a built-in role, even for platform staff', function (RoleEnum $roleEnum): void {
-    enterPlatformPanel();
+it('lets the product team edit a built-in role but never delete it', function (RoleEnum $roleEnum): void {
+    enterProductTeamPanel();
 
     $role = Role::findByName($roleEnum->value);
 
     expect($role->isBuiltIn())->toBeTrue()
-        ->and(RoleResource::canEdit($role))->toBeFalse()
+        ->and(RoleResource::canEdit($role))->toBeTrue()
         ->and(RoleResource::canDelete($role))->toBeFalse();
 })->with(RoleEnum::cases());
 
+it('changes what a built-in role grants, and keeps the change', function (): void {
+    $role = Role::findByName(RoleEnum::Staff->value);
+    $menuManage = Permission::query()->where('name', PermissionEnum::MenuManage->value)->sole();
+    $menuView = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->fillForm([RoleForm::statePathFor(PermissionGroup::Menu) => [$menuView->getKey(), $menuManage->getKey()]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($role->refresh()->hasPermissionTo(PermissionEnum::MenuManage->value))->toBeTrue();
+
+    // Re-seeding must not undo it: the enum is a starting point, and after the
+    // first run what a role grants belongs to the product team.
+    $this->seed(RolesAndPermissionsSeeder::class);
+
+    expect($role->refresh()->hasPermissionTo(PermissionEnum::MenuManage->value))->toBeTrue();
+});
+
+it('locks the name of a built-in role in the form', function (): void {
+    $role = Role::findByName(RoleEnum::Admin->value);
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->assertFormFieldDisabled('name');
+});
+
+it('leaves the name of a custom role editable', function (): void {
+    $role = Role::factory()->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditRole::class, ['record' => $role->getKey()])
+        ->assertFormFieldEnabled('name');
+});
+
 it('allows editing and deleting a custom role', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     $role = Role::factory()->create();
 
@@ -176,22 +572,22 @@ it('allows editing and deleting a custom role', function (): void {
         ->and(RoleResource::canDelete($role))->toBeTrue();
 });
 
-it('offers no edit or delete button against a built-in role', function (RoleEnum $roleEnum): void {
-    enterPlatformPanel();
+it('offers edit but not delete against a built-in role', function (RoleEnum $roleEnum): void {
+    enterProductTeamPanel();
 
     $role = Role::findByName($roleEnum->value);
 
     // Filament authorises a record action against the policy, which
-    // Gate::before answers for a super admin, so without an explicit check the
-    // buttons would render and then land on a 403.
+    // Gate::before answers for a super admin, so without the explicit check on
+    // the resource the delete button would render and then land on a 403.
     Livewire::test(ListRoles::class)
-        ->assertTableActionHidden('edit', $role)
+        ->assertTableActionVisible('edit', $role)
         ->assertTableActionHidden('delete', $role)
         ->assertTableActionVisible('view', $role);
 })->with(RoleEnum::cases());
 
 it('offers edit and delete against a custom role', function (): void {
-    enterPlatformPanel();
+    enterProductTeamPanel();
 
     $role = Role::factory()->create();
 
@@ -200,13 +596,13 @@ it('offers edit and delete against a custom role', function (): void {
         ->assertTableActionVisible('delete', $role);
 });
 
-it('closes the edit page for a built-in role', function (): void {
+it('opens the edit page for a built-in role', function (): void {
     $user = User::factory()->superAdmin()->create();
     $role = Role::findByName(RoleEnum::Admin->value);
 
     $this->actingAs($user)
         ->get("http://restaurant-app.test/super-admin/roles/{$role->getKey()}/edit")
-        ->assertForbidden();
+        ->assertOk();
 });
 
 it('still shows a built-in role read only', function (): void {
@@ -243,7 +639,7 @@ it('refuses to delete a built-in role from anywhere', function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('withholds any role carrying a platform permission from restaurants', function (): void {
+it('withholds any role carrying a product team permission from restaurants', function (): void {
     $platformRole = Role::factory()->create();
     $platformRole->givePermissionTo(PermissionEnum::RestaurantManage->value);
 

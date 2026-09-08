@@ -17,12 +17,12 @@ beforeEach(function (): void {
 |--------------------------------------------------------------------------
 |
 | Both panels live at /admin and are told apart only by host, so these tests
-| pin the behaviour that the root domain reaches the platform panel and a
+| pin the behaviour that the root domain reaches the product team panel and a
 | restaurant subdomain reaches that restaurant's panel.
 |
 */
 
-it('serves the platform panel on the root domain', function (): void {
+it('serves the product team panel on the root domain', function (): void {
     $this->get('http://restaurant-app.test/super-admin/login')
         ->assertOk()
         ->assertSee('Restaurant Platform');
@@ -32,12 +32,12 @@ it('serves each panel from the path its enum declares', function (AdminPanel $pa
     expect(Filament::getPanel($panel->value)->getPath())->toBe($panel->path());
 })->with(AdminPanel::cases());
 
-it('keeps the platform panel off the restaurant panel path', function (): void {
+it('keeps the product team panel off the restaurant panel path', function (): void {
     $this->get('http://restaurant-app.test/super-admin/restaurants')
         ->assertRedirect('http://restaurant-app.test/super-admin/login');
 });
 
-it('does not serve the platform panel from a restaurant subdomain', function (): void {
+it('does not serve the product team panel from a restaurant subdomain', function (): void {
     Restaurant::factory()->create(['slug' => 't1']);
 
     $this->get('http://t1.restaurant-app.test/super-admin/login')->assertNotFound();
@@ -64,7 +64,7 @@ it('keeps the two panels on separate hosts and paths', function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('lets a super admin into the platform panel', function (): void {
+it('lets a super admin into the product team panel', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
@@ -72,7 +72,7 @@ it('lets a super admin into the platform panel', function (): void {
         ->assertOk();
 });
 
-it('gates the platform panel on the is_super_admin column alone', function (): void {
+it('gates the product team panel on the is_super_admin column alone', function (): void {
     $user = User::factory()->create();
 
     // Every restaurant role there is, and still no way in.
@@ -91,7 +91,7 @@ it('gates the platform panel on the is_super_admin column alone', function (): v
         ->assertOk();
 });
 
-it('keeps a restaurant admin out of the platform panel', function (): void {
+it('keeps a restaurant admin out of the product team panel', function (): void {
     $restaurant = Restaurant::factory()->create(['slug' => 't1']);
     $user = User::factory()->create();
     $user->restaurants()->attach($restaurant);

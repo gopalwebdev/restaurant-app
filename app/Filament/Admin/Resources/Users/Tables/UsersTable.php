@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use LogicException;
@@ -20,11 +21,14 @@ class UsersTable
         return $table
             ->columns([
                 TextColumn::make('name')
+                    ->icon(Heroicon::OutlinedUser)
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('email')
                     ->label('Email address')
-                    ->searchable(),
+                    ->icon(Heroicon::OutlinedEnvelope)
+                    ->searchable()
+                    ->copyable(),
                 TextColumn::make('roles.name')
                     ->label('Roles')
                     ->badge()
@@ -36,13 +40,16 @@ class UsersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->iconButton()
+                    ->icon(Heroicon::OutlinedPencilSquare),
 
                 // Not a delete: the account is platform-wide and may staff
                 // other restaurants, so this only takes them off this roster.
                 Action::make('removeFromRestaurant')
                     ->label('Remove')
-                    ->icon('heroicon-o-user-minus')
+                    ->iconButton()
+                    ->icon(Heroicon::OutlinedUserMinus)
                     ->color('danger')
                     ->authorize('removeFromRestaurant')
                     ->requiresConfirmation()
