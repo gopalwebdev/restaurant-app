@@ -24,7 +24,7 @@ Any text a guest reads is a `json` column holding one key per App\Enums\Locale c
 Put the constraint on the fallback language instead, with a raw statement, because Blueprint cannot express an expression index:
 
 ```php
-DB::statement("CREATE UNIQUE INDEX menus_restaurant_id_name_en_unique ON menus (restaurant_id, (name ->> 'en'))");
+DB::statement("CREATE UNIQUE INDEX menus_tenant_id_name_en_unique ON menus (tenant_id, (name ->> 'en'))");
 ```
 
 Verified identical on the Postgres of development and the SQLite the test suite runs on. Two ordering rules that follow from it: convert values to JSON text **while the column is still text**, because Postgres will not cast `Starters` to json, and create the index **after** the type change, because changing a column's type rebuilds the table on SQLite and an index built beforehand would not survive it. `translate_menu_names_and_descriptions` does both in that order and its `down()` mirrors them.

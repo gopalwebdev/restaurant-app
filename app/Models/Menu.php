@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * App\Enums\Locale case. See App\Models\Concerns\HasTranslatedNames.
  *
  * @property int $id
- * @property int $restaurant_id
+ * @property int $tenant_id
  * @property string $name
  * @property string|null $description
  * @property int $position
@@ -64,7 +64,7 @@ class Menu extends Model
      */
     public function restaurant(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
     }
 
     /**

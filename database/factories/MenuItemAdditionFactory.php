@@ -29,9 +29,9 @@ class MenuItemAdditionFactory extends Factory
 
         return [
             'menu_item_id' => $item,
-            'restaurant_id' => fn (array $attributes): int => MenuItem::query()
+            'tenant_id' => fn (array $attributes): int => MenuItem::query()
                 ->whereKey($attributes['menu_item_id'])
-                ->value('restaurant_id'),
+                ->value('tenant_id'),
             'name' => [Locale::English->value => $name],
             'price_minor_units' => fake()->numberBetween(0, 10000),
             'is_available' => true,
@@ -46,7 +46,7 @@ class MenuItemAdditionFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'menu_item_id' => $item->getKey(),
-            'restaurant_id' => $item->restaurant_id,
+            'tenant_id' => $item->tenant_id,
         ]);
     }
 

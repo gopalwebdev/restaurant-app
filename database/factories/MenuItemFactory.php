@@ -26,9 +26,9 @@ class MenuItemFactory extends Factory
 
         return [
             'menu_category_id' => $category,
-            'restaurant_id' => fn (array $attributes): int => MenuCategory::query()
+            'tenant_id' => fn (array $attributes): int => MenuCategory::query()
                 ->whereKey($attributes['menu_category_id'])
-                ->value('restaurant_id'),
+                ->value('tenant_id'),
             'name' => [$english => ucfirst(fake()->unique()->word()).' '.fake()->unique()->numberBetween(1, 9999)],
             'description' => [$english => fake()->sentence()],
             'price_minor_units' => fake()->numberBetween(5000, 90000),
@@ -45,7 +45,7 @@ class MenuItemFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'menu_category_id' => $category->getKey(),
-            'restaurant_id' => $category->restaurant_id,
+            'tenant_id' => $category->tenant_id,
         ]);
     }
 

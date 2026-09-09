@@ -18,12 +18,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Categories are ordered by hand rather than alphabetically, because a menu is
  * read in the order the restaurant means it to be read.
  *
- * menu_id is carried alongside restaurant_id and the pair is a composite
+ * menu_id is carried alongside tenant_id and the pair is a composite
  * foreign key into menus, so a section can never end up under another
  * restaurant's menu. The name is translated — see HasTranslatedNames.
  *
  * @property int $id
- * @property int $restaurant_id
+ * @property int $tenant_id
  * @property int $menu_id
  * @property-read Menu $menu
  * @property string $name
@@ -63,7 +63,7 @@ class MenuCategory extends Model
      */
     public function restaurant(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
     }
 
     /**

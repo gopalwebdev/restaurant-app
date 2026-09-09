@@ -32,7 +32,7 @@ class HomeController extends Controller
         // timestamps and foreign keys nobody renders.
         $menus = Menu::query()
             ->select(['id', 'name', 'is_active'])
-            ->where('restaurant_id', $restaurant->getKey())
+            ->where('tenant_id', $restaurant->getKey())
             ->with(['menuCategories' => fn ($categories) => $categories
                 ->select(['id', 'menu_id', 'name'])
                 ->with(['menuItems' => fn ($items) => $items

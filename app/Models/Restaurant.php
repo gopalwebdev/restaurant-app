@@ -64,7 +64,12 @@ class Restaurant extends Model
      */
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        // Every foreign key to a restaurant is named tenant_id rather than the
+        // restaurant_id Laravel would infer from this model, so each of these
+        // relationships names its own key. One word for the tenant boundary,
+        // whichever table is carrying it — see .ai/rules/models.md.
+        return $this->belongsToMany(User::class, 'restaurant_user', 'tenant_id', 'user_id')
+            ->withTimestamps();
     }
 
     /**
@@ -74,7 +79,7 @@ class Restaurant extends Model
      */
     public function settings(): HasOne
     {
-        return $this->hasOne(RestaurantSetting::class);
+        return $this->hasOne(RestaurantSetting::class, 'tenant_id');
     }
 
     /**
@@ -84,7 +89,7 @@ class Restaurant extends Model
      */
     public function menus(): HasMany
     {
-        return $this->hasMany(Menu::class);
+        return $this->hasMany(Menu::class, 'tenant_id');
     }
 
     /**
@@ -94,7 +99,7 @@ class Restaurant extends Model
      */
     public function homeTiles(): HasMany
     {
-        return $this->hasMany(HomeTile::class);
+        return $this->hasMany(HomeTile::class, 'tenant_id');
     }
 
     /**
@@ -164,7 +169,7 @@ class Restaurant extends Model
         }
 
         $stored = RestaurantSetting::query()
-            ->where('restaurant_id', $this->getKey())
+            ->where('tenant_id', $this->getKey())
             ->value('currency');
 
         return $stored instanceof Currency ? $stored : Currency::IndianRupee;
@@ -186,7 +191,7 @@ class Restaurant extends Model
         }
 
         return (bool) RestaurantSetting::query()
-            ->where('restaurant_id', $this->getKey())
+            ->where('tenant_id', $this->getKey())
             ->value('accepts_orders');
     }
 

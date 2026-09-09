@@ -17,7 +17,9 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Actions/Otp/** | .ai/rules/otp.md |
 | app/Policies/** | .ai/rules/policies.md |
 | app/Providers/Filament/*.php, app/Providers/Filament/AdminPanelProvider.php | .ai/rules/providers-filament.md |
+| app/Filament/SuperAdmin/Resources/Restaurants/** | .ai/rules/resources-restaurants.md |
 | app/Actions/Restaurants/** | .ai/rules/restaurants.md |
 | routes/** | .ai/rules/routes.md |
 | app/Filament/**/Tables/*.php | .ai/rules/tables.md |
+| app/Filament/SuperAdmin/Resources/Users/** | .ai/rules/users.md |
 | resources/views/** | .ai/rules/views.md |

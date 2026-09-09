@@ -13,10 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * How one restaurant is configured.
  *
- * Exactly one row per restaurant, enforced by a unique key on restaurant_id.
+ * Exactly one row per restaurant, enforced by a unique key on tenant_id.
  *
  * @property int $id
- * @property int $restaurant_id
+ * @property int $tenant_id
  * @property string|null $contact_email
  * @property string|null $contact_phone
  * @property Currency $currency
@@ -46,7 +46,7 @@ class RestaurantSetting extends Model
      */
     public function restaurant(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
     }
 
     /**

@@ -250,7 +250,7 @@ class MenuItemForm
     public static function sectionOptions(): array
     {
         return MenuCategory::query()
-            ->where('restaurant_id', self::tenantKey())
+            ->where('tenant_id', self::tenantKey())
             ->with('menu')
             ->inMenuOrder()
             ->get()

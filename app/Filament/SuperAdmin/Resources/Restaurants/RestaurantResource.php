@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources\Restaurants;
 use App\Filament\SuperAdmin\Resources\Restaurants\Pages\CreateRestaurant;
 use App\Filament\SuperAdmin\Resources\Restaurants\Pages\EditRestaurant;
 use App\Filament\SuperAdmin\Resources\Restaurants\Pages\ListRestaurants;
+use App\Filament\SuperAdmin\Resources\Restaurants\RelationManagers\UsersRelationManager;
 use App\Filament\SuperAdmin\Resources\Restaurants\Schemas\RestaurantForm;
 use App\Filament\SuperAdmin\Resources\Restaurants\Tables\RestaurantsTable;
 use App\Models\Restaurant;
@@ -30,10 +31,13 @@ class RestaurantResource extends Resource
         return RestaurantsTable::configure($table);
     }
 
+    /**
+     * The roster sits under the restaurant's own record, below its form.
+     */
     public static function getRelations(): array
     {
         return [
-            //
+            UsersRelationManager::class,
         ];
     }
 

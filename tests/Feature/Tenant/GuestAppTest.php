@@ -30,7 +30,7 @@ function guestMenuUrl(Restaurant $restaurant, Menu $menu): string
  */
 function seedOneDish(Restaurant $restaurant): array
 {
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
     $item = MenuItem::factory()->inCategory($category)->create();
 
@@ -55,7 +55,7 @@ it('serves the menu with no sign-in', function (): void {
 
 it('leaves out what a guest cannot order', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     $showing = MenuCategory::factory()->inMenu($menu)->create();
     $hidden = MenuCategory::factory()->inMenu($menu)->hidden()->create();
@@ -80,7 +80,7 @@ it('leaves out what a guest cannot order', function (): void {
 
 it('takes a whole hidden menu down, sections and dishes with it', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->hidden()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->hidden()->create(['tenant_id' => $restaurant->getKey()]);
     MenuItem::factory()->inCategory(MenuCategory::factory()->inMenu($menu)->create())->create();
 
     $this->get(guestMenuUrl($restaurant, $menu))->assertNotFound();

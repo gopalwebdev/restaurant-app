@@ -20,7 +20,7 @@ class RestaurantSettingFactory extends Factory
     public function definition(): array
     {
         return [
-            'restaurant_id' => Restaurant::factory(),
+            'tenant_id' => Restaurant::factory(),
             'contact_email' => fake()->unique()->companyEmail(),
             'contact_phone' => fake()->numerify('+91 ##### #####'),
             'currency' => Currency::IndianRupee,

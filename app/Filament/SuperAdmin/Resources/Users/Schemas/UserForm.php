@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -51,6 +52,12 @@ class UserForm
                         // edit pages hand the id to an action that writes the
                         // column and the restaurant roster together, and a
                         // bound relationship would write the column on its own.
+                        //
+                        // Where an account belongs is settled when it is opened.
+                        // Moving one to another restaurant would carry its roles
+                        // across with it, and moving one to the product team
+                        // would hand the whole platform to a single restaurant's
+                        // admin — so it is offered once and read-only after.
                         Select::make('tenant_id')
                             ->label('Restaurant')
                             ->options(fn (): array => Restaurant::query()
@@ -58,16 +65,23 @@ class UserForm
                                 ->pluck('name', 'id')
                                 ->all())
                             ->searchable()
+                            ->live()
                             ->placeholder('Product team — no restaurant')
                             ->prefixIcon(Heroicon::OutlinedBuildingStorefront)
-                            ->helperText('Leave empty for the product team. Setting it also puts them on that restaurant\'s roster.'),
+                            ->disabled(fn (?User $record): bool => $record instanceof User)
+                            ->dehydrated(fn (?User $record): bool => ! $record instanceof User)
+                            ->helperText(fn (?User $record): string => $record instanceof User
+                                ? 'Settled when the account was opened. An account never moves between restaurants, or to the product team.'
+                                : 'Leave empty for the product team. Setting it also puts them on that restaurant\'s roster, and cannot be changed later.'),
 
                         Toggle::make('is_super_admin')
                             ->label('The product team')
                             ->inline(false)
-                            ->helperText('Grants every permission on every restaurant. This, not an empty restaurant, is what makes a super admin.')
-                            ->disabled(fn (?User $record): bool => Filament::auth()->user()?->is($record) ?? false)
-                            ->dehydrated(fn (?User $record): bool => ! (Filament::auth()->user()?->is($record) ?? false)),
+                            ->disabled(fn (?User $record, Get $get): bool => self::isSignedInUser($record) || filled($get('tenant_id')))
+                            ->dehydrated(fn (?User $record, Get $get): bool => ! self::isSignedInUser($record) && blank($get('tenant_id')))
+                            ->helperText(fn (Get $get): string => filled($get('tenant_id'))
+                                ? 'Not available to an account that belongs to a restaurant — the product team belong to no restaurant at all.'
+                                : 'Grants every permission on every restaurant. This, not an empty restaurant, is what makes a super admin.'),
                     ])
                     ->columns(2),
 
@@ -91,5 +105,16 @@ class UserForm
                             ->helperText('Roles are held per account, not per restaurant: someone staffing two restaurants carries these at both.'),
                     ]),
             ]);
+    }
+
+    /**
+     * Whether this is the account of whoever is looking at the form.
+     *
+     * Nobody takes their own product team badge off: it is the one change
+     * that can lock the last super admin out of the platform.
+     */
+    private static function isSignedInUser(?User $record): bool
+    {
+        return Filament::auth()->user()?->is($record) ?? false;
     }
 }

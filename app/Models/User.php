@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use LogicException;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -52,6 +53,29 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     ];
 
     /**
+     * An account belongs to a restaurant or to the product team, never both.
+     *
+     * The product team hold every permission on every restaurant, so letting
+     * one restaurant's own account cross over would hand it the platform —
+     * and the two columns are read independently everywhere else, which is
+     * exactly why the combination has to be refused in one place rather than
+     * guarded at each call site.
+     *
+     * UserForm states the same rule as a disabled toggle, so the panel never
+     * offers this; reaching it means something went around the resource.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $user): void {
+            throw_if(
+                $user->is_super_admin && $user->tenant_id !== null,
+                LogicException::class,
+                'An account that belongs to a restaurant may not be on the product team.',
+            );
+        });
+    }
+
+    /**
      * The restaurant this account belongs to, if any.
      *
      * The product team belong to none, so this is null for them. It is not what
@@ -72,7 +96,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
      */
     public function restaurants(): BelongsToMany
     {
-        return $this->belongsToMany(Restaurant::class)->withTimestamps();
+        return $this->belongsToMany(Restaurant::class, 'restaurant_user', 'user_id', 'tenant_id')->withTimestamps();
     }
 
     /**

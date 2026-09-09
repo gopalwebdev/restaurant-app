@@ -25,7 +25,7 @@ class MenuFactory extends Factory
         // state of a restaurant that has just been onboarded, and the guest app
         // has to read correctly in that state.
         return [
-            'restaurant_id' => Restaurant::factory(),
+            'tenant_id' => Restaurant::factory(),
             'name' => [Locale::English->value => $name],
             'description' => null,
             'position' => fake()->numberBetween(0, 20),

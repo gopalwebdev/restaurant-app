@@ -19,12 +19,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * money column here. Zero is a real price — "no onions" costs nothing and is
  * still worth listing.
  *
- * restaurant_id is carried directly as well as through the dish, and the
- * composite foreign key on (menu_item_id, restaurant_id) is what stops the two
+ * tenant_id is carried directly as well as through the dish, and the
+ * composite foreign key on (menu_item_id, tenant_id) is what stops the two
  * disagreeing. Same shape as menu_items; see .ai/rules/models.md.
  *
  * @property int $id
- * @property int $restaurant_id
+ * @property int $tenant_id
  * @property int $menu_item_id
  * @property string $name
  * @property int $price_minor_units
@@ -67,14 +67,14 @@ class MenuItemAddition extends Model
     protected static function booted(): void
     {
         static::creating(function (self $addition): void {
-            if (filled($addition->restaurant_id) || blank($addition->menu_item_id)) {
+            if (filled($addition->tenant_id) || blank($addition->menu_item_id)) {
                 return;
             }
 
-            $addition->restaurant_id = MenuItem::query()
+            $addition->tenant_id = MenuItem::query()
                 ->withoutGlobalScopes()
                 ->whereKey($addition->menu_item_id)
-                ->value('restaurant_id');
+                ->value('tenant_id');
         });
     }
 
@@ -85,7 +85,7 @@ class MenuItemAddition extends Model
      */
     public function restaurant(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
     }
 
     /**

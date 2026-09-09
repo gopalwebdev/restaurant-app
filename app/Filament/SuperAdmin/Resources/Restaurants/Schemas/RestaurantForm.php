@@ -13,20 +13,29 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 
 class RestaurantForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // One column of full-width sections, read top to bottom in the order a
+        // restaurant is actually set up: what it is called, how big its roster
+        // may get, where it trades, and how to reach it. A two-column grid of
+        // sections put the address beside the name, which read as two unrelated
+        // starting points rather than one sequence.
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Identity')
                     ->description('What this restaurant is called, and where it is served from.')
+                    ->icon(Heroicon::OutlinedBuildingStorefront)
                     ->schema([
                         TextInput::make('name')
                             ->required()
                             ->maxLength(255)
+                            ->prefixIcon(Heroicon::OutlinedBuildingStorefront)
                             ->live(onBlur: true)
                             ->afterStateUpdated(function (?string $state, Set $set): void {
                                 $set('slug', Str::slug((string) $state));
@@ -40,7 +49,9 @@ class RestaurantForm
                             ->maxLength(63)
                             ->unique(ignoreRecord: true)
                             ->rule('regex:/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/')
-                            ->helperText(fn (): string => 'Served at '.config('app.domain').' as <subdomain>.'.config('app.domain'))
+                            ->prefixIcon(Heroicon::OutlinedGlobeAlt)
+                            ->suffix(fn (): string => '.'.config('app.domain'))
+                            ->helperText('Lowercase letters, numbers and hyphens. This becomes the address guests scan into.')
                             ->validationMessages([
                                 'regex' => 'Use lowercase letters, numbers and hyphens only.',
                             ]),
@@ -48,27 +59,14 @@ class RestaurantForm
                         Toggle::make('is_active')
                             ->label('Open for business')
                             ->default(true)
-                            ->helperText('Turning this off takes the storefront offline.')
-                            ->columnSpanFull(),
+                            ->inline(false)
+                            ->helperText('Turning this off takes the storefront offline.'),
                     ])
-                    ->columns(2),
-
-                Section::make('Where it trades')
-                    ->schema([
-                        TextInput::make('address')
-                            ->required()
-                            ->maxLength(255)
-                            ->columnSpanFull(),
-
-                        TextInput::make('pincode')
-                            ->label('Pincode')
-                            ->required()
-                            ->maxLength(16),
-                    ])
-                    ->columns(2),
+                    ->columns(3),
 
                 Section::make('Limits')
-                    ->description('How many accounts may hold each role here.')
+                    ->description('How many accounts may hold each role here. A super admin sets these; the restaurant cannot raise its own.')
+                    ->icon(Heroicon::OutlinedUserGroup)
                     ->schema([
                         TextInput::make('max_admins')
                             ->label('Max admins')
@@ -92,11 +90,29 @@ class RestaurantForm
                     ])
                     ->columns(2),
 
+                Section::make('Where it trades')
+                    ->description('The address of the business itself.')
+                    ->icon(Heroicon::OutlinedMapPin)
+                    ->schema([
+                        TextInput::make('address')
+                            ->required()
+                            ->maxLength(255)
+                            ->prefixIcon(Heroicon::OutlinedMapPin)
+                            ->columnSpan(2),
+
+                        TextInput::make('pincode')
+                            ->label('Pincode')
+                            ->required()
+                            ->maxLength(16),
+                    ])
+                    ->columns(3),
+
                 // The platform's own record of how to reach whoever runs this
                 // restaurant. What guests see is on the restaurant's settings
                 // page, which the restaurant edits itself.
                 Section::make('How the platform reaches them')
                     ->description('Not shown to guests: the storefront contact details are on the restaurant’s own settings page.')
+                    ->icon(Heroicon::OutlinedPhone)
                     ->schema([
                         TextInput::make('email')
                             ->label('Email')

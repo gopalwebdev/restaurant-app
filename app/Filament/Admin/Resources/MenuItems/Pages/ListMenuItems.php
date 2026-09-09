@@ -48,7 +48,7 @@ class ListMenuItems extends ListRecords
     private function hasAnyCategory(): bool
     {
         return MenuCategory::query()
-            ->where('restaurant_id', Filament::getTenant()?->getKey())
+            ->where('tenant_id', Filament::getTenant()?->getKey())
             ->exists();
     }
 }

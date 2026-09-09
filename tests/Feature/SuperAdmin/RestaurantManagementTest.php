@@ -6,7 +6,9 @@ use App\Enums\Role;
 use App\Filament\SuperAdmin\Resources\Restaurants\Pages\CreateRestaurant;
 use App\Filament\SuperAdmin\Resources\Restaurants\Pages\EditRestaurant;
 use App\Filament\SuperAdmin\Resources\Restaurants\Pages\ListRestaurants;
+use App\Filament\SuperAdmin\Resources\Restaurants\RelationManagers\UsersRelationManager;
 use App\Filament\SuperAdmin\Resources\Restaurants\RestaurantResource;
+use App\Filament\SuperAdmin\Resources\Users\UserResource;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -343,6 +345,59 @@ it('deletes a restaurant', function (): void {
 | whenever a role is actually granted.
 |
 */
+
+it('sends a newly created restaurant straight on to creating its admin', function (): void {
+    enterProductTeamPanel();
+
+    // A restaurant with nobody on its roster cannot be opened by anyone, so
+    // creating one leads into the account form rather than back to the list —
+    // with the restaurant and the role it needs already chosen.
+    Livewire::test(CreateRestaurant::class)
+        ->fillForm([
+            'name' => 'Corner Cafe',
+            'slug' => 'corner',
+            'address' => '3 Beach Road, Chennai',
+            'pincode' => '600001',
+            'phone' => '9000000000',
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors()
+        ->assertRedirect(UserResource::getUrl('create', [
+            'tenant_id' => Restaurant::query()->where('slug', 'corner')->value('id'),
+            'role' => Role::Admin->value,
+        ]));
+});
+
+it('serves the restaurant edit page with its roster attached', function (): void {
+    $restaurant = Restaurant::factory()->create(['slug' => 'spice']);
+    User::factory()->ofRestaurant($restaurant)->create();
+
+    // The roster itself is a lazily loaded Livewire component, so its rows are
+    // not in this response — what this pins is that registering it has not
+    // broken the page it hangs under. Its contents are covered below.
+    $this->actingAs(User::factory()->superAdmin()->create())
+        ->get(RestaurantResource::getUrl('edit', ['record' => $restaurant]))
+        ->assertOk();
+
+    expect(RestaurantResource::getRelations())->toContain(UsersRelationManager::class);
+});
+
+it('lists the roster under the restaurant\'s own record', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $other = Restaurant::factory()->create();
+
+    $onTheRoster = User::factory()->ofRestaurant($restaurant)->create();
+    $elsewhere = User::factory()->ofRestaurant($other)->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(UsersRelationManager::class, [
+        'ownerRecord' => $restaurant,
+        'pageClass' => EditRestaurant::class,
+    ])
+        ->assertCanSeeTableRecords([$onTheRoster])
+        ->assertCanNotSeeTableRecords([$elsewhere]);
+});
 
 it('sets a restaurant\'s admin and staff limits', function (): void {
     $restaurant = Restaurant::factory()->create();

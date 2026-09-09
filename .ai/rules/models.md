@@ -33,14 +33,14 @@ The restaurant_user pivot still exists alongside it: tenant_id is the one restau
 
 The `deleting` hooks deliberately do **not** use those helpers: they call `users()->exists()` / `permissions()->exists()` / `roles()->exists()` directly. A count loaded when a page rendered is right for deciding what to show and wrong for deciding what to destroy.
 
-## Every level of the menu carries restaurant_id, enforced by composite foreign keys
-The menu is four levels — `menus` → `menu_categories` → `menu_items` → `menu_item_additions` — and every one of them carries `restaurant_id` directly as well as reaching it through its parent. `home_tiles` does the same for the menu it opens.
+## Every level of the menu carries tenant_id, enforced by composite foreign keys
+The menu is four levels — `menus` → `menu_categories` → `menu_items` → `menu_item_additions` — and every one of them carries `tenant_id` directly as well as reaching it through its parent. `home_tiles` does the same for the menu it opens.
 
-That duplication is deliberate and safe: each table has a unique `(id, restaurant_id)`, and its child has a **composite** foreign key on `(parent_id, restaurant_id)` referencing the pair. Filing a section under another restaurant's menu, a dish under another restaurant's section, or an addition on another restaurant's dish is therefore a database error, not something a forgotten `where()` can let through. Every one of those is pinned by a test in `tests/Feature/Admin/MenuManagementTest.php`.
+That duplication is deliberate and safe: each table has a unique `(id, tenant_id)`, and its child has a **composite** foreign key on `(parent_id, tenant_id)` referencing the pair. Filing a section under another restaurant's menu, a dish under another restaurant's section, or an addition on another restaurant's dish is therefore a database error, not something a forgotten `where()` can let through. Every one of those is pinned by a test in `tests/Feature/Admin/MenuManagementTest.php`.
 
-Keep both columns in step when writing rows. The factories exist for exactly this — `MenuCategoryFactory::inMenu()`, `MenuItemFactory::inCategory()`, `MenuItemAdditionFactory::onItem()`, `HomeTileFactory::openingMenu()` — and setting the two halves independently trips the key. `MenuItemAddition::booted()` derives `restaurant_id` from its dish, because Filament's tenancy stamps the model a resource is saving but not the rows a repeater writes alongside it.
+Keep both columns in step when writing rows. The factories exist for exactly this — `MenuCategoryFactory::inMenu()`, `MenuItemFactory::inCategory()`, `MenuItemAdditionFactory::onItem()`, `HomeTileFactory::openingMenu()` — and setting the two halves independently trips the key. `MenuItemAddition::booted()` derives `tenant_id` from its dish, because Filament's tenancy stamps the model a resource is saving but not the rows a repeater writes alongside it.
 
-A booted Filament panel stamps `restaurant_id` on **every** model created during the request, so a factory that picks its own restaurant will now trip these keys. Create fixtures before `enterRestaurantPanel()`, or name the parent explicitly.
+A booted Filament panel stamps `tenant_id` on **every** model created during the request, so a factory that picks its own restaurant will now trip these keys. Create fixtures before `enterRestaurantPanel()`, or name the parent explicitly.
 
 Never resolve an item's currency through `$item->restaurant->settings`: that is a lazy load, which `Model::shouldBeStrict()` throws on outside production and which is an N+1 down a list of dishes. Use `MenuItem::currency()`, or better, pass the currency into `formattedPrice()` once for the whole list — every dish on a menu shares one.
 
@@ -60,3 +60,10 @@ This would be a CHECK constraint if Laravel's Blueprint could express one and SQ
 `AppServiceProvider` calls `Date::use(CarbonImmutable::class)`, so every `@property` for `created_at` / `updated_at` says `CarbonImmutable`. A docblock saying `Carbon` is wrong and will have someone reaching for `->addDay()` expecting it to mutate.
 
 Money stays an integer all the way out of PHP. `MenuItem::formattedPrice()` exists for the Filament tables, which are server rendered; the guest and staff apps are sent `price_minor_units` and format it themselves — see `.ai/rules/js.md`. Do not add a `formattedX()` accessor for an Inertia payload.
+
+## The tenant foreign key is tenant_id on every table, so relationships name it
+Every foreign key pointing at `restaurants` is called `tenant_id` — users, menus, menu_categories, menu_items, menu_item_additions, home_tiles, restaurant_settings and the restaurant_user pivot. One word for the tenant boundary whichever table carries it, matching Filament's own tenancy vocabulary.
+
+The cost is that Laravel's convention would infer `restaurant_id` from `Restaurant::class`, so every relationship must name the key explicitly: `belongsTo(Restaurant::class, 'tenant_id')`, `hasMany(Menu::class, 'tenant_id')`, `belongsToMany(User::class, 'restaurant_user', 'tenant_id', 'user_id')`. A relationship added without it will silently query a column that does not exist.
+
+Relationship *names* are unchanged and still read `restaurant()` / `restaurants()` — Filament's `$tenantOwnershipRelationshipName` points at those, not at the column, which is why the rename did not touch panel tenancy. The generated constraint and index names still say `restaurant_id` (Postgres and SQLite carry a constraint's definition through a column rename but not its name); nothing queries by those names, and dropping the `(id, tenant_id)` uniques to rename them would take the composite foreign keys with them.

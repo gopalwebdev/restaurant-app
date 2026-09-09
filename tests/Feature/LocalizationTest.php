@@ -27,7 +27,7 @@ function seedBilingualMenu(): array
     $restaurant = Restaurant::factory()->create(['slug' => 'spice']);
 
     $menu = Menu::factory()->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
         'name' => ['en' => 'Dinner', 'ta' => 'இரவு உணவு'],
     ]);
 
@@ -78,7 +78,7 @@ it('answers in English when a visitor has chosen nothing', function (): void {
 it('falls back to English for a name that has no translation yet', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
         'name' => ['en' => 'Dinner'],
     ]);
     $item = MenuItem::factory()
@@ -147,7 +147,7 @@ it('answers in Tamil once the language has been chosen', function (): void {
 
 it('translates the tiles on the home screen too', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     HomeTile::factory()->openingMenu($menu)->create([
         'label' => ['en' => 'Our menu', 'ta' => 'எங்கள் மெனு'],
@@ -207,7 +207,7 @@ it('offers a language switcher in the product team panel', function (): void {
 it('translates the menu pages of the panel into the chosen language', function (): void {
     $restaurant = Restaurant::factory()->create();
     Menu::factory()->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
         'name' => ['en' => 'Dinner', 'ta' => 'இரவு உணவு'],
     ]);
     enterRestaurantPanel($restaurant, Role::Admin);

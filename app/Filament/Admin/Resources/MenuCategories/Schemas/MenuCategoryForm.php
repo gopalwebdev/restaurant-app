@@ -107,7 +107,7 @@ class MenuCategoryForm
     public static function menuOptions(): array
     {
         return Menu::query()
-            ->where('restaurant_id', Filament::getTenant()?->getKey())
+            ->where('tenant_id', Filament::getTenant()?->getKey())
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (Menu $menu): array => [$menu->getKey() => $menu->name])

@@ -17,7 +17,7 @@ use Filament\Tables\Table;
  *
  * Scoping is Filament's: the panel has a tenant, so every query here is limited
  * to the restaurant in the subdomain and new rows are stamped with it. The
- * composite foreign key on (menu_category_id, restaurant_id) is the second
+ * composite foreign key on (menu_category_id, tenant_id) is the second
  * half of that — even a tampered form cannot file an item under another
  * restaurant's section, because the database refuses the row.
  *

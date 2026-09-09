@@ -13,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UsersTable
 {
@@ -35,7 +36,7 @@ class UsersTable
                 // where the account belongs, not what it may do — the badge
                 // beside it answers that.
                 TextColumn::make('tenant.name')
-                    ->label('Tenant')
+                    ->label('Restaurant')
                     ->icon(Heroicon::OutlinedBuildingStorefront)
                     ->badge()
                     ->color('gray')
@@ -62,6 +63,23 @@ class UsersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // Where an account belongs, which is the tenant column alone —
+                // not what it may do. An ordinary account waiting to be put on
+                // a roster has no restaurant either, so this reads "belongs to
+                // the platform", and the product team filter below is the
+                // separate question of what someone holds.
+                SelectFilter::make('belongs_to')
+                    ->label('Belongs to')
+                    ->options([
+                        'restaurant' => 'A restaurant',
+                        'product_team' => 'The product team',
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        'restaurant' => $query->whereNotNull('tenant_id'),
+                        'product_team' => $query->whereNull('tenant_id'),
+                        default => $query,
+                    }),
+
                 SelectFilter::make('tenant_id')
                     ->label('Restaurant')
                     ->relationship('tenant', 'name')
@@ -69,7 +87,7 @@ class UsersTable
                     ->preload(),
 
                 TernaryFilter::make('is_super_admin')
-                    ->label('The product team'),
+                    ->label('Holds product team access'),
 
                 SelectFilter::make('roles')
                     ->label('Role')
@@ -77,6 +95,7 @@ class UsersTable
                     ->multiple()
                     ->preload(),
             ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 ViewAction::make()
                     ->iconButton()

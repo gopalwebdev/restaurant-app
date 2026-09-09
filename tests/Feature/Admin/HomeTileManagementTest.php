@@ -46,7 +46,7 @@ function tileLabelled(string $label): HomeTile
 it('lets a restaurant admin arrange the home screen', function (): void {
     $restaurant = Restaurant::factory()->create();
     $tile = HomeTile::factory()
-        ->openingMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->openingMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
 
     $admin = enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -63,7 +63,7 @@ it('lets a restaurant admin arrange the home screen', function (): void {
 it('lets staff see the home screen but not rearrange it', function (): void {
     $restaurant = Restaurant::factory()->create();
     $tile = HomeTile::factory()
-        ->openingMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->openingMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
 
     $staff = enterRestaurantPanel($restaurant, RoleEnum::Staff);
@@ -90,7 +90,7 @@ it('keeps someone with no role off the home screen page', function (): void {
 
 it('creates a tile that opens one of this restaurant\'s menus', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -107,7 +107,7 @@ it('creates a tile that opens one of this restaurant\'s menus', function (): voi
 
     $tile = tileLabelled('Our menu');
 
-    expect($tile->restaurant_id)->toBe($restaurant->getKey())
+    expect($tile->tenant_id)->toBe($restaurant->getKey())
         ->and($tile->action)->toBe(HomeTileAction::Menu)
         ->and($tile->menu_id)->toBe($menu->getKey())
         ->and($tile->document_path)->toBeNull()
@@ -148,7 +148,7 @@ it('stores a tile\'s picture on the private disk', function (): void {
     Storage::fake('local');
 
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -172,7 +172,7 @@ it('stores a tile\'s picture on the private disk', function (): void {
 
 it('lets a tile be created with no picture yet', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -194,7 +194,7 @@ it('lets a tile be created with no picture yet', function (): void {
 
 it('requires the label in the fallback language', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -218,7 +218,7 @@ it('requires the label in the fallback language', function (): void {
 
 it('refuses a menu tile with no menu chosen', function (): void {
     $restaurant = Restaurant::factory()->create();
-    Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -258,13 +258,13 @@ it('refuses to save a tile with no destination, whatever the form says', functio
         'label' => [Locale::English->value => 'Nowhere'],
         'action' => HomeTileAction::Menu,
         'shape' => HomeTileShape::Rectangle,
-    ])->forceFill(['restaurant_id' => $restaurant->getKey()])->save())
+    ])->forceFill(['tenant_id' => $restaurant->getKey()])->save())
         ->toThrow(LogicException::class);
 });
 
 it('clears the destination a tile no longer uses when its action changes', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $tile = HomeTile::factory()->openingMenu($menu)->create();
 
     // Switching to a PDF must not leave the old menu id behind, or the tile
@@ -286,7 +286,7 @@ it('clears the destination a tile no longer uses when its action changes', funct
 
 it('fills the edit form with every language, not just the current one', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $tile = HomeTile::factory()->openingMenu($menu)->create([
         'label' => [Locale::English->value => 'Our menu', Locale::Tamil->value => 'எங்கள் மெனு'],
     ]);
@@ -305,11 +305,11 @@ it('shows only this restaurant\'s tiles', function (): void {
     $theirs = Restaurant::factory()->create();
 
     $myTile = HomeTile::factory()
-        ->openingMenu(Menu::factory()->create(['restaurant_id' => $mine->getKey()]))
+        ->openingMenu(Menu::factory()->create(['tenant_id' => $mine->getKey()]))
         ->create();
 
     $theirTile = HomeTile::factory()
-        ->openingMenu(Menu::factory()->create(['restaurant_id' => $theirs->getKey()]))
+        ->openingMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))
         ->create();
 
     enterRestaurantPanel($mine, RoleEnum::Admin);
@@ -321,7 +321,7 @@ it('shows only this restaurant\'s tiles', function (): void {
 
 it('orders the tiles the way the home screen shows them', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     $last = HomeTile::factory()->openingMenu($menu)->create(['position' => 5]);
     $first = HomeTile::factory()->openingMenu($menu)->create(['position' => 1]);
@@ -334,7 +334,7 @@ it('orders the tiles the way the home screen shows them', function (): void {
 
 it('leaves a menu alone when a tile pointing at it is deleted', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $tile = HomeTile::factory()->openingMenu($menu)->create();
 
     $tile->delete();
@@ -344,7 +344,7 @@ it('leaves a menu alone when a tile pointing at it is deleted', function (): voi
 
 it('takes a restaurant\'s tiles with it when the menu they open is deleted', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $tile = HomeTile::factory()->openingMenu($menu)->create();
 
     // The cascade is deliberate: a tile whose menu is gone would open nothing.

@@ -36,7 +36,7 @@ class UserInfolist
                     ->icon(Heroicon::OutlinedBuildingOffice2)
                     ->schema([
                         TextEntry::make('tenant.name')
-                            ->label('Tenant')
+                            ->label('Restaurant')
                             ->badge()
                             ->color('gray')
                             ->placeholder('Product team — belongs to no restaurant'),

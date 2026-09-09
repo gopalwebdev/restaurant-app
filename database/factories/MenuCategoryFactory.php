@@ -25,12 +25,12 @@ class MenuCategoryFactory extends Factory
 
         return [
             // The restaurant is chosen first and the menu follows it, rather
-            // than the other way round, so that passing a restaurant_id — which
+            // than the other way round, so that passing a tenant_id — which
             // most tests do — cannot produce a menu at a different restaurant
             // and trip the composite foreign key.
-            'restaurant_id' => Restaurant::factory(),
+            'tenant_id' => Restaurant::factory(),
             'menu_id' => fn (array $attributes): int => Menu::factory()
-                ->create(['restaurant_id' => $attributes['restaurant_id']])
+                ->create(['tenant_id' => $attributes['tenant_id']])
                 ->getKey(),
             'name' => [Locale::English->value => $name],
             'position' => fake()->numberBetween(0, 20),
@@ -45,7 +45,7 @@ class MenuCategoryFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'menu_id' => $menu->getKey(),
-            'restaurant_id' => $menu->restaurant_id,
+            'tenant_id' => $menu->tenant_id,
         ]);
     }
 

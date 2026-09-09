@@ -24,7 +24,7 @@ class HomeController extends Controller
         abort_unless($restaurant->is_active, 404);
 
         $tiles = HomeTile::query()
-            ->where('restaurant_id', $restaurant->getKey())
+            ->where('tenant_id', $restaurant->getKey())
             ->active()
             // A menu tile pointing at a hidden menu would open an empty screen,
             // so the menu comes along and the ones that lead nowhere are

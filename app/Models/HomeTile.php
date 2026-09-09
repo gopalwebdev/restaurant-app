@@ -22,7 +22,7 @@ use LogicException;
  * screen — and the guest app draws whatever it is given.
  *
  * @property int $id
- * @property int $restaurant_id
+ * @property int $tenant_id
  * @property string $label
  * @property string|null $image_path
  * @property string|null $document_path
@@ -101,7 +101,7 @@ class HomeTile extends Model
      */
     public function restaurant(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
     }
 
     /**

@@ -23,9 +23,9 @@ class HomeTileFactory extends Factory
     public function definition(): array
     {
         return [
-            'restaurant_id' => Restaurant::factory(),
+            'tenant_id' => Restaurant::factory(),
             'menu_id' => fn (array $attributes): int => Menu::factory()
-                ->create(['restaurant_id' => $attributes['restaurant_id']])
+                ->create(['tenant_id' => $attributes['tenant_id']])
                 ->getKey(),
             'label' => [Locale::English->value => 'Menu '.fake()->unique()->numberBetween(1, 9999)],
             'image_path' => 'home-tiles/'.fake()->uuid().'.jpg',
@@ -45,7 +45,7 @@ class HomeTileFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'action' => HomeTileAction::Menu,
             'menu_id' => $menu->getKey(),
-            'restaurant_id' => $menu->restaurant_id,
+            'tenant_id' => $menu->tenant_id,
             'document_path' => null,
         ]);
     }

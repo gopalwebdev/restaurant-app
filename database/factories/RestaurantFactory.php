@@ -46,7 +46,7 @@ class RestaurantFactory extends Factory
     {
         return $this->afterCreating(function (Restaurant $restaurant): void {
             RestaurantSetting::factory()->create([
-                'restaurant_id' => $restaurant->getKey(),
+                'tenant_id' => $restaurant->getKey(),
             ]);
         });
     }

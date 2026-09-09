@@ -22,13 +22,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * the currency itself comes from the restaurant's settings, so nothing here
  * assumes rupees.
  *
- * restaurant_id is carried directly as well as through the category. That is
+ * tenant_id is carried directly as well as through the category. That is
  * deliberate — it is the tenant boundary, and a composite foreign key on
- * (menu_category_id, restaurant_id) makes it impossible for the two to
+ * (menu_category_id, tenant_id) makes it impossible for the two to
  * disagree.
  *
  * @property int $id
- * @property int $restaurant_id
+ * @property int $tenant_id
  * @property int $menu_category_id
  * @property string $name
  * @property string|null $description
@@ -75,7 +75,7 @@ class MenuItem extends Model
      */
     public function restaurant(): BelongsTo
     {
-        return $this->belongsTo(Restaurant::class);
+        return $this->belongsTo(Restaurant::class, 'tenant_id');
     }
 
     /**
@@ -130,7 +130,7 @@ class MenuItem extends Model
         // comes back as the enum already. A restaurant with no settings row
         // yet has no currency, and falls back to the default.
         $stored = RestaurantSetting::query()
-            ->where('restaurant_id', $this->restaurant_id)
+            ->where('tenant_id', $this->tenant_id)
             ->value('currency');
 
         return $stored instanceof Currency ? $stored : Currency::IndianRupee;

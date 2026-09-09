@@ -37,7 +37,7 @@ class MenuController extends Controller
 
         // The restaurant comes from the subdomain rather than the path, so
         // scoped bindings do not cover this and the check is made by hand.
-        abort_unless($menu->restaurant_id === $restaurant->getKey(), 404);
+        abort_unless($menu->tenant_id === $restaurant->getKey(), 404);
         abort_unless($menu->is_active, 404);
 
         $sections = MenuCategory::query()

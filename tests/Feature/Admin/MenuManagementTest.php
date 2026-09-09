@@ -53,7 +53,7 @@ function byEnglishName(string $model, string $name): Menu|MenuCategory|MenuItem|
 
 it('lets a restaurant admin manage the menu', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $item = MenuItem::factory()->inCategory(MenuCategory::factory()->inMenu($menu)->create())->create();
 
     $admin = enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -69,7 +69,7 @@ it('lets a restaurant admin manage the menu', function (): void {
 
 it('lets staff read the menu but not change it', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $item = MenuItem::factory()->inCategory(MenuCategory::factory()->inMenu($menu)->create())->create();
 
     $staff = enterRestaurantPanel($restaurant, RoleEnum::Staff);
@@ -112,7 +112,7 @@ it('creates a menu against the restaurant whose panel it is', function (): void 
 
     $menu = byEnglishName(Menu::class, 'Dinner');
 
-    expect($menu->restaurant_id)->toBe($restaurant->getKey())
+    expect($menu->tenant_id)->toBe($restaurant->getKey())
         ->and($menu->is_active)->toBeTrue()
         ->and($menu->getTranslations('name'))->toBe([
             Locale::English->value => 'Dinner',
@@ -147,7 +147,7 @@ it('requires the fallback language on a menu', function (): void {
 it('refuses a menu name the restaurant already uses', function (): void {
     $restaurant = Restaurant::factory()->create();
     Menu::factory()->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
         'name' => [Locale::English->value => 'Dinner'],
     ]);
 
@@ -160,7 +160,7 @@ it('refuses a menu name the restaurant already uses', function (): void {
 
 it('takes a menu\'s sections and their dishes with it when it is deleted', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
     $item = MenuItem::factory()->inCategory($category)->create();
     $addition = MenuItemAddition::factory()->onItem($item)->create();
@@ -180,7 +180,7 @@ it('takes a menu\'s sections and their dishes with it when it is deleted', funct
 
 it('creates a section on the menu it was filed under', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -195,7 +195,7 @@ it('creates a section on the menu it was filed under', function (): void {
 
     $category = byEnglishName(MenuCategory::class, 'Starters');
 
-    expect($category->restaurant_id)->toBe($restaurant->getKey())
+    expect($category->tenant_id)->toBe($restaurant->getKey())
         ->and($category->menu_id)->toBe($menu->getKey())
         ->and($category->is_active)->toBeTrue()
         ->and($category->getTranslation('name', Locale::Tamil->value))->toBe('தொடக்கங்கள்');
@@ -203,7 +203,7 @@ it('creates a section on the menu it was filed under', function (): void {
 
 it('refuses a section name the same menu already uses', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     MenuCategory::factory()->inMenu($menu)->create(['name' => [Locale::English->value => 'Starters']]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -220,8 +220,8 @@ it('refuses a section name the same menu already uses', function (): void {
 
 it('lets a lunch and a dinner menu each have their own Starters', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $lunch = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
-    $dinner = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $lunch = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $dinner = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     MenuCategory::factory()->inMenu($lunch)->create(['name' => [Locale::English->value => 'Starters']]);
 
@@ -246,11 +246,11 @@ it('lets a lunch and a dinner menu each have their own Starters', function (): v
 it('lets two restaurants both have a section of the same name', function (): void {
     $other = Restaurant::factory()->create();
     MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $other->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $other->getKey()]))
         ->create(['name' => [Locale::English->value => 'Starters']]);
 
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -273,10 +273,10 @@ it('lets two restaurants both have a section of the same name', function (): voi
 it('refuses at the database to file a section under another restaurant\'s menu', function (): void {
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
-    $theirMenu = Menu::factory()->create(['restaurant_id' => $theirs->getKey()]);
+    $theirMenu = Menu::factory()->create(['tenant_id' => $theirs->getKey()]);
 
     expect(fn () => DB::table('menu_categories')->insert([
-        'restaurant_id' => $mine->getKey(),
+        'tenant_id' => $mine->getKey(),
         'menu_id' => $theirMenu->getKey(),
         'name' => json_encode([Locale::English->value => 'Smuggled'], JSON_THROW_ON_ERROR),
         'position' => 0,
@@ -293,7 +293,7 @@ it('groups sections by their menu without ordering on the translated json column
     // runs against — tolerates it silently. Inspecting the compiled SQL
     // catches that regardless of which database is running.
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     MenuCategory::factory()->inMenu($menu)->count(2)->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -320,7 +320,7 @@ it('stores a typed price as an exact integer count of minor units', function ():
     $restaurant = Restaurant::factory()->create();
     $restaurant->settings->update(['currency' => Currency::IndianRupee]);
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -342,13 +342,13 @@ it('stores a typed price as an exact integer count of minor units', function ():
     expect($item->price_minor_units)->toBe(24950)
         ->and($item->price_minor_units)->toBeInt()
         ->and($item->formattedPrice())->toBe('₹249.50')
-        ->and($item->restaurant_id)->toBe($restaurant->getKey());
+        ->and($item->tenant_id)->toBe($restaurant->getKey());
 });
 
 it('round-trips a price through the edit form without drift', function (): void {
     $restaurant = Restaurant::factory()->create();
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
     $item = MenuItem::factory()->inCategory($category)->create(['price_minor_units' => 24950]);
 
@@ -371,7 +371,7 @@ it('round-trips a price through the edit form without drift', function (): void 
 it('fills the edit form with every language, not just the current one', function (): void {
     $restaurant = Restaurant::factory()->create();
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
     $item = MenuItem::factory()->inCategory($category)->create([
         'name' => [Locale::English->value => 'Paneer Tikka', Locale::Tamil->value => 'பன்னீர் டிக்கா'],
@@ -391,7 +391,7 @@ it('fills the edit form with every language, not just the current one', function
 it('formats a price in rupees', function (): void {
     $restaurant = Restaurant::factory()->create();
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
     $item = MenuItem::factory()->inCategory($category)->create(['price_minor_units' => 1250]);
 
@@ -400,7 +400,7 @@ it('formats a price in rupees', function (): void {
 
 it('groups dishes by their section and by their menu without ordering on json', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
     MenuItem::factory()->inCategory($category)->count(2)->create();
 
@@ -431,7 +431,7 @@ it('saves a dish\'s additions in the same save as the dish', function (): void {
     $restaurant = Restaurant::factory()->create();
     $restaurant->settings->update(['currency' => Currency::IndianRupee]);
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -468,7 +468,7 @@ it('saves a dish\'s additions in the same save as the dish', function (): void {
     $free = byEnglishName(MenuItemAddition::class, 'Less spicy');
 
     expect($extra->price_minor_units)->toBe(5000)
-        ->and($extra->restaurant_id)->toBe($restaurant->getKey())
+        ->and($extra->tenant_id)->toBe($restaurant->getKey())
         ->and($extra->menu_item_id)->toBe($item->getKey())
         ->and($extra->getTranslation('name', Locale::Tamil->value))->toBe('கூடுதல் பன்னீர்')
         // Zero is a real price: "no onions" costs nothing and is still listed.
@@ -479,7 +479,7 @@ it('saves a dish\'s additions in the same save as the dish', function (): void {
 it('lets a dish be saved with no additions at all', function (): void {
     $restaurant = Restaurant::factory()->create();
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
@@ -503,7 +503,7 @@ it('lets a dish be saved with no additions at all', function (): void {
 it('takes a dish\'s additions with it when it is deleted', function (): void {
     $restaurant = Restaurant::factory()->create();
     $item = MenuItem::factory()->inCategory(
-        MenuCategory::factory()->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))->create(),
+        MenuCategory::factory()->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))->create(),
     )->create();
     $addition = MenuItemAddition::factory()->onItem($item)->create();
 
@@ -516,11 +516,11 @@ it('refuses at the database to hang an addition off another restaurant\'s dish',
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
     $theirItem = MenuItem::factory()->inCategory(
-        MenuCategory::factory()->inMenu(Menu::factory()->create(['restaurant_id' => $theirs->getKey()]))->create(),
+        MenuCategory::factory()->inMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))->create(),
     )->create();
 
     expect(fn () => DB::table('menu_item_additions')->insert([
-        'restaurant_id' => $mine->getKey(),
+        'tenant_id' => $mine->getKey(),
         'menu_item_id' => $theirItem->getKey(),
         'name' => json_encode([Locale::English->value => 'Smuggled'], JSON_THROW_ON_ERROR),
         'price_minor_units' => 1000,
@@ -542,11 +542,11 @@ it('shows only this restaurant\'s dishes', function (): void {
     $theirs = Restaurant::factory()->create();
 
     $myItem = MenuItem::factory()->inCategory(
-        MenuCategory::factory()->inMenu(Menu::factory()->create(['restaurant_id' => $mine->getKey()]))->create(),
+        MenuCategory::factory()->inMenu(Menu::factory()->create(['tenant_id' => $mine->getKey()]))->create(),
     )->create();
 
     $theirItem = MenuItem::factory()->inCategory(
-        MenuCategory::factory()->inMenu(Menu::factory()->create(['restaurant_id' => $theirs->getKey()]))->create(),
+        MenuCategory::factory()->inMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))->create(),
     )->create();
 
     enterRestaurantPanel($mine, RoleEnum::Admin);
@@ -560,8 +560,8 @@ it('shows only this restaurant\'s menus', function (): void {
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
 
-    $myMenu = Menu::factory()->create(['restaurant_id' => $mine->getKey()]);
-    $theirMenu = Menu::factory()->create(['restaurant_id' => $theirs->getKey()]);
+    $myMenu = Menu::factory()->create(['tenant_id' => $mine->getKey()]);
+    $theirMenu = Menu::factory()->create(['tenant_id' => $theirs->getKey()]);
 
     enterRestaurantPanel($mine, RoleEnum::Admin);
 
@@ -574,9 +574,9 @@ it('refuses to file a dish under another restaurant\'s section', function (): vo
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
 
-    MenuCategory::factory()->inMenu(Menu::factory()->create(['restaurant_id' => $mine->getKey()]))->create();
+    MenuCategory::factory()->inMenu(Menu::factory()->create(['tenant_id' => $mine->getKey()]))->create();
     $theirCategory = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $theirs->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))
         ->create();
 
     enterRestaurantPanel($mine, RoleEnum::Admin);
@@ -604,13 +604,13 @@ it('refuses at the database to file a dish under another restaurant\'s section',
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
     $theirCategory = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $theirs->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))
         ->create();
 
     // The composite foreign key is the guarantee behind the tenant scope: even
     // a tampered request cannot store a dish pointing across restaurants.
     expect(fn () => DB::table('menu_items')->insert([
-        'restaurant_id' => $mine->getKey(),
+        'tenant_id' => $mine->getKey(),
         'menu_category_id' => $theirCategory->getKey(),
         'name' => json_encode([Locale::English->value => 'Smuggled'], JSON_THROW_ON_ERROR),
         'price_minor_units' => 1000,
@@ -625,7 +625,7 @@ it('refuses at the database to file a dish under another restaurant\'s section',
 it('takes a section\'s dishes with it when it is deleted', function (): void {
     $restaurant = Restaurant::factory()->create();
     $category = MenuCategory::factory()
-        ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
     $item = MenuItem::factory()->inCategory($category)->create();
 
@@ -643,8 +643,8 @@ it('takes a section\'s dishes with it when it is deleted', function (): void {
 it('counts an item orderable only when it, its section and its menu are showing', function (): void {
     $restaurant = Restaurant::factory()->create();
 
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
-    $hiddenMenu = Menu::factory()->hidden()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $hiddenMenu = Menu::factory()->hidden()->create(['tenant_id' => $restaurant->getKey()]);
 
     $showing = MenuCategory::factory()->inMenu($menu)->create();
     $hidden = MenuCategory::factory()->inMenu($menu)->hidden()->create();

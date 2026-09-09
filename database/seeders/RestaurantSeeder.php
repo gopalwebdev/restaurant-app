@@ -227,10 +227,10 @@ class RestaurantSeeder extends Seeder
     private function seedMenu(Restaurant $restaurant): void
     {
         $menu = $this->firstOrCreateByEnglishName(
-            Menu::query()->where('restaurant_id', $restaurant->getKey()),
+            Menu::query()->where('tenant_id', $restaurant->getKey()),
             self::MENU_NAME,
             fn (): Menu => new Menu(['position' => 0, 'is_active' => true]),
-            ['restaurant_id' => $restaurant->getKey()],
+            ['tenant_id' => $restaurant->getKey()],
         );
 
         foreach (self::MENU as $position => $section) {
@@ -238,7 +238,7 @@ class RestaurantSeeder extends Seeder
                 MenuCategory::query()->where('menu_id', $menu->getKey()),
                 $section['name'],
                 fn (): MenuCategory => new MenuCategory(['position' => $position, 'is_active' => true]),
-                ['restaurant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
+                ['tenant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
             );
 
             foreach ($section['items'] as $itemPosition => $item) {
@@ -251,7 +251,7 @@ class RestaurantSeeder extends Seeder
                         'is_available' => true,
                         'position' => $itemPosition,
                     ]),
-                    ['restaurant_id' => $restaurant->getKey(), 'menu_category_id' => $category->getKey()],
+                    ['tenant_id' => $restaurant->getKey(), 'menu_category_id' => $category->getKey()],
                 );
 
                 foreach ($item['additions'] ?? [] as $additionPosition => $addition) {
@@ -263,7 +263,7 @@ class RestaurantSeeder extends Seeder
                             'is_available' => true,
                             'position' => $additionPosition,
                         ]),
-                        ['restaurant_id' => $restaurant->getKey(), 'menu_item_id' => $dish->getKey()],
+                        ['tenant_id' => $restaurant->getKey(), 'menu_item_id' => $dish->getKey()],
                     );
                 }
             }
@@ -282,7 +282,7 @@ class RestaurantSeeder extends Seeder
     private function seedHomeScreen(Restaurant $restaurant, Menu $menu): void
     {
         $this->firstOrCreateByEnglishName(
-            HomeTile::query()->where('restaurant_id', $restaurant->getKey()),
+            HomeTile::query()->where('tenant_id', $restaurant->getKey()),
             ['en' => 'Menu', 'ta' => 'மெனு'],
             fn (): HomeTile => new HomeTile([
                 'shape' => HomeTileShape::Rectangle,
@@ -290,7 +290,7 @@ class RestaurantSeeder extends Seeder
                 'position' => 0,
                 'is_active' => true,
             ]),
-            ['restaurant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
+            ['tenant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
             column: 'label',
         );
     }

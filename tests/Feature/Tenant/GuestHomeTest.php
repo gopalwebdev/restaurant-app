@@ -31,7 +31,7 @@ function tileUrl(Restaurant $restaurant, HomeTile $tile, string $suffix = ''): s
 
 it('shows the tiles in the order the restaurant arranged them', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     $second = HomeTile::factory()->openingMenu($menu)->create([
         'label' => [Locale::English->value => 'Drinks'],
@@ -55,7 +55,7 @@ it('shows the tiles in the order the restaurant arranged them', function (): voi
 
 it('leaves a hidden tile off the home screen', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     HomeTile::factory()->openingMenu($menu)->create(['label' => [Locale::English->value => 'Showing']]);
     HomeTile::factory()->openingMenu($menu)->hidden()->create(['label' => [Locale::English->value => 'Hidden']]);
@@ -68,7 +68,7 @@ it('leaves a hidden tile off the home screen', function (): void {
 
 it('drops a tile whose menu has been taken down', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $hiddenMenu = Menu::factory()->hidden()->create(['restaurant_id' => $restaurant->getKey()]);
+    $hiddenMenu = Menu::factory()->hidden()->create(['tenant_id' => $restaurant->getKey()]);
 
     // The row is still there and the foreign key is satisfied, so nothing is
     // broken — but tapping it would open a menu the restaurant took down.
@@ -81,11 +81,11 @@ it('drops a tile whose menu has been taken down', function (): void {
 
 it('sends a menu tile to that menu and a PDF tile to its own page', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     $menuTile = HomeTile::factory()->openingMenu($menu)->create(['position' => 0]);
     $pdfTile = HomeTile::factory()->showingPdf()->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
         'position' => 1,
     ]);
 
@@ -101,7 +101,7 @@ it('sends a menu tile to that menu and a PDF tile to its own page', function ():
 
 it('sends no image url for a tile with no picture yet', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     HomeTile::factory()->openingMenu($menu)->withoutImage()->create();
 
@@ -117,11 +117,11 @@ it('shows only this restaurant\'s tiles', function (): void {
     $theirs = Restaurant::factory()->create();
 
     HomeTile::factory()
-        ->openingMenu(Menu::factory()->create(['restaurant_id' => $mine->getKey()]))
+        ->openingMenu(Menu::factory()->create(['tenant_id' => $mine->getKey()]))
         ->create(['label' => [Locale::English->value => 'Mine']]);
 
     HomeTile::factory()
-        ->openingMenu(Menu::factory()->create(['restaurant_id' => $theirs->getKey()]))
+        ->openingMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))
         ->create(['label' => [Locale::English->value => 'Theirs']]);
 
     $this->get(homeUrl($mine))
@@ -139,7 +139,7 @@ it('shows only this restaurant\'s tiles', function (): void {
 it('shows a PDF tile inside the app, with the file behind its own route', function (): void {
     $restaurant = Restaurant::factory()->create();
     $tile = HomeTile::factory()->showingPdf()->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
         'label' => [Locale::English->value => 'Wine list'],
     ]);
 
@@ -166,7 +166,7 @@ it('serves a tile\'s PDF inline off the private disk', function (): void {
         UploadedFile::fake()->create('wine.pdf', 8, 'application/pdf'),
     );
 
-    $tile = HomeTile::factory()->showingPdf($path)->create(['restaurant_id' => $restaurant->getKey()]);
+    $tile = HomeTile::factory()->showingPdf($path)->create(['tenant_id' => $restaurant->getKey()]);
 
     $this->get(tileUrl($restaurant, $tile, '/document'))
         ->assertOk()
@@ -177,7 +177,7 @@ it('serves a tile\'s picture off the private disk', function (): void {
     Storage::fake('local');
 
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $path = Storage::disk('local')->putFile(
         'home-tiles/'.$restaurant->getKey(),
         UploadedFile::fake()->image('tile.jpg'),
@@ -193,7 +193,7 @@ it('404s a file whose upload has gone missing', function (): void {
 
     $restaurant = Restaurant::factory()->create();
     $tile = HomeTile::factory()->showingPdf('home-tiles/1/vanished.pdf')->create([
-        'restaurant_id' => $restaurant->getKey(),
+        'tenant_id' => $restaurant->getKey(),
     ]);
 
     $this->get(tileUrl($restaurant, $tile, '/document'))->assertNotFound();
@@ -210,7 +210,7 @@ it('refuses a tile that is not this restaurant\'s', function (): void {
         UploadedFile::fake()->create('secret.pdf', 8, 'application/pdf'),
     );
 
-    $theirTile = HomeTile::factory()->showingPdf($path)->create(['restaurant_id' => $theirs->getKey()]);
+    $theirTile = HomeTile::factory()->showingPdf($path)->create(['tenant_id' => $theirs->getKey()]);
 
     // The restaurant arrives in the domain rather than the path, so scoped
     // bindings do not cover it: editing the id in the URL would otherwise read
@@ -222,7 +222,7 @@ it('refuses a tile that is not this restaurant\'s', function (): void {
 
 it('refuses a hidden tile\'s page and files', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $tile = HomeTile::factory()->showingPdf()->hidden()->create(['restaurant_id' => $restaurant->getKey()]);
+    $tile = HomeTile::factory()->showingPdf()->hidden()->create(['tenant_id' => $restaurant->getKey()]);
 
     $this->get(tileUrl($restaurant, $tile))->assertNotFound();
     $this->get(tileUrl($restaurant, $tile, '/document'))->assertNotFound();
@@ -230,7 +230,7 @@ it('refuses a hidden tile\'s page and files', function (): void {
 
 it('refuses a menu tile\'s document page, which it has none of', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $tile = HomeTile::factory()->openingMenu($menu)->create();
 
     $this->get(tileUrl($restaurant, $tile))->assertNotFound();
@@ -238,7 +238,7 @@ it('refuses a menu tile\'s document page, which it has none of', function (): vo
 
 it('takes a restaurant\'s whole storefront offline when it is switched off', function (): void {
     $restaurant = Restaurant::factory()->create(['is_active' => false]);
-    $tile = HomeTile::factory()->showingPdf()->create(['restaurant_id' => $restaurant->getKey()]);
+    $tile = HomeTile::factory()->showingPdf()->create(['tenant_id' => $restaurant->getKey()]);
 
     $this->get(homeUrl($restaurant))->assertNotFound();
     $this->get(tileUrl($restaurant, $tile))->assertNotFound();

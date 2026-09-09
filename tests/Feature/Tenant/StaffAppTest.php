@@ -142,7 +142,7 @@ it('signs out', function (): void {
 
 it('shows the floor what is on and what has sold out', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $available = MenuItem::factory()->inCategory($category)->create();
     $soldOut = MenuItem::factory()->inCategory($category)->unavailable()->create();
 

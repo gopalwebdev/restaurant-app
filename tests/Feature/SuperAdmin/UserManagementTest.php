@@ -117,6 +117,57 @@ it('lists accounts from every restaurant and the platform', function (): void {
         ->assertCanSeeTableRecords([$firstStaff, $secondStaff, $platform]);
 });
 
+it('filters the platform-wide list down to one restaurant', function (): void {
+    $spice = Restaurant::factory()->create();
+    $other = Restaurant::factory()->create();
+
+    $spiceStaff = User::factory()->ofRestaurant($spice)->create();
+    $otherStaff = User::factory()->ofRestaurant($other)->create();
+
+    $platform = enterProductTeamPanel();
+
+    Livewire::test(ListUsers::class)
+        ->filterTable('tenant_id', $spice->getKey())
+        ->assertCanSeeTableRecords([$spiceStaff])
+        ->assertCanNotSeeTableRecords([$otherStaff, $platform]);
+});
+
+it('filters the platform-wide list by whether an account belongs to a restaurant', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $staff = User::factory()->ofRestaurant($restaurant)->create();
+    $platform = enterProductTeamPanel();
+
+    // Where an account belongs is the tenant column alone, so this splits the
+    // list the same way the Tenant column reads it.
+    Livewire::test(ListUsers::class)
+        ->filterTable('belongs_to', 'restaurant')
+        ->assertCanSeeTableRecords([$staff])
+        ->assertCanNotSeeTableRecords([$platform]);
+
+    Livewire::test(ListUsers::class)
+        ->filterTable('belongs_to', 'product_team')
+        ->assertCanSeeTableRecords([$platform])
+        ->assertCanNotSeeTableRecords([$staff]);
+});
+
+it('opens the account form with a restaurant and role already chosen', function (): void {
+    $restaurant = Restaurant::factory()->create();
+
+    enterProductTeamPanel();
+
+    // How CreateRestaurant hands a newly onboarded restaurant straight on to
+    // creating the admin that runs it.
+    Livewire::withQueryParams([
+        'tenant_id' => $restaurant->getKey(),
+        'role' => RoleEnum::Admin->value,
+    ])
+        ->test(CreateUser::class)
+        ->assertFormSet([
+            'tenant_id' => $restaurant->getKey(),
+            'roles' => [RoleEnum::Admin->value],
+        ]);
+});
+
 it('shows an account with no tenant as belonging to the platform', function (): void {
     $platform = enterProductTeamPanel();
 
@@ -370,14 +421,18 @@ it('lets the details be changed before the code is entered', function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('updates an account and moves it to another restaurant', function (): void {
+it('updates an account without letting it move to another restaurant', function (): void {
     $from = Restaurant::factory()->create();
     $to = Restaurant::factory()->create();
     $staff = User::factory()->ofRestaurant($from)->create();
 
     enterProductTeamPanel();
 
+    // Where an account belongs is settled when it is opened: the field is
+    // disabled, so a restaurant submitted here is never dehydrated and the
+    // roster it would have moved to is left alone.
     Livewire::test(EditUser::class, ['record' => $staff->getKey()])
+        ->assertFormFieldDisabled('tenant_id')
         ->fillForm([
             'name' => 'Renamed Person',
             'tenant_id' => $to->getKey(),
@@ -388,10 +443,48 @@ it('updates an account and moves it to another restaurant', function (): void {
     $staff->refresh();
 
     expect($staff->name)->toBe('Renamed Person')
-        ->and($staff->tenant_id)->toBe($to->getKey())
-        // Rostered at the new restaurant, and still at the old one: belonging
-        // somewhere is not the same as being taken off everywhere else.
-        ->and($staff->restaurants->pluck('id')->all())->toEqualCanonicalizing([$from->getKey(), $to->getKey()]);
+        ->and($staff->tenant_id)->toBe($from->getKey())
+        ->and($staff->restaurants->pluck('id')->all())->toBe([$from->getKey()]);
+});
+
+it('never offers the product team to an account that belongs to a restaurant', function (): void {
+    $staff = User::factory()->ofRestaurant(Restaurant::factory()->create())->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditUser::class, ['record' => $staff->getKey()])
+        ->assertFormFieldDisabled('is_super_admin')
+        ->fillForm(['is_super_admin' => true])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($staff->refresh()->isSuperAdmin())->toBeFalse();
+});
+
+it('refuses at the model to put a restaurant\'s account on the product team', function (): void {
+    $staff = User::factory()->ofRestaurant(Restaurant::factory()->create())->create();
+
+    // The backstop behind the disabled toggle: the product team hold every
+    // permission on every restaurant, so the two may never be combined however
+    // the write arrives.
+    expect(fn () => $staff->forceFill(['is_super_admin' => true])->save())
+        ->toThrow(LogicException::class);
+});
+
+it('lets the product team keep no restaurant at all', function (): void {
+    $superAdmin = User::factory()->superAdmin()->create();
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditUser::class, ['record' => $superAdmin->getKey()])
+        ->assertFormFieldEnabled('is_super_admin')
+        ->fillForm(['name' => 'Renamed'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($superAdmin->refresh()->name)->toBe('Renamed')
+        ->and($superAdmin->isSuperAdmin())->toBeTrue()
+        ->and($superAdmin->tenant_id)->toBeNull();
 });
 
 it('syncs roles so a permission check answers from the new set immediately', function (): void {

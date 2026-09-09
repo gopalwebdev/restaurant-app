@@ -77,7 +77,7 @@ class TileController extends Controller
     private function authoriseTile(Restaurant $restaurant, HomeTile $tile): void
     {
         abort_unless($restaurant->is_active, 404);
-        abort_unless($tile->restaurant_id === $restaurant->getKey(), 404);
+        abort_unless($tile->tenant_id === $restaurant->getKey(), 404);
         abort_unless($tile->is_active, 404);
     }
 
