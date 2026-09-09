@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use UnitEnum;
 
 /**
  * The menus this restaurant serves: Lunch, Dinner, Drinks.
@@ -30,16 +29,33 @@ class MenuResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Menu';
+    protected static ?string $recordTitleAttribute = 'name';
 
     /**
      * First in the group, because it is the level everything else hangs off.
      */
     protected static ?int $navigationSort = 5;
 
-    protected static ?string $recordTitleAttribute = 'name';
-
     protected static ?string $tenantOwnershipRelationshipName = 'restaurant';
+
+    /**
+     * Labels are methods rather than static properties because a property is
+     * evaluated when the class loads, before the request has chosen a language.
+     */
+    public static function getNavigationGroup(): ?string
+    {
+        return __('panel.navigation.menu');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('panel.menus.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('panel.menus.plural');
+    }
 
     public static function form(Schema $schema): Schema
     {

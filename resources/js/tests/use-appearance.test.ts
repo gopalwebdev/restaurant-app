@@ -1,26 +1,14 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { initializeTheme, useAppearance } from '@/hooks/use-appearance';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
 
-/**
- * Pin what the operating system claims to prefer.
- */
-function stubSystemPreference(prefersDark: boolean): void {
-    vi.stubGlobal(
-        'matchMedia',
-        vi.fn(() => ({
-            matches: prefersDark,
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-        })),
-    );
-}
+import { initializeTheme, useAppearance } from '@/hooks/use-appearance';
 
 /**
  * Stand in for what the server painted the page with.
  *
- * partials/theme.blade.php writes this onto the root element after resolving
- * the visitor's cookie against the restaurant's own setting.
+ * partials/theme.blade.php writes this onto the root element from the
+ * visitor's own cookie. There is no per restaurant default to resolve against
+ * — light and dark are the whole of the theming.
  */
 function stubServerAppearance(appearance: string | null): void {
     if (appearance === null) {
@@ -54,7 +42,6 @@ describe('use-appearance', () => {
         document.documentElement.style.colorScheme = '';
         document.cookie = 'appearance=;max-age=0;path=/';
         stubServerAppearance(null);
-        stubSystemPreference(false);
     });
 
     it('adopts what the server painted the page with', () => {
@@ -73,42 +60,36 @@ describe('use-appearance', () => {
 
         initializeTheme();
 
-        // Persisting here would pin the visitor to today's setting and quietly
-        // override the restaurant the next time it changed its own.
         expect(localStorage.getItem('appearance')).toBeNull();
         expect(storedAppearanceCookie()).toBe('');
     });
 
-    it('falls back to following the system when the server said nothing', () => {
+    it('falls back to light when the server said nothing', () => {
         initializeTheme();
 
         const { result } = renderHook(() => useAppearance());
 
-        expect(result.current.appearance).toBe('system');
+        expect(result.current.appearance).toBe('light');
+        expect(document.documentElement).not.toHaveClass('dark');
     });
 
-    it('resolves to dark when the system asks for dark', () => {
-        stubSystemPreference(true);
-        initializeTheme();
-
-        const { result } = renderHook(() => useAppearance());
-
-        expect(result.current.resolvedAppearance).toBe('dark');
-        expect(document.documentElement).toHaveClass('dark');
-    });
-
-    it('overrides the system when a mode is chosen', () => {
-        stubSystemPreference(true);
+    it('flips between light and dark', () => {
         initializeTheme();
 
         const { result } = renderHook(() => useAppearance());
 
         act(() => {
-            result.current.updateAppearance('light');
+            result.current.toggleAppearance();
+        });
+
+        expect(result.current.appearance).toBe('dark');
+        expect(document.documentElement).toHaveClass('dark');
+
+        act(() => {
+            result.current.toggleAppearance();
         });
 
         expect(result.current.appearance).toBe('light');
-        expect(result.current.resolvedAppearance).toBe('light');
         expect(document.documentElement).not.toHaveClass('dark');
     });
 
@@ -118,20 +99,19 @@ describe('use-appearance', () => {
         const { result } = renderHook(() => useAppearance());
 
         act(() => {
-            result.current.updateAppearance('dark');
+            result.current.toggleAppearance();
         });
 
         expect(localStorage.getItem('appearance')).toBe('dark');
         // The cookie is what lets the server paint the next first response the
         // same way, before React has run.
-        expect(document.cookie).toContain('appearance=dark');
+        expect(storedAppearanceCookie()).toBe('dark');
         expect(document.documentElement.style.colorScheme).toBe('dark');
     });
 
     it('prefers what the visitor chose over what the server painted', () => {
         localStorage.setItem('appearance', 'dark');
         stubServerAppearance('light');
-        stubSystemPreference(false);
 
         initializeTheme();
 
@@ -141,24 +121,13 @@ describe('use-appearance', () => {
         expect(document.documentElement).toHaveClass('dark');
     });
 
-    it('flips to the opposite of what is on screen', () => {
-        stubServerAppearance('system');
-        stubSystemPreference(true);
+    it('ignores a stored value that is not a mode', () => {
+        localStorage.setItem('appearance', 'neon');
+        stubServerAppearance('dark');
+
         initializeTheme();
 
         const { result } = renderHook(() => useAppearance());
-
-        // "System" resolved to dark, so one tap means light — which is what the
-        // guest sees the single button do.
-        act(() => {
-            result.current.toggleAppearance();
-        });
-
-        expect(result.current.appearance).toBe('light');
-
-        act(() => {
-            result.current.toggleAppearance();
-        });
 
         expect(result.current.appearance).toBe('dark');
     });
@@ -170,7 +139,7 @@ describe('use-appearance', () => {
         const second = renderHook(() => useAppearance());
 
         act(() => {
-            first.result.current.updateAppearance('dark');
+            first.result.current.toggleAppearance();
         });
 
         expect(second.result.current.appearance).toBe('dark');

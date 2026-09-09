@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Locale;
+use App\Enums\Role;
 use App\Http\Middleware\SetLocale;
 use App\Models\HomeTile;
 use App\Models\Menu;
@@ -8,6 +9,7 @@ use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
 use App\Models\Restaurant;
+use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Inertia\Testing\AssertableInertia;
 
@@ -173,6 +175,61 @@ it('serves the staff app its own strings, not the guest app\'s', function (): vo
             ->missing('translations.home.empty_tiles')
             ->has('translations.item.sold_out'),
         );
+});
+
+/*
+|--------------------------------------------------------------------------
+| The admin panel follows the same choice
+|--------------------------------------------------------------------------
+*/
+
+it('offers a language switcher in the restaurant panel', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    // Posted to the panel's own host: the tenant panel is on a subdomain and a
+    // form posting across hosts would lose the session.
+    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/admin')
+        ->assertOk()
+        ->assertSee(route('preferences.language.update', ['restaurant' => $restaurant->slug]), escape: false)
+        ->assertSee(Locale::Tamil->label());
+});
+
+it('offers a language switcher in the product team panel', function (): void {
+    $this->actingAs(User::factory()->superAdmin()->create());
+
+    $this->get('http://restaurant-app.test/super-admin')
+        ->assertOk()
+        ->assertSee(route('panel.language.update'), escape: false)
+        ->assertSee(Locale::Tamil->label());
+});
+
+it('translates the menu pages of the panel into the chosen language', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    Menu::factory()->create([
+        'restaurant_id' => $restaurant->getKey(),
+        'name' => ['en' => 'Dinner', 'ta' => 'இரவு உணவு'],
+    ]);
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    // Both halves again: the panel's own labels come from lang/ta/panel.php,
+    // and the menu's name comes out of its translated column.
+    $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
+        ->get('http://'.$restaurant->slug.'.restaurant-app.test/admin/menus')
+        ->assertOk()
+        ->assertSee(__('panel.menus.create', locale: 'ta'))
+        ->assertSee('இரவு உணவு');
+});
+
+it('leaves roles and permissions in English', function (): void {
+    // The product team's vocabulary, and code refers to these by name — see
+    // .ai/rules/enums.md. Only what a guest reads is translated.
+    $this->actingAs(User::factory()->superAdmin()->create());
+
+    $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
+        ->get('http://restaurant-app.test/super-admin/roles')
+        ->assertOk()
+        ->assertSee('admin');
 });
 
 /*

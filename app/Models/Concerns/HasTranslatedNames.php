@@ -3,7 +3,6 @@
 namespace App\Models\Concerns;
 
 use App\Enums\Locale;
-use Illuminate\Database\Eloquent\Builder;
 use Spatie\Translatable\HasTranslations;
 
 /**
@@ -35,30 +34,6 @@ trait HasTranslatedNames
     public static function fallbackLocalePath(string $column = 'name'): string
     {
         return $column.'->'.Locale::default()->value;
-    }
-
-    /**
-     * The SQL fragment matching a translated column's fallback value.
-     *
-     * Only for the places a path cannot go — a Filament uniqueness rule, which
-     * needs a `whereRaw`. Everything else should use fallbackLocalePath().
-     */
-    public static function fallbackLocaleExpression(string $column = 'name'): string
-    {
-        return sprintf("%s ->> '%s'", $column, Locale::default()->value);
-    }
-
-    /**
-     * Order alphabetically by the name a reader of the fallback language sees.
-     *
-     * Sorting on the raw column would sort JSON documents, which puts things in
-     * an order nobody asked for the moment a second language is filled in.
-     *
-     * @param  Builder<$this>  $query
-     */
-    public function scopeOrderByName(Builder $query): void
-    {
-        $query->orderBy(self::fallbackLocalePath());
     }
 
     /**

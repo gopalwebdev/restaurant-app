@@ -32,14 +32,14 @@ class HomeTileForm
     {
         return $schema
             ->components([
-                Section::make('Label')
-                    ->description('Read out by screen readers, shown on the tile when there is no picture yet, and used as the heading of the page a PDF tile opens.')
+                Section::make(__('panel.tiles.label_section'))
+                    ->description(__('panel.tiles.label_section_help'))
                     ->icon(Heroicon::OutlinedTag)
-                    ->schema(TranslatedFields::text('label', 'Label', maxLength: 48))
+                    ->schema(TranslatedFields::text('label', __('panel.tiles.label_field'), maxLength: 48))
                     ->columns(2),
 
-                Section::make('Picture')
-                    ->description('A wide picture, since tiles are rectangles. A tile without one still works — the guest app draws the label on your brand colour instead.')
+                Section::make(__('panel.tiles.picture'))
+                    ->description(__('panel.tiles.picture_help'))
                     ->icon(Heroicon::OutlinedPhoto)
                     ->schema([
                         FileUpload::make('image_path')
@@ -56,18 +56,18 @@ class HomeTileForm
                             ->preventFilePathTampering()
                             ->maxSize(4096)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                            ->helperText('JPEG, PNG or WebP, up to 4 MB. Around 1200 by 675 pixels looks right.'),
+                            ->helperText(__('panel.tiles.picture_field_help')),
                     ]),
 
-                Section::make('Where it goes')
-                    ->description('What happens when a guest taps this tile.')
+                Section::make(__('panel.tiles.destination'))
+                    ->description(__('panel.tiles.destination_help'))
                     ->icon(Heroicon::OutlinedCursorArrowRays)
                     ->schema([
                         // A radio rather than a select: there are two answers,
                         // each needs a line of explanation, and both should be
                         // readable without opening anything.
                         Radio::make('action')
-                            ->label('On tap')
+                            ->label(__('panel.tiles.on_tap'))
                             ->options(HomeTileAction::options())
                             ->descriptions(self::actionDescriptions())
                             ->default(HomeTileAction::Menu->value)
@@ -79,17 +79,17 @@ class HomeTileForm
                         // action above. The model clears the other on save and
                         // refuses a tile with neither — see HomeTile::booted().
                         Select::make('menu_id')
-                            ->label('Menu to open')
+                            ->label(__('panel.tiles.menu_to_open'))
                             ->options(fn (): array => MenuCategoryForm::menuOptions())
                             ->searchable()
                             ->preload()
                             ->prefixIcon(Heroicon::OutlinedBookOpen)
                             ->visible(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Menu))
                             ->required(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Menu))
-                            ->helperText('Only this restaurant\'s menus. A tile pointing at a hidden menu stops being shown.'),
+                            ->helperText(__('panel.tiles.menu_to_open_help')),
 
                         FileUpload::make('document_path')
-                            ->label('PDF to show')
+                            ->label(__('panel.tiles.document'))
                             ->disk('local')
                             ->directory(fn (): string => self::uploadDirectory())
                             ->visibility('private')
@@ -98,23 +98,23 @@ class HomeTileForm
                             ->acceptedFileTypes(['application/pdf'])
                             ->visible(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Pdf))
                             ->required(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Pdf))
-                            ->helperText('Up to 10 MB. Shown inside the app, with a back arrow out of it.'),
+                            ->helperText(__('panel.tiles.document_help')),
                     ])
                     ->columns(1),
 
-                Section::make('On the home screen')
+                Section::make(__('panel.tiles.placement'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
                         Select::make('shape')
-                            ->label('Shape')
+                            ->label(__('panel.tiles.shape'))
                             ->options(HomeTileShape::options())
                             ->default(HomeTileShape::Rectangle->value)
                             ->required()
                             ->native(false)
-                            ->helperText('Only rectangles for now.'),
+                            ->helperText(__('panel.tiles.shape_help')),
 
                         TextInput::make('position')
-                            ->label('Order')
+                            ->label(__('panel.shared.order'))
                             ->numeric()
                             ->integer()
                             ->minValue(0)
@@ -122,10 +122,10 @@ class HomeTileForm
                             ->default(0)
                             ->required()
                             ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText('Lower numbers come first. Drag the rows on the list to set this instead.'),
+                            ->helperText(__('panel.tiles.position_help')),
 
                         Toggle::make('is_active')
-                            ->label('Showing to guests')
+                            ->label(__('panel.tiles.is_active'))
                             ->default(true)
                             ->columnSpanFull(),
                     ])

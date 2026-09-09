@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Guest;
 
-use App\Enums\Currency;
 use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -17,12 +16,18 @@ use Inertia\Response;
  *
  * Four levels come down together — the menu, its sections, their dishes and
  * each dish's additions — because that is one screen a guest scrolls, and
- * fetching it in four passes would be four round trips for one page.
+ * fetching it in four passes would be four round trips for one page. Each
+ * query names the columns it needs, so a long menu does not carry timestamps
+ * and foreign keys nobody renders.
  *
  * Only what is actually orderable is sent: a hidden section, a sold-out dish
  * and an addition that has run out are all absent rather than greyed out,
  * because a guest reading a menu on a phone should not be scrolling past
  * things they cannot have.
+ *
+ * Prices go out as integers. Turning 24950 into ₹249.50 happens in the browser
+ * — see resources/js/lib/money.ts — so the server never builds a string per row
+ * and the result follows the guest's own language.
  */
 class MenuController extends Controller
 {
@@ -35,14 +40,17 @@ class MenuController extends Controller
         abort_unless($menu->restaurant_id === $restaurant->getKey(), 404);
         abort_unless($menu->is_active, 404);
 
-        $currency = $restaurant->currency();
-
         $sections = MenuCategory::query()
+            ->select(['id', 'name'])
             ->where('menu_id', $menu->getKey())
             ->active()
             ->with(['menuItems' => fn ($items) => $items
+                ->select(['id', 'menu_category_id', 'name', 'description', 'price_minor_units', 'food_type'])
                 ->where('is_available', true)
-                ->with(['additions' => fn ($additions) => $additions->available()->inMenuOrder()])
+                ->with(['additions' => fn ($additions) => $additions
+                    ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
+                    ->available()
+                    ->inMenuOrder()])
                 ->inMenuOrder()])
             ->inMenuOrder()
             ->get()
@@ -58,7 +66,7 @@ class MenuController extends Controller
                 'id' => $category->getKey(),
                 'name' => $category->name,
                 'items' => $category->menuItems->map(
-                    fn (MenuItem $item): array => $this->presentItem($item, $currency),
+                    fn (MenuItem $item): array => $this->presentItem($item),
                 )->values()->all(),
             ])->values()->all(),
             'acceptingOrders' => $restaurant->isAcceptingOrders(),
@@ -69,26 +77,22 @@ class MenuController extends Controller
     /**
      * One dish and the extras it can be ordered with.
      *
-     * The currency is passed down rather than read per dish: every price on a
-     * menu shares one, and asking the model each time is a query per row that
-     * answers the same question.
-     *
      * @return array<string, mixed>
      */
-    private function presentItem(MenuItem $item, Currency $currency): array
+    private function presentItem(MenuItem $item): array
     {
         return [
             'id' => $item->getKey(),
             'name' => $item->name,
             'description' => $item->description,
-            'price' => $item->formattedPrice($currency),
+            'priceMinorUnits' => $item->price_minor_units,
             'foodType' => $item->food_type->value,
             'additions' => $item->additions->map(fn (MenuItemAddition $addition): array => [
                 'id' => $addition->getKey(),
                 'name' => $addition->name,
-                // A free addition is sent as null rather than "₹0.00", which
-                // reads as a mistake beside a choice that simply costs nothing.
-                'price' => $addition->isFree() ? null : $addition->formattedPrice($currency),
+                // Zero is a real price, and the guest app says "Free" rather
+                // than "+ ₹0.00" — which reads as a mistake.
+                'priceMinorUnits' => $addition->price_minor_units,
             ])->values()->all(),
         ];
     }

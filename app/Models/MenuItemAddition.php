@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
-use App\Enums\Currency;
 use App\Models\Concerns\HasTranslatedNames;
+use Carbon\CarbonImmutable;
 use Database\Factories\MenuItemAdditionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 /**
  * An extra a dish can be ordered with: extra cheese, a large portion.
@@ -31,8 +30,8 @@ use Illuminate\Support\Carbon;
  * @property int $price_minor_units
  * @property bool $is_available
  * @property int $position
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 #[Fillable(['name', 'price_minor_units', 'is_available', 'position'])]
 class MenuItemAddition extends Model
@@ -97,17 +96,6 @@ class MenuItemAddition extends Model
     public function menuItem(): BelongsTo
     {
         return $this->belongsTo(MenuItem::class);
-    }
-
-    /**
-     * What this adds to the dish, written as money.
-     *
-     * Always pass the currency down a list: every addition on a menu shares
-     * one, so resolving it per row is a query answering the same question.
-     */
-    public function formattedPrice(Currency $currency): string
-    {
-        return $currency->format($this->price_minor_units);
     }
 
     /**

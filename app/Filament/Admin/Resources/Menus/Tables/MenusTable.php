@@ -33,30 +33,30 @@ class MenusTable
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction)),
 
                 TextColumn::make('name_ta')
-                    ->label(Locale::Tamil->fieldLabel('Name'))
+                    ->label(Locale::Tamil->fieldLabel(__('panel.shared.name')))
                     ->state(fn (Menu $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder('Not translated')
+                    ->placeholder(__('panel.shared.not_translated'))
                     ->toggleable(),
 
                 TextColumn::make('menu_categories_count')
-                    ->label('Sections')
+                    ->label(__('panel.menus.sections_count'))
                     ->icon(Heroicon::OutlinedRectangleStack)
                     ->counts('menuCategories')
                     ->sortable(),
 
                 IconColumn::make('is_active')
-                    ->label('Showing')
+                    ->label(__('panel.shared.showing'))
                     ->boolean()
                     ->sortable()
-                    ->tooltip('A hidden menu takes its sections and their dishes off the storefront too.'),
+                    ->tooltip(__('panel.menus.showing_tooltip')),
 
                 TextColumn::make('position')
-                    ->label('Order')
+                    ->label(__('panel.shared.order'))
                     ->sortable()
                     ->toggleable(),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label('Showing'),
+                TernaryFilter::make('is_active')->label(__('panel.shared.showing')),
             ])
             ->recordActions([
                 EditAction::make()
@@ -73,7 +73,7 @@ class MenusTable
                     // Deleting a menu takes its sections, their dishes and
                     // those dishes' additions with it, by the cascades on the
                     // foreign keys. Say so before it happens.
-                    ->modalDescription('Every section on this menu is deleted with it, and every dish in those sections. Hide it instead to take it off the storefront and keep everything.'),
+                    ->modalDescription(__('panel.menus.delete_warning')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

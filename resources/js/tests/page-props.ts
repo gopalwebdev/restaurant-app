@@ -45,8 +45,9 @@ const DEFAULTS: TenantSharedProps = {
             { value: 'ta', label: 'தமிழ்', shortLabel: 'தமிழ்' },
         ],
     },
+    currency: { code: 'INR', minorUnitDigits: 2 },
     translations: DEFAULT_TRANSLATIONS,
-    appearance: 'system',
+    appearance: 'light',
 };
 
 let current: Record<string, unknown> = { ...DEFAULTS };

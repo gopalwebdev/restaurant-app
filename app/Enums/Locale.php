@@ -104,22 +104,6 @@ enum Locale: string
     }
 
     /**
-     * @return array<string, string>
-     */
-    public static function options(): array
-    {
-        return array_reduce(
-            self::cases(),
-            static function (array $options, self $locale): array {
-                $options[$locale->value] = $locale->label();
-
-                return $options;
-            },
-            [],
-        );
-    }
-
-    /**
      * The backing values of every language.
      *
      * @return list<string>

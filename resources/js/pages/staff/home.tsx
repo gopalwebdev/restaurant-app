@@ -5,20 +5,22 @@ import { FoodTypeDot, type FoodType } from '@/components/food-type-dot';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { useMoney } from '@/hooks/use-money';
 import { useTranslations } from '@/hooks/use-translations';
 import session from '@/routes/staff/session';
 
 interface Addition {
     id: number;
     name: string;
-    price: string | null;
+    /** An integer count of the currency's minor unit; 0 means free. */
+    priceMinorUnits: number;
     isAvailable: boolean;
 }
 
 interface Item {
     id: number;
     name: string;
-    price: string;
+    priceMinorUnits: number;
     foodType: FoodType;
     isAvailable: boolean;
     additions: Addition[];
@@ -123,6 +125,7 @@ export default function Home({ restaurant, auth, menus }: HomeProps) {
  */
 function Dish({ item }: { item: Item }) {
     const { t } = useTranslations();
+    const money = useMoney();
 
     return (
         <div className="px-5 py-3">
@@ -144,7 +147,7 @@ function Dish({ item }: { item: Item }) {
                 )}
 
                 <span className="shrink-0 font-semibold tabular-nums">
-                    {item.price}
+                    {money(item.priceMinorUnits)}
                 </span>
             </div>
 
@@ -161,9 +164,9 @@ function Dish({ item }: { item: Item }) {
                         >
                             {addition.name}{' '}
                             <span className="tabular-nums">
-                                {addition.price === null
+                                {addition.priceMinorUnits === 0
                                     ? t('item.free')
-                                    : `+ ${addition.price}`}
+                                    : `+ ${money(addition.priceMinorUnits)}`}
                             </span>
                         </li>
                     ))}

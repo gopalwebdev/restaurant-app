@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Enums\AdminPanel;
 use App\Filament\Admin\Auth\Login;
+use App\Http\Middleware\SetLocale;
 use App\Models\Restaurant;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -60,6 +61,12 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_START,
                 fn (): View => view('filament.desktop-only'),
             )
+            // The language this panel is worked in. Menu names come out of
+            // translated columns, so this has to be a server round trip.
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): View => view('filament.language-switcher'),
+            )
             // A resource with no policy, or a policy missing the method being
             // asked about, is refused rather than waved through. Without this a
             // page added tomorrow is open to anyone who can reach the panel,
@@ -69,6 +76,9 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                // Panels do not run the `web` group, so the middleware that
+                // reads the language cookie is listed here too.
+                SetLocale::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,

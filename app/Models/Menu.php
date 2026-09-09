@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasTranslatedNames;
+use Carbon\CarbonImmutable;
 use Database\Factories\MenuFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,7 +11,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
  * One of a restaurant's menus: Lunch, Dinner, Drinks.
@@ -28,8 +28,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property int $position
  * @property bool $is_active
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 #[Fillable(['name', 'description', 'position', 'is_active'])]
 class Menu extends Model

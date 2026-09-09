@@ -29,31 +29,31 @@ class HomeTilesTable
         return $table
             ->columns([
                 ImageColumn::make('image_path')
-                    ->label('Picture')
+                    ->label(__('panel.tiles.picture_column'))
                     ->disk('local')
                     ->visibility('private')
                     ->imageHeight(40)
                     ->defaultImageUrl(null)
-                    ->placeholder('No picture'),
+                    ->placeholder(__('panel.tiles.no_picture')),
 
                 TextColumn::make('label')
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'label', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'label', $direction)),
 
                 TextColumn::make('label_ta')
-                    ->label(Locale::Tamil->fieldLabel('Label'))
+                    ->label(Locale::Tamil->fieldLabel(__('panel.tiles.label_field')))
                     ->state(fn (HomeTile $record): ?string => $record->getTranslation('label', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder('Not translated')
+                    ->placeholder(__('panel.shared.not_translated'))
                     ->toggleable(),
 
                 TextColumn::make('action')
-                    ->label('On tap')
+                    ->label(__('panel.tiles.on_tap'))
                     ->badge()
                     ->color('gray')
                     ->formatStateUsing(fn (HomeTileAction $state): string => $state->label()),
 
                 TextColumn::make('destination')
-                    ->label('Goes to')
+                    ->label(__('panel.tiles.goes_to'))
                     ->state(fn (HomeTile $record): string => self::destinationOf($record))
                     ->icon(fn (HomeTile $record): Heroicon => match ($record->action) {
                         HomeTileAction::Menu => Heroicon::OutlinedBookOpen,
@@ -61,21 +61,21 @@ class HomeTilesTable
                     }),
 
                 IconColumn::make('is_active')
-                    ->label('Showing')
+                    ->label(__('panel.shared.showing'))
                     ->boolean()
                     ->sortable(),
 
                 TextColumn::make('position')
-                    ->label('Order')
+                    ->label(__('panel.shared.order'))
                     ->sortable()
                     ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('action')
-                    ->label('On tap')
+                    ->label(__('panel.tiles.on_tap'))
                     ->options(HomeTileAction::options()),
 
-                TernaryFilter::make('is_active')->label('Showing'),
+                TernaryFilter::make('is_active')->label(__('panel.shared.showing')),
             ])
             ->recordActions([
                 EditAction::make()
@@ -86,7 +86,7 @@ class HomeTilesTable
                 DeleteAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedTrash)
-                    ->modalDescription('The tile is removed from the home screen. Anything it pointed at — a menu, say — is left alone.'),
+                    ->modalDescription(__('panel.tiles.delete_warning')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -97,8 +97,8 @@ class HomeTilesTable
             // so this is the point of the page rather than a convenience.
             ->reorderable('position')
             ->defaultSort('position')
-            ->emptyStateHeading('No tiles yet')
-            ->emptyStateDescription('Guests scanning a table\'s QR code see nothing until there is at least one tile here. Most restaurants start with one that opens their menu.')
+            ->emptyStateHeading(__('panel.tiles.empty_heading'))
+            ->emptyStateDescription(__('panel.tiles.empty_description'))
             ->emptyStateIcon(Heroicon::OutlinedSquares2x2)
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('menu'));
     }
@@ -114,11 +114,11 @@ class HomeTilesTable
     private static function destinationOf(HomeTile $tile): string
     {
         if ($tile->action === HomeTileAction::Pdf) {
-            return 'An uploaded PDF';
+            return __('panel.tiles.an_uploaded_pdf');
         }
 
         $menu = $tile->menu;
 
-        return $menu instanceof Menu ? $menu->name : 'No menu chosen';
+        return $menu instanceof Menu ? $menu->name : __('panel.tiles.no_menu_chosen');
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Currency;
 use App\Enums\FoodType;
 use App\Models\Concerns\HasTranslatedNames;
+use Carbon\CarbonImmutable;
 use Database\Factories\MenuItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +13,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
  * One dish on one restaurant's menu.
@@ -36,8 +36,8 @@ use Illuminate\Support\Carbon;
  * @property FoodType $food_type
  * @property bool $is_available
  * @property int $position
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 #[Fillable([
     'menu_category_id',

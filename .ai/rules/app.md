@@ -44,7 +44,9 @@ Keeping guests and staff as the only Inertia surfaces is also what keeps their b
 
 What a guest sees first is `home_tiles`: rectangular image tiles the restaurant orders by hand, each opening a menu or a PDF. That is why `/` is the tile home and a menu lives at `/menus/{menu}`.
 
-## Two languages, English default, and the visitor picks
+## Two languages, English default, and everyone picks their own
 `App\Enums\Locale` has one case per language the app is available in — English and Tamil for now — and is the single source of truth: the cookie middleware validates against it, the toggle is built from it, and every translated column stores one key per case. English is the default, the fallback, and the only language an admin form requires.
 
 Like the India assumption above, this is a "for now": add a language by adding a case and a `lang/<value>` directory, not by branching on a locale at a call site. The one thing that does not scale for free is the expression unique indexes, which are built on English — see `.ai/rules/migrations.md`.
+
+All four surfaces switch language, not just the phone apps: the guest and staff apps through their toggle, and both Filament panels through a switcher in the top bar. Only what a guest reads is translated, though — menu content in translated columns, and the panel's menu-related labels in `lang/*/panel.php`. Roles and permissions stay English; see `.ai/rules/lang.md`.

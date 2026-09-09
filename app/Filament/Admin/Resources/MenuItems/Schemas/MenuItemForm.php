@@ -33,15 +33,15 @@ class MenuItemForm
     {
         return $schema
             ->components([
-                Section::make('Dish')
-                    ->description('Both languages are edited together. English is required; a guest reading in Tamil sees the English text wherever the Tamil is blank.')
+                Section::make(__('panel.items.dish'))
+                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedListBullet)
                     ->schema([
                         // Only this restaurant's sections are offered, and the
                         // composite foreign key refuses anything else even if
                         // the submitted id is tampered with.
                         Select::make('menu_category_id')
-                            ->label('Section')
+                            ->label(__('panel.items.section'))
                             ->options(fn (): array => self::sectionOptions())
                             ->required()
                             ->searchable()
@@ -49,34 +49,34 @@ class MenuItemForm
                             ->live()
                             ->prefixIcon(Heroicon::OutlinedRectangleStack)
                             ->columnSpanFull()
-                            ->helperText('Hiding a section, or the menu it is on, hides everything in it — this dish included.'),
+                            ->helperText(__('panel.items.section_help')),
 
                         ...TranslatedFields::text(
                             'name',
-                            'Name',
+                            __('panel.shared.name'),
                             maxLength: 120,
                             // Unique within the section rather than the whole
                             // restaurant, matching the database index: a lunch
                             // and a dinner menu may both list a "Paneer Tikka".
                             uniqueWithin: fn (Get $get): Builder => MenuItem::query()
                                 ->where('menu_category_id', $get('menu_category_id')),
-                            uniqueMessage: 'This section already has a dish with that name.',
+                            uniqueMessage: __('panel.items.unique'),
                         ),
 
                         Select::make('food_type')
-                            ->label('Food type')
+                            ->label(__('panel.items.food_type'))
                             ->options(FoodType::options())
                             ->required()
                             ->default(FoodType::Vegetarian->value)
                             ->native(false)
                             ->columnSpanFull()
-                            ->helperText('Shown to guests as the veg or non-veg mark. Never translated — it is a regulatory mark, and its colours mean a fixed thing.'),
+                            ->helperText(__('panel.items.food_type_help')),
 
-                        ...TranslatedFields::textarea('description', 'Description', maxLength: 500, rows: 3),
+                        ...TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 500, rows: 3),
                     ])
                     ->columns(2),
 
-                Section::make('Price and availability')
+                Section::make(__('panel.items.price_section'))
                     ->icon(Heroicon::OutlinedBanknotes)
                     ->schema([
                         // Typed and shown in major units, stored as an integer
@@ -84,22 +84,22 @@ class MenuItemForm
                         // conversion, and this is the only place it happens for
                         // this form — so no float ever reaches the database.
                         TextInput::make('price')
-                            ->label('Price')
+                            ->label(__('panel.items.price'))
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(99999)
                             ->step(0.01)
                             ->prefix(fn (): string => self::currency()->symbol())
-                            ->helperText('What a guest pays, in whole currency. Stored exactly, never as a float.'),
+                            ->helperText(__('panel.items.price_help')),
 
                         Toggle::make('is_available')
-                            ->label('Available now')
+                            ->label(__('panel.items.is_available'))
                             ->default(true)
-                            ->helperText('Turn off when it sells out, without taking it off the menu.'),
+                            ->helperText(__('panel.items.is_available_help')),
 
                         TextInput::make('position')
-                            ->label('Order in the section')
+                            ->label(__('panel.items.position'))
                             ->numeric()
                             ->integer()
                             ->minValue(0)
@@ -110,8 +110,8 @@ class MenuItemForm
                     ])
                     ->columns(3),
 
-                Section::make('Additions')
-                    ->description('Extras this dish can be ordered with — extra cheese, a large portion, no onions. Leave empty if it has none.')
+                Section::make(__('panel.additions.section'))
+                    ->description(__('panel.additions.section_help'))
                     ->icon(Heroicon::OutlinedPlusCircle)
                     ->schema([
                         self::additions(),
@@ -135,10 +135,10 @@ class MenuItemForm
             ->relationship()
             ->hiddenLabel()
             ->schema([
-                ...TranslatedFields::text('name', 'Addition', maxLength: 64),
+                ...TranslatedFields::text('name', __('panel.additions.label'), maxLength: 64),
 
                 TextInput::make('price')
-                    ->label('Extra charge')
+                    ->label(__('panel.additions.price'))
                     ->required()
                     ->numeric()
                     ->minValue(0)
@@ -146,10 +146,10 @@ class MenuItemForm
                     ->step(0.01)
                     ->default(0)
                     ->prefix(fn (): string => self::currency()->symbol())
-                    ->helperText('Zero is fine — "no onions" costs nothing and is still worth listing.'),
+                    ->helperText(__('panel.additions.price_help')),
 
                 Toggle::make('is_available')
-                    ->label('Available now')
+                    ->label(__('panel.additions.is_available'))
                     ->default(true),
             ])
             ->columns(2)
@@ -157,7 +157,7 @@ class MenuItemForm
             // Most dishes have none, and a blank row waiting to be filled in
             // would make every save fail validation until it was deleted.
             ->defaultItems(0)
-            ->addActionLabel('Add an addition')
+            ->addActionLabel(__('panel.additions.add'))
             ->itemLabel(fn (array $state): ?string => self::additionLabel($state))
             ->collapsible()
             // The repeater edits a major-unit price the same way the dish above

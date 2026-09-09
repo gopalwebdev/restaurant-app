@@ -28,3 +28,11 @@ DB::statement("CREATE UNIQUE INDEX menus_restaurant_id_name_en_unique ON menus (
 ```
 
 Verified identical on the Postgres of development and the SQLite the test suite runs on. Two ordering rules that follow from it: convert values to JSON text **while the column is still text**, because Postgres will not cast `Starters` to json, and create the index **after** the type change, because changing a column's type rebuilds the table on SQLite and an index built beforehand would not survive it. `translate_menu_names_and_descriptions` does both in that order and its `down()` mirrors them.
+
+## One migration per table, and walk rows in chunks
+A change that touches two tables is two migrations, each named for the table it touches — `translate_menu_category_names` and `translate_menu_item_names_and_descriptions` are one change split that way. It keeps a rollback surgical and a name honest about what it does.
+
+A migration that rewrites existing rows uses `chunkById` and selects only the columns it needs, so a restaurant with a long menu costs the same memory as one with a short one. Never `get()` a whole table into an array to loop over it.
+
+## Timestamps are Asia/Kolkata, set from the environment
+`APP_TIMEZONE` drives `config/app.php` and `DB_TIMEZONE` is handed to the pgsql connection, so `now()` in PHP and `now()` in SQL agree. Neither is hardcoded anywhere, and `phpunit.xml` pins the same zone so tests behave as production does.

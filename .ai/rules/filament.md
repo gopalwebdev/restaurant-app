@@ -45,3 +45,15 @@ This is about **Spatie roles and permissions specifically**, because of that cac
 Guest-facing text is stored one value per language (`.ai/rules/models.md`). Build the inputs with `App\Filament\Schemas\TranslatedFields::text()` / `::textarea()`, which emits one field per App\Enums\Locale case, requires only the fallback language, and attaches the uniqueness rule to that one — matching the database's expression index, so a save can never fail after passing validation.
 
 Both languages are shown at once rather than behind tabs: with two languages and a handful of fields that is less machinery, and a name and its translation get edited together. Table columns must go through `TranslatedFields::sort()` / `::search()`, and every edit action needs `->mutateRecordDataUsing(fn (array $data, Model $record) => XForm::fillTranslations($data, $record))` — Spatie hands back one language, and a form editing all of them needs the whole document.
+
+## The panel is worked in a language too, and its labels are methods
+Both panels carry a language switcher in the top bar (`resources/views/filament/language-switcher.blade.php`, hung on `USER_MENU_BEFORE`) and both list `SetLocale` in their own middleware stack — a panel does not run the `web` group, so the middleware that reads the language cookie has to be named there as well.
+
+The form posts to the host it was rendered on, because a cross-host post loses the session: the tenant panel uses `preferences.language.update` with the tenant's slug, and the product team's panel uses the root-domain `panel.language.update`. Both hit the same controller.
+
+**Labels must be methods, not static properties.** A `protected static ?string $modelLabel = 'menu'` is evaluated when the class loads, before the request has chosen a language, so it can never translate. Use `getModelLabel()`, `getPluralModelLabel()` and `getNavigationGroup()` returning `__('panel....')`.
+
+What is translated is deliberately bounded: the menu and storefront resources, in `lang/{en,ta}/panel.php`. **Roles, permissions, accounts and restaurants stay in English** — that is the product team's vocabulary and code refers to those names. Filament's own chrome falls back to English under Tamil, because the framework ships no `ta` locale.
+
+## No theming in the panel
+A restaurant chooses no colours and no light/dark default. The Settings page has contact and trading sections and nothing else; `App\Enums\Appearance` has two cases and lives on the phone. Do not add a theme section back without asking.

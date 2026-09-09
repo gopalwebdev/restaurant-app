@@ -5,11 +5,11 @@ paths:
 
 # Views
 
-## Theme is injected into the root template, never sent as a prop
-A restaurant's brand colour and light/dark choice live on `restaurant_settings` and are written into the HTML of the first response by `resources/views/partials/theme.blade.php`, which overrides the shadcn CSS variables `--primary` / `--ring` on `:root`.
+## Light or dark is injected into the root template, never sent as a prop
+`resources/views/partials/theme.blade.php` writes the visitor's light/dark choice into the HTML of the first response, and leaves it on the root element as `data-appearance` for React to read back.
 
-It has to be there, not in an Inertia prop: React runs after the first paint, so a prop would show the default colour and then visibly correct itself in front of the guest.
+It has to be there, not in an Inertia prop: React runs after the first paint, so a prop would show one shade and then visibly correct itself in front of the guest. `initializeTheme()` in resources/js/hooks/use-appearance.tsx reads that attribute rather than guessing, and deliberately persists nothing — only tapping the toggle is a choice worth storing.
 
-The restaurant's choice is a **default**, not a decision: `HandleTenantInertiaRequests::appearanceFor()` prefers the visitor's own `appearance` cookie and falls back to `restaurant_settings.theme_appearance`. The partial also writes the resolved value onto the root element as `data-appearance`, which is how `initializeTheme()` in resources/js/hooks/use-appearance.tsx starts the toggle in the state the page was actually painted in rather than guessing and correcting itself. `initializeTheme()` deliberately persists nothing — only tapping the toggle does, or a first visit would pin the guest to today's setting and silently override the restaurant the next time it changed.
+There is **no brand colour and no per restaurant theme**. `restaurant_settings` used to carry `theme_primary_color` and `theme_appearance`; both were dropped, the admin panel offers no theming, and `App\Enums\Appearance` has exactly two cases. Do not reintroduce either without asking.
 
 `HandleTenantInertiaRequests` shares two view variables for this — `$theme` and `$tenantSlug`. The slug is required because every tenant route carries `{restaurant}` in its **domain**, so `route('staff.manifest')` without it throws `UrlGenerationException`. Any new tenant URL built in a Blade template needs `['restaurant' => $tenantSlug]`.

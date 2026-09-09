@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         {{-- viewport-fit=cover so the app reaches under a phone's notch. --}}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-        <meta name="theme-color" content="{{ $theme['primary_color'] }}">
+        <meta name="theme-color" content="#E11D48">
 
         {{-- A table's QR code should not turn up in search results. --}}
         <meta name="robots" content="noindex">

@@ -20,7 +20,7 @@ class ListMenus extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('New menu')
+                ->label(__('panel.menus.create'))
                 ->icon(Heroicon::OutlinedPlus),
         ];
     }

@@ -20,19 +20,19 @@ class ListHomeTiles extends ListRecords
 
     public function getHeading(): string
     {
-        return 'Home screen';
+        return __('panel.tiles.heading');
     }
 
     public function getSubheading(): string
     {
-        return 'What a guest sees after scanning the QR code at their table, in the order shown here.';
+        return __('panel.tiles.subheading');
     }
 
     protected function getHeaderActions(): array
     {
         return [
             CreateAction::make()
-                ->label('New tile')
+                ->label(__('panel.tiles.create'))
                 ->icon(Heroicon::OutlinedPlus),
         ];
     }

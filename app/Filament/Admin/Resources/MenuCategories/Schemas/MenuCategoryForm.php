@@ -28,15 +28,15 @@ class MenuCategoryForm
     {
         return $schema
             ->components([
-                Section::make('Section')
-                    ->description('Both languages are edited together. English is required; a guest reading in Tamil sees the English name wherever the Tamil one is blank.')
+                Section::make(__('panel.categories.section'))
+                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedRectangleStack)
                     ->schema([
                         // Only this restaurant's menus are offered, and the
                         // composite foreign key refuses anything else even if
                         // the submitted id is tampered with.
                         Select::make('menu_id')
-                            ->label('Menu')
+                            ->label(__('panel.categories.menu'))
                             ->options(fn (): array => self::menuOptions())
                             ->default(fn (): ?int => self::onlyMenuKey())
                             ->required()
@@ -45,27 +45,27 @@ class MenuCategoryForm
                             ->live()
                             ->prefixIcon(Heroicon::OutlinedBookOpen)
                             ->columnSpanFull()
-                            ->helperText('Which menu this section appears on. Hiding a menu hides everything under it.'),
+                            ->helperText(__('panel.categories.menu_help')),
 
                         ...TranslatedFields::text(
                             'name',
-                            'Name',
+                            __('panel.shared.name'),
                             maxLength: 64,
                             // Unique within the menu rather than the restaurant:
                             // now that a restaurant can serve a lunch card and a
                             // dinner card, both are allowed a "Starters".
                             uniqueWithin: fn (Get $get): Builder => MenuCategory::query()
                                 ->where('menu_id', $get('menu_id')),
-                            uniqueMessage: 'This menu already has a section with that name.',
+                            uniqueMessage: __('panel.categories.unique'),
                         ),
                     ])
                     ->columns(2),
 
-                Section::make('On the menu')
+                Section::make(__('panel.categories.on_the_menu'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
                         TextInput::make('position')
-                            ->label('Order on the menu')
+                            ->label(__('panel.categories.position'))
                             ->numeric()
                             ->integer()
                             ->minValue(0)
@@ -73,12 +73,12 @@ class MenuCategoryForm
                             ->default(0)
                             ->required()
                             ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText('Lower numbers come first. Ties fall back to the name.'),
+                            ->helperText(__('panel.shared.order_help')),
 
                         Toggle::make('is_active')
-                            ->label('Showing on the menu')
+                            ->label(__('panel.categories.is_active'))
                             ->default(true)
-                            ->helperText('Turn this off to hide the whole section, and everything in it, without deleting anything.'),
+                            ->helperText(__('panel.categories.is_active_help')),
                     ])
                     ->columns(2),
             ]);

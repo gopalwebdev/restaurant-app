@@ -34,44 +34,44 @@ class MenuCategoriesTable
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction)),
 
                 TextColumn::make('name_ta')
-                    ->label(Locale::Tamil->fieldLabel('Name'))
+                    ->label(Locale::Tamil->fieldLabel(__('panel.shared.name')))
                     ->state(fn (MenuCategory $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder('Not translated')
+                    ->placeholder(__('panel.shared.not_translated'))
                     ->toggleable(),
 
                 TextColumn::make('menu.name')
-                    ->label('Menu')
+                    ->label(__('panel.categories.menu'))
                     ->icon(Heroicon::OutlinedBookOpen)
                     ->badge()
                     ->color('gray'),
 
                 TextColumn::make('menu_items_count')
-                    ->label('Items')
+                    ->label(__('panel.categories.items_count'))
                     ->icon(Heroicon::OutlinedListBullet)
                     ->counts('menuItems')
                     ->sortable(),
 
                 IconColumn::make('is_active')
-                    ->label('Showing')
+                    ->label(__('panel.shared.showing'))
                     ->boolean()
                     ->sortable()
-                    ->tooltip('A hidden section takes everything in it off the menu too.'),
+                    ->tooltip(__('panel.categories.showing_tooltip')),
 
                 TextColumn::make('position')
-                    ->label('Order')
+                    ->label(__('panel.shared.order'))
                     ->sortable()
                     ->toggleable(),
             ])
             ->groups([
-                Group::make('menu.name')->label('Menu'),
+                Group::make('menu.name')->label(__('panel.categories.menu')),
             ])
             ->defaultGroup('menu.name')
             ->filters([
                 SelectFilter::make('menu_id')
-                    ->label('Menu')
+                    ->label(__('panel.categories.menu'))
                     ->options(fn (): array => MenuCategoryForm::menuOptions()),
 
-                TernaryFilter::make('is_active')->label('Showing'),
+                TernaryFilter::make('is_active')->label(__('panel.shared.showing')),
             ])
             ->recordActions([
                 EditAction::make()
@@ -84,7 +84,7 @@ class MenuCategoriesTable
                     ->icon(Heroicon::OutlinedTrash)
                     // Deleting a section takes its items with it, by the
                     // cascade on the foreign key, so say so before it happens.
-                    ->modalDescription('Everything on this section of the menu is deleted with it. Hide it instead to take it off the menu and keep the items.'),
+                    ->modalDescription(__('panel.categories.delete_warning')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

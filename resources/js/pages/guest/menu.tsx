@@ -4,20 +4,21 @@ import { AppBar } from '@/components/app-bar';
 import { FoodTypeDot, type FoodType } from '@/components/food-type-dot';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useMoney } from '@/hooks/use-money';
 import { useTranslations } from '@/hooks/use-translations';
 
 interface Addition {
     id: number;
     name: string;
-    /** Null when the addition costs nothing, so no "+ ₹0.00" is drawn. */
-    price: string | null;
+    /** An integer count of the currency's minor unit; 0 means free. */
+    priceMinorUnits: number;
 }
 
 interface MenuItem {
     id: number;
     name: string;
     description: string | null;
-    price: string;
+    priceMinorUnits: number;
     foodType: FoodType;
     additions: Addition[];
 }
@@ -46,7 +47,8 @@ interface MenuProps {
  *
  * Every name on this page is already in the guest's language: the server picked
  * the translation, falling back to English where a restaurant has not filled
- * one in.
+ * one in. Prices arrive as integers and are formatted here, so they follow that
+ * same language — see resources/js/lib/money.ts.
  */
 export default function Menu({
     restaurant,
@@ -112,6 +114,7 @@ export default function Menu({
  */
 function Dish({ item }: { item: MenuItem }) {
     const { t } = useTranslations();
+    const money = useMoney();
 
     return (
         <article className="flex items-start gap-3 px-5 py-4">
@@ -140,9 +143,9 @@ function Dish({ item }: { item: MenuItem }) {
                                 >
                                     {addition.name}{' '}
                                     <span className="text-foreground/70 tabular-nums">
-                                        {addition.price === null
+                                        {addition.priceMinorUnits === 0
                                             ? t('menu.free')
-                                            : `+ ${addition.price}`}
+                                            : `+ ${money(addition.priceMinorUnits)}`}
                                     </span>
                                 </li>
                             ))}
@@ -152,7 +155,7 @@ function Dish({ item }: { item: MenuItem }) {
             </div>
 
             <p className="text-primary shrink-0 font-semibold tabular-nums">
-                {item.price}
+                {money(item.priceMinorUnits)}
             </p>
         </article>
     );

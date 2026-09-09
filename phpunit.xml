@@ -20,6 +20,7 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_URL" value="http://restaurant-app.test"/>
+        <env name="APP_TIMEZONE" value="Asia/Kolkata"/>
         <env name="APP_DOMAIN" value="restaurant-app.test"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

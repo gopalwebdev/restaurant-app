@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\OneTimePasswordFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -9,7 +10,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 /**
  * A single sign-in code issued to one user.
@@ -21,10 +21,10 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property string $code_hash
  * @property int $attempts
- * @property Carbon $expires_at
- * @property Carbon|null $consumed_at
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonImmutable $expires_at
+ * @property CarbonImmutable|null $consumed_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 #[Fillable(['code_hash', 'expires_at'])]
 #[Hidden(['code_hash'])]

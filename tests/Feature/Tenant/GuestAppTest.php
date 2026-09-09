@@ -7,6 +7,7 @@ use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -112,40 +113,57 @@ it('hides a restaurant that is switched off', function (): void {
 
 /*
 |--------------------------------------------------------------------------
-| Branding comes from the restaurant's own settings
+| Light or dark belongs to the phone, not to the restaurant
 |--------------------------------------------------------------------------
 */
 
-it('paints both apps in the restaurant\'s colour', function (): void {
+it('paints both apps light until the phone says otherwise', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $restaurant->settings->update([
-        'theme_primary_color' => '#0EA5E9',
-        'theme_appearance' => Appearance::Dark,
-    ]);
 
     // In the first response's HTML, not an Inertia prop: React runs after the
-    // paint, so a prop would show the default colour and then correct itself.
+    // paint, so a prop would show one shade and then correct itself.
     $this->get(guestUrl($restaurant))
         ->assertOk()
-        ->assertSee('--primary: #0EA5E9', escape: false)
-        ->assertSee('"dark"', escape: false);
+        ->assertSee('"light"', escape: false);
 
     $this->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
         ->assertOk()
-        ->assertSee('--primary: #0EA5E9', escape: false);
+        ->assertSee('"light"', escape: false);
 });
 
-it('lets a visitor\'s own light or dark choice beat the restaurant\'s', function (): void {
+it('paints both apps dark when the phone has asked for dark', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $restaurant->settings->update(['theme_appearance' => Appearance::Dark]);
 
-    // The restaurant's setting is a default, not a decision. The cookie is
-    // unencrypted so the toggle in React and the server read the same value.
-    $this->withUnencryptedCookie('appearance', Appearance::Light->value)
+    // There is no per restaurant default and no brand colour: the whole of the
+    // theming is this cookie, which is unencrypted so the toggle in React and
+    // the server read the same value.
+    $this->withUnencryptedCookie('appearance', Appearance::Dark->value)
         ->get(guestUrl($restaurant))
         ->assertOk()
-        ->assertSee('"light"', escape: false)
-        ->assertDontSee('"dark"', escape: false);
+        ->assertSee('"dark"', escape: false)
+        ->assertDontSee('"light"', escape: false);
+
+    $this->withUnencryptedCookie('appearance', Appearance::Dark->value)
+        ->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
+        ->assertOk()
+        ->assertSee('"dark"', escape: false);
+});
+
+it('ignores a tampered appearance cookie rather than breaking the page', function (): void {
+    $restaurant = Restaurant::factory()->create();
+
+    // The cookie is unencrypted and therefore visitor-controlled.
+    $this->withUnencryptedCookie('appearance', 'neon')
+        ->get(guestUrl($restaurant))
+        ->assertOk()
+        ->assertSee('"light"', escape: false);
+});
+
+it('offers no theme customisation to the restaurant', function (): void {
+    // Light and dark are the whole of it, so the columns that used to hold a
+    // brand colour and a default are gone — see App\Enums\Appearance.
+    expect(Schema::hasColumn('restaurant_settings', 'theme_primary_color'))->toBeFalse()
+        ->and(Schema::hasColumn('restaurant_settings', 'theme_appearance'))->toBeFalse();
 });
 
 /*

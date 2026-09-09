@@ -59,7 +59,7 @@ describe('guest menu', () => {
                                 id: 10,
                                 name: 'Paneer Tikka',
                                 description: 'Charred in the tandoor.',
-                                price: '₹249.50',
+                                priceMinorUnits: 24950,
                                 foodType: 'vegetarian',
                                 additions: [],
                             },
@@ -71,7 +71,9 @@ describe('guest menu', () => {
 
         expect(screen.getByText('Starters')).toBeInTheDocument();
         expect(screen.getByText('Paneer Tikka')).toBeInTheDocument();
-        expect(screen.getByText('₹249.50')).toBeInTheDocument();
+        // The price arrives as the integer 24950 and is turned into money
+        // here, in the guest's own language.
+        expect(screen.getByText(/249\.50/)).toBeInTheDocument();
         // The veg/non-veg mark is a regulatory one, so it carries a label
         // rather than being colour alone.
         expect(screen.getByLabelText('Vegetarian')).toBeInTheDocument();
@@ -93,18 +95,18 @@ describe('guest menu', () => {
                                 id: 10,
                                 name: 'Paneer Tikka',
                                 description: null,
-                                price: '₹249.50',
+                                priceMinorUnits: 24950,
                                 foodType: 'vegetarian',
                                 additions: [
                                     {
                                         id: 100,
                                         name: 'Extra paneer',
-                                        price: '₹50.00',
+                                        priceMinorUnits: 5000,
                                     },
                                     {
                                         id: 101,
                                         name: 'Less spicy',
-                                        price: null,
+                                        priceMinorUnits: 0,
                                     },
                                 ],
                             },
@@ -115,10 +117,10 @@ describe('guest menu', () => {
         );
 
         expect(screen.getByText('Add to this')).toBeInTheDocument();
-        expect(screen.getByText('+ ₹50.00')).toBeInTheDocument();
+        expect(screen.getByText(/\+\s*₹?50\.00/)).toBeInTheDocument();
         // "₹0.00" beside a choice that simply costs nothing reads as a mistake.
         expect(screen.getByText('Free')).toBeInTheDocument();
-        expect(screen.queryByText('+ ₹0.00')).not.toBeInTheDocument();
+        expect(screen.queryByText(/₹0\.00/)).not.toBeInTheDocument();
     });
 
     it('says so plainly when there is no menu yet', () => {

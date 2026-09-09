@@ -19,11 +19,19 @@ use Illuminate\Http\Response;
  */
 class ProgressiveWebAppController extends Controller
 {
+    /**
+     * The splash and status bar colour of the installed app.
+     *
+     * Fixed rather than per restaurant: theming is light or dark and nothing
+     * else, and a manifest colour is baked in at install time anyway — a
+     * restaurant changing it would not reach a phone that already has the app.
+     */
+    private const string THEME_COLOR = '#E11D48';
+
     public function manifest(Restaurant $restaurant): JsonResponse
     {
         abort_unless($restaurant->is_active, 404);
 
-        $settings = $restaurant->settings;
         $start = route('staff.home', ['restaurant' => $restaurant->slug], absolute: false);
 
         return response()->json([
@@ -37,7 +45,7 @@ class ProgressiveWebAppController extends Controller
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#ffffff',
-            'theme_color' => $settings->theme_primary_color ?? '#E11D48',
+            'theme_color' => self::THEME_COLOR,
             'icons' => [
                 [
                     'src' => '/apple-touch-icon.png',

@@ -30,11 +30,23 @@ export type Translations = {
     [key: string]: string | Translations;
 };
 
+/**
+ * The restaurant's currency, as a code and a scale.
+ *
+ * Never a formatted string: prices cross the wire as integers and are turned
+ * into money in the browser, by resources/js/lib/money.ts.
+ */
+export type CurrencyProp = {
+    code: string;
+    minorUnitDigits: number;
+};
+
 export type TenantSharedProps = {
     restaurant: { name: string; slug: string } | null;
     auth: { user: { name: string; email: string } | null };
     locale: LocaleProp;
+    currency: CurrencyProp | null;
     translations: Translations;
-    /** What the server painted the page with: 'system', 'light' or 'dark'. */
+    /** What the server painted the page with: 'light' or 'dark'. */
     appearance: string;
 };

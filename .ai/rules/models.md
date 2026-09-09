@@ -55,3 +55,8 @@ Consequences: a plain `unique` on the column would compare whole JSON documents 
 home_tiles has two nullable destination columns — menu_id and document_path — and App\Enums\HomeTileAction::targetColumn() is the single place that says which one an action uses. HomeTile::booted() clears the ones the action does not use and throws when the required one is blank; HomeTileForm states the same rule as `visible()`/`required()` validation.
 
 This would be a CHECK constraint if Laravel's Blueprint could express one and SQLite could add one after CREATE TABLE. Neither is true, so do not go looking for a database guarantee here — and do not remove the model guard, which is the only thing stopping a tile that goes nowhere. Adding a third action means an enum case, a column, and a case in targetColumn(); nothing else.
+
+## Timestamps are CarbonImmutable, and prices leave as integers
+`AppServiceProvider` calls `Date::use(CarbonImmutable::class)`, so every `@property` for `created_at` / `updated_at` says `CarbonImmutable`. A docblock saying `Carbon` is wrong and will have someone reaching for `->addDay()` expecting it to mutate.
+
+Money stays an integer all the way out of PHP. `MenuItem::formattedPrice()` exists for the Filament tables, which are server rendered; the guest and staff apps are sent `price_minor_units` and format it themselves — see `.ai/rules/js.md`. Do not add a `formattedX()` accessor for an Inertia payload.

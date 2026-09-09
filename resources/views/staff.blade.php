@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-        <meta name="theme-color" content="{{ $theme['primary_color'] }}">
+        <meta name="theme-color" content="#E11D48">
         <meta name="robots" content="noindex">
 
         {{-- Staff install this and keep it, so it is a real PWA: a manifest to

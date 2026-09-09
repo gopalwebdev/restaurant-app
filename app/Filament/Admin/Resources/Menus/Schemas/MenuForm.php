@@ -27,33 +27,33 @@ class MenuForm
     {
         return $schema
             ->components([
-                Section::make('Name')
-                    ->description('Both languages are edited together. English is required; a guest reading in Tamil sees the English name wherever the Tamil one is blank.')
+                Section::make(__('panel.menus.name_section'))
+                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedBookOpen)
                     ->schema(TranslatedFields::text(
                         'name',
-                        'Name',
+                        __('panel.shared.name'),
                         maxLength: 64,
                         // Scoped to the tenant by Filament's global scope, so
                         // two restaurants may both have a "Dinner" and one
                         // restaurant may not have it twice.
                         uniqueWithin: fn (): Builder => Menu::query(),
-                        uniqueMessage: 'This restaurant already has a menu with that name.',
+                        uniqueMessage: __('panel.menus.unique'),
                     ))
                     ->columns(2),
 
-                Section::make('Description')
-                    ->description('Optional. A line about what this menu is — "Served 12pm to 3pm", say.')
+                Section::make(__('panel.menus.description_section'))
+                    ->description(__('panel.menus.description_help'))
                     ->icon(Heroicon::OutlinedDocumentText)
-                    ->schema(TranslatedFields::textarea('description', 'Description', maxLength: 300, rows: 2))
+                    ->schema(TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 300, rows: 2))
                     ->columns(2)
                     ->collapsed(),
 
-                Section::make('On the storefront')
+                Section::make(__('panel.menus.storefront_section'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
                         TextInput::make('position')
-                            ->label('Order')
+                            ->label(__('panel.shared.order'))
                             ->numeric()
                             ->integer()
                             ->minValue(0)
@@ -61,12 +61,12 @@ class MenuForm
                             ->default(0)
                             ->required()
                             ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText('Lower numbers come first. Ties fall back to the name.'),
+                            ->helperText(__('panel.shared.order_help')),
 
                         Toggle::make('is_active')
-                            ->label('Showing to guests')
+                            ->label(__('panel.menus.is_active'))
                             ->default(true)
-                            ->helperText('Turn this off to take the whole menu down — its sections and dishes with it — without deleting anything. Home screen tiles pointing at it stop being shown too.'),
+                            ->helperText(__('panel.menus.is_active_help')),
                     ])
                     ->columns(2),
             ]);

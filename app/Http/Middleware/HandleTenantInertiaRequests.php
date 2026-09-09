@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Enums\Appearance;
 use App\Enums\Locale;
 use App\Models\Restaurant;
-use App\Models\RestaurantSetting;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Lang;
@@ -92,10 +91,17 @@ abstract class HandleTenantInertiaRequests extends Middleware
                     Locale::cases(),
                 ),
             ],
+            // Sent as a code and a scale rather than a formatted string,
+            // because prices are formatted in the browser — see
+            // resources/js/lib/money.ts.
+            'currency' => $restaurant instanceof Restaurant ? [
+                'code' => $restaurant->currency()->value,
+                'minorUnitDigits' => $restaurant->currency()->minorUnitDigits(),
+            ] : null,
             'translations' => $this->translationsFor($locale),
             // What the page was painted with, so the toggle starts in the right
             // state instead of guessing and correcting itself.
-            'appearance' => $this->appearanceFor($this->restaurant($request), $request)->value,
+            'appearance' => $this->appearanceFor($request)->value,
         ];
     }
 
@@ -127,43 +133,34 @@ abstract class HandleTenantInertiaRequests extends Middleware
     /**
      * The theme handed to the root template.
      *
+     * Just a name and light or dark. There is no brand colour and no per
+     * restaurant default — see App\Enums\Appearance.
+     *
      * @return array<string, string>
      */
     protected function themeFor(?Restaurant $restaurant, Request $request): array
     {
-        $settings = $restaurant?->settings;
-
         return [
             'name' => $restaurant->name ?? config('app.name'),
-            'primary_color' => $settings->theme_primary_color ?? '#E11D48',
-            'appearance' => $this->appearanceFor($restaurant, $request)->value,
+            'appearance' => $this->appearanceFor($request)->value,
         ];
     }
 
     /**
-     * Light or dark, with the visitor's own choice winning.
+     * Light or dark, as the phone reading this has been told.
      *
-     * The restaurant's setting is a default, not a decision: a guest who has
-     * tapped the toggle on their phone has said what they want, and that
-     * outlives whatever the restaurant picked. Read from the cookie rather
-     * than a prop because the answer has to be in the first byte of HTML —
-     * see resources/views/partials/theme.blade.php.
+     * Read from the cookie rather than a prop because the answer has to be in
+     * the first byte of HTML: React runs after the paint, so a prop would show
+     * one shade and then visibly correct itself in front of the guest. See
+     * resources/views/partials/theme.blade.php.
      */
-    protected function appearanceFor(?Restaurant $restaurant, Request $request): Appearance
+    protected function appearanceFor(Request $request): Appearance
     {
-        // A cookie can come back as an array, so it is checked rather than cast.
+        // A cookie is visitor-controlled and can come back as an array, so it
+        // is checked rather than cast, and an unknown value falls back.
         $cookie = $request->cookie('appearance');
-        $chosen = is_string($cookie) ? Appearance::tryFrom($cookie) : null;
 
-        if ($chosen instanceof Appearance) {
-            return $chosen;
-        }
-
-        $settings = $restaurant?->settings;
-
-        return $settings instanceof RestaurantSetting
-            ? $settings->theme_appearance
-            : Appearance::System;
+        return Appearance::fromRequestValue(is_string($cookie) ? $cookie : null);
     }
 
     /**

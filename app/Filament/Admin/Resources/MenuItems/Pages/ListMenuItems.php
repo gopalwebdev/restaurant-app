@@ -18,17 +18,28 @@ class ListMenuItems extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('New dish')
+                ->label(__('panel.items.create'))
                 ->icon(Heroicon::OutlinedPlus)
                 // A dish has to go in a section, and a section on a menu, so
                 // there is nothing useful to do until one exists. Saying so
                 // beats an empty select.
                 ->disabled(fn (): bool => ! $this->hasAnyCategory())
-                ->tooltip(fn (): ?string => $this->hasAnyCategory()
-                    ? null
-                    : 'Add a menu and a section to it first.')
+                ->tooltip(fn (): ?string => $this->hasAnyCategory() ? null : $this->needsASectionTooltip())
                 ->mutateDataUsing(fn (array $data): array => MenuItemForm::storePrice($data)),
         ];
+    }
+
+    /**
+     * Why the button is disabled, in the language the panel is being worked in.
+     *
+     * `__()` is typed as string|array|null because a key may hold either, so
+     * the one call site with a declared return type checks rather than casts.
+     */
+    private function needsASectionTooltip(): ?string
+    {
+        $tooltip = __('panel.items.needs_a_section');
+
+        return is_string($tooltip) ? $tooltip : null;
     }
 
     /**

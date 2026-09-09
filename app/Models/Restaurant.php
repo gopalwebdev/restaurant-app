@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AdminPanel;
 use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
+use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Carbon;
 
 /**
  * A single restaurant, which is also the tenant boundary.
@@ -37,8 +37,8 @@ use Illuminate\Support\Carbon;
  * @property CountryCallingCode|null $secondary_phone_country_code
  * @property string|null $secondary_phone
  * @property bool $is_active
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
  */
 #[Fillable(['slug', 'name', 'address', 'pincode', 'email', 'phone_country_code', 'phone', 'secondary_phone_country_code', 'secondary_phone', 'is_active'])]
 class Restaurant extends Model

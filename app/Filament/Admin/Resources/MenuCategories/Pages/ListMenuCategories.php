@@ -15,7 +15,7 @@ class ListMenuCategories extends ListRecords
     {
         return [
             CreateAction::make()
-                ->label('New section')
+                ->label(__('panel.categories.create'))
                 ->icon(Heroicon::OutlinedPlus),
         ];
     }

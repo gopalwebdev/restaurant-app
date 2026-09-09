@@ -97,6 +97,11 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Set on every connection, so `now()` in SQL and Carbon in PHP
+            // agree. It must be a named zone: Postgres reads a bare "+05:30"
+            // with POSIX sign conventions, where positive means west of
+            // Greenwich, and quietly lands on UTC-5:30 instead.
+            'timezone' => env('DB_TIMEZONE', 'Asia/Kolkata'),
         ],
 
         'sqlsrv' => [

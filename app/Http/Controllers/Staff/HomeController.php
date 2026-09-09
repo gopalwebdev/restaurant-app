@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Staff;
 
-use App\Enums\Currency;
 use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -29,13 +28,18 @@ class HomeController extends Controller
 {
     public function __invoke(Restaurant $restaurant): Response
     {
-        $currency = $restaurant->currency();
-
+        // Each query names the columns it needs, so a long menu does not carry
+        // timestamps and foreign keys nobody renders.
         $menus = Menu::query()
+            ->select(['id', 'name', 'is_active'])
             ->where('restaurant_id', $restaurant->getKey())
             ->with(['menuCategories' => fn ($categories) => $categories
+                ->select(['id', 'menu_id', 'name'])
                 ->with(['menuItems' => fn ($items) => $items
-                    ->with(['additions' => fn ($additions) => $additions->inMenuOrder()])
+                    ->select(['id', 'menu_category_id', 'name', 'price_minor_units', 'food_type', 'is_available'])
+                    ->with(['additions' => fn ($additions) => $additions
+                        ->select(['id', 'menu_item_id', 'name', 'price_minor_units', 'is_available'])
+                        ->inMenuOrder()])
                     ->inMenuOrder()])
                 ->inMenuOrder()])
             ->inMenuOrder()
@@ -50,7 +54,7 @@ class HomeController extends Controller
                     'id' => $category->getKey(),
                     'name' => $category->name,
                     'items' => $category->menuItems->map(
-                        fn (MenuItem $item): array => $this->presentItem($item, $currency),
+                        fn (MenuItem $item): array => $this->presentItem($item),
                     )->values()->all(),
                 ])->values()->all(),
             ])->values()->all(),
@@ -60,20 +64,23 @@ class HomeController extends Controller
     /**
      * One dish and the extras it can be ordered with.
      *
+     * Prices go out as integers and are formatted in the browser — see
+     * resources/js/lib/money.ts.
+     *
      * @return array<string, mixed>
      */
-    private function presentItem(MenuItem $item, Currency $currency): array
+    private function presentItem(MenuItem $item): array
     {
         return [
             'id' => $item->getKey(),
             'name' => $item->name,
-            'price' => $item->formattedPrice($currency),
+            'priceMinorUnits' => $item->price_minor_units,
             'foodType' => $item->food_type->value,
             'isAvailable' => $item->is_available,
             'additions' => $item->additions->map(fn (MenuItemAddition $addition): array => [
                 'id' => $addition->getKey(),
                 'name' => $addition->name,
-                'price' => $addition->isFree() ? null : $addition->formattedPrice($currency),
+                'priceMinorUnits' => $addition->price_minor_units,
                 'isAvailable' => $addition->is_available,
             ])->values()->all(),
         ];

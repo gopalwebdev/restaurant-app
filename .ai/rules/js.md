@@ -31,7 +31,7 @@ Staff install their surface as a PWA and keep it; guests arrive by QR and leave,
 ## Both apps carry a theme toggle and a language toggle, and no logo
 `components/preference-toggles.tsx` pairs the two things a visitor can change for themselves. It rides in `components/app-bar.tsx` on every screen that has a header, and stands alone at the top of the staff sign-in screen — someone who cannot read that screen cannot get past it to change the language.
 
-The theme is one icon button, light ⇄ dark, and the icon shows the destination rather than the current state. It is client-side only: `useAppearance().toggleAppearance()` writes localStorage and the `appearance` cookie, and the cookie is what lets the server paint the next first response the same way (see `.ai/rules/views.md`).
+The theme is one icon button, light ⇄ dark, and the icon shows the destination rather than the current state. There is no third "system" state and no brand colour — light and dark are the whole of the theming. It is client-side only: `useAppearance().toggleAppearance()` writes localStorage and the `appearance` cookie, and the cookie is what lets the server paint the next first response the same way (see `.ai/rules/views.md`).
 
 The language is a real form `PUT`ing to `preferences.language.update`, not a client-side switch, because half of what a guest reads — dish names, sections, tile labels — is translated in the database and only the server can answer in another language. The server decides which language is next, so the button never holds the list.
 
@@ -48,3 +48,10 @@ Everything a restaurant wrote — menu, section, dish, addition and tile names �
 `pages/guest` holds `home` (the tiles a guest lands on), `menu` (one menu, its sections, dishes and additions) and `document` (a tile's PDF, embedded so the app keeps its back arrow). The rule above still holds: component names are relative to the app's own directory, and `pages/guest` and `pages/staff` never import from each other.
 
 Vitest specs render a page directly, outside `createInertiaApp`, so `usePage()` has nowhere to read from. `resources/js/tests/setup.ts` mocks it against `resources/js/tests/page-props.ts`; call `stubPageProps()` to change what a test sees. Its strings are a stand-in, not the real ones — what each app actually says is pinned by `tests/Feature/LocalizationTest.php`.
+
+## Money is formatted here, never in PHP
+Prices cross the wire as an integer count of the currency's minor unit — ₹249.50 is `priceMinorUnits: 24950` — exactly as the database stores them, and the restaurant's currency arrives once in the shared `currency` prop as a code and a scale. `useMoney()` turns the two into a string.
+
+Two reasons, both load-bearing. The server does no per-row string building, which is the point of `.ai/rules/general.md`'s memory rule. And `Intl.NumberFormat` follows the guest's own language, so a rupee price groups as ₹2,49,500 rather than ₹249,500 — something `number_format()` cannot do.
+
+Formatters are cached per locale-and-currency in `resources/js/lib/money.ts`, because a menu formats one per row. The scale comes from the server so a zero-decimal currency is never silently divided by 100. The one place money is still formatted in PHP is a Filament table, which is server rendered — it goes through `MenuItem::formattedPrice()`.

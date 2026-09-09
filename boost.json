@@ -7,7 +7,8 @@
     "mcp": true,
     "nightwatch": false,
     "packages": [
-        "spatie/laravel-permission"
+        "spatie/laravel-permission",
+        "spatie/laravel-translatable"
     ],
     "sail": false,
     "skills": [

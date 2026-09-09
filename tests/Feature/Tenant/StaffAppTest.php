@@ -170,15 +170,17 @@ it('keeps a staff member out of another restaurant\'s app', function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('serves a manifest branded for the restaurant', function (): void {
+it('serves a manifest named for the restaurant', function (): void {
     $restaurant = Restaurant::factory()->create(['name' => 'Spice Garden']);
-    $restaurant->settings->update(['theme_primary_color' => '#0EA5E9']);
 
+    // The name on the home screen is the restaurant's; the colour is not.
+    // A manifest colour is baked in at install time, so a restaurant changing
+    // one would never reach a phone that already had the app.
     $this->get(staffUrl($restaurant, '/manifest.webmanifest'))
         ->assertOk()
         ->assertJsonPath('short_name', 'Spice Garden')
+        ->assertJsonPath('name', 'Spice Garden Staff')
         ->assertJsonPath('display', 'standalone')
-        ->assertJsonPath('theme_color', '#0EA5E9')
         ->assertJsonPath('start_url', '/staff');
 });
 

@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Enums\Appearance;
 use App\Enums\Currency;
 use App\Enums\Permission;
 use App\Models\Restaurant;
@@ -11,7 +10,6 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
@@ -93,28 +91,6 @@ class Settings extends Page
                             ->label('Contact phone')
                             ->tel()
                             ->maxLength(32),
-                    ])
-                    ->columns(2),
-
-                Section::make('Branding')
-                    ->description('How the guest and staff apps look. Both are shadcn, so one colour re-skins every button, badge and highlight in them.')
-                    ->schema([
-                        ColorPicker::make('theme_primary_color')
-                            ->label('Brand colour')
-                            ->required()
-                            ->hex()
-                            ->rule('regex:/^#[0-9a-fA-F]{6}$/')
-                            ->helperText('Used for buttons, prices and anything that needs to stand out.')
-                            ->validationMessages([
-                                'regex' => 'Pick a colour, or type one as #RRGGBB.',
-                            ]),
-
-                        Select::make('theme_appearance')
-                            ->label('Light or dark')
-                            ->options(Appearance::options())
-                            ->required()
-                            ->native(false)
-                            ->helperText('Following the phone is usually right: a bright terrace and a dark dining room want different answers.'),
                     ])
                     ->columns(2),
 

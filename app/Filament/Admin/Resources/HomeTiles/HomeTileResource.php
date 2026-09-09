@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use UnitEnum;
 
 /**
  * The home screen a guest lands on after scanning a table's QR code.
@@ -31,17 +30,30 @@ class HomeTileResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Storefront';
-
     protected static ?int $navigationSort = 1;
-
-    protected static ?string $modelLabel = 'home screen tile';
-
-    protected static ?string $pluralModelLabel = 'home screen';
 
     protected static ?string $recordTitleAttribute = 'label';
 
     protected static ?string $tenantOwnershipRelationshipName = 'restaurant';
+
+    /**
+     * Labels are methods rather than static properties because a property is
+     * evaluated when the class loads, before the request has chosen a language.
+     */
+    public static function getNavigationGroup(): ?string
+    {
+        return __('panel.navigation.storefront');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('panel.tiles.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('panel.tiles.plural');
+    }
 
     public static function form(Schema $schema): Schema
     {

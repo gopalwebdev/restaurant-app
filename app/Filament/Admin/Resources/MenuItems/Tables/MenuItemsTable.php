@@ -35,26 +35,26 @@ class MenuItemsTable
                     ->description(fn (MenuItem $record): ?string => $record->description),
 
                 TextColumn::make('name_ta')
-                    ->label(Locale::Tamil->fieldLabel('Name'))
+                    ->label(Locale::Tamil->fieldLabel(__('panel.shared.name')))
                     ->state(fn (MenuItem $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder('Not translated')
+                    ->placeholder(__('panel.shared.not_translated'))
                     ->toggleable(),
 
                 TextColumn::make('menuCategory.name')
-                    ->label('Section')
+                    ->label(__('panel.items.section'))
                     ->icon(Heroicon::OutlinedRectangleStack)
                     ->badge()
                     ->color('gray'),
 
                 TextColumn::make('menuCategory.menu.name')
-                    ->label('Menu')
+                    ->label(__('panel.categories.menu'))
                     ->icon(Heroicon::OutlinedBookOpen)
                     ->badge()
                     ->color('gray')
                     ->toggleable(),
 
                 TextColumn::make('food_type')
-                    ->label('Type')
+                    ->label(__('panel.items.type'))
                     ->badge()
                     ->formatStateUsing(fn (FoodType $state): string => $state->label())
                     ->color(fn (FoodType $state): string => $state->color()),
@@ -62,44 +62,48 @@ class MenuItemsTable
                 // Stored in minor units, shown as money in the restaurant's own
                 // currency. Sorting works on the integer, which is the point of
                 // storing it that way.
+                //
+                // Formatted here rather than in the browser, unlike the guest
+                // and staff apps: a panel is server rendered, and the currency
+                // is resolved once for the page rather than per row.
                 TextColumn::make('price_minor_units')
-                    ->label('Price')
-                    ->formatStateUsing(fn (int $state): string => MenuItemForm::currency()->format($state))
+                    ->label(__('panel.items.price'))
+                    ->formatStateUsing(fn (MenuItem $record): string => $record->formattedPrice(MenuItemForm::currency()))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('additions_count')
-                    ->label('Additions')
+                    ->label(__('panel.additions.count'))
                     ->icon(Heroicon::OutlinedPlusCircle)
                     ->counts('additions')
                     ->sortable()
                     ->toggleable(),
 
                 IconColumn::make('is_available')
-                    ->label('Available')
+                    ->label(__('panel.items.is_available'))
                     ->boolean()
                     ->sortable(),
 
                 TextColumn::make('position')
-                    ->label('Order')
+                    ->label(__('panel.shared.order'))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->groups([
-                Group::make('menuCategory.name')->label('Section'),
-                Group::make('menuCategory.menu.name')->label('Menu'),
+                Group::make('menuCategory.name')->label(__('panel.items.section')),
+                Group::make('menuCategory.menu.name')->label(__('panel.categories.menu')),
             ])
             ->defaultGroup('menuCategory.name')
             ->filters([
                 SelectFilter::make('menu_category_id')
-                    ->label('Section')
+                    ->label(__('panel.items.section'))
                     ->options(fn (): array => MenuItemForm::sectionOptions()),
 
                 SelectFilter::make('food_type')
-                    ->label('Food type')
+                    ->label(__('panel.items.food_type'))
                     ->options(FoodType::options()),
 
-                TernaryFilter::make('is_available')->label('Available'),
+                TernaryFilter::make('is_available')->label(__('panel.items.is_available')),
             ])
             ->recordActions([
                 EditAction::make()
@@ -114,7 +118,7 @@ class MenuItemsTable
                 DeleteAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedTrash)
-                    ->modalDescription('The additions on this dish are deleted with it.'),
+                    ->modalDescription(__('panel.items.delete_warning')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -15,4 +15,6 @@ API routes are versioned from the first one: `/api/v1/...`. Route names are dot-
 ## Tenant route names say which app they belong to
 Two apps share a restaurant's subdomain, so every route name on it carries its app's prefix: `guest.home`, `guest.menus.show`, `guest.tiles.document.show`, and `staff.home`, `staff.login`. The one exception is `preferences.language.update`, which both apps post to and neither owns.
 
+Switching language needs two registrations of one controller, because a form must post to the host it was rendered on or the session cookie does not travel: `preferences.language.update` on a restaurant's subdomain (phone apps and the tenant panel) and `panel.language.update` on the root domain (the product team's panel).
+
 `storefront` was the old name for `guest.home`, and `/` is now the tile home screen rather than the menu — a menu lives at `/menus/{menu}`. Because `{restaurant}` arrives in the **domain**, Laravel's scoped bindings do not cover `{menu}` or `{tile}`: each controller checks `$model->restaurant_id === $restaurant->getKey()` by hand, alongside the `is_active` check. Leaving that out is how one restaurant reads another's uploads off the same disk.
