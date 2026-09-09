@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Menus\RelationManagers;
 
 use App\Enums\FoodType;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Tables\OrderActions;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use Filament\Actions\Action;
@@ -91,6 +92,8 @@ class FeaturedItemsRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                ...OrderActions::make(fn (MenuItem $record): Builder => MenuItem::query()->where('is_featured', true)->whereRelation('menuCategory', 'menu_id', $record->menuCategory->menu_id), 'featured_position'),
+
                 Action::make('unfeature')
                     ->label(__('panel.items.featured_remove'))
                     ->iconButton()
@@ -100,8 +103,6 @@ class FeaturedItemsRelationManager extends RelationManager
                     ->modalDescription(__('panel.items.featured_remove_warning'))
                     ->action(fn (MenuItem $record) => $record->update(['is_featured' => false])),
             ])
-            // Dragging is the whole point: this row is what a guest sees first.
-            ->reorderable('featured_position')
             ->defaultSort('featured_position')
             ->emptyStateHeading(__('panel.items.featured_empty_heading'))
             ->emptyStateDescription(__('panel.items.featured_empty_description'))

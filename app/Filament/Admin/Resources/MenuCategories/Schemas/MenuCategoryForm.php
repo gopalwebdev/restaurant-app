@@ -7,7 +7,6 @@ use App\Models\Menu;
 use App\Models\MenuCategory;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -27,7 +26,10 @@ class MenuCategoryForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
+                TranslatedFields::localeSwitcher(),
+
                 Section::make(__('panel.categories.section'))
                     ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedRectangleStack)
@@ -44,7 +46,6 @@ class MenuCategoryForm
                             ->preload()
                             ->live()
                             ->prefixIcon(Heroicon::OutlinedBookOpen)
-                            ->columnSpanFull()
                             ->helperText(__('panel.categories.menu_help')),
 
                         ...TranslatedFields::text(
@@ -64,23 +65,14 @@ class MenuCategoryForm
                 Section::make(__('panel.categories.on_the_menu'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        TextInput::make('position')
-                            ->label(__('panel.categories.position'))
-                            ->numeric()
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(9999)
-                            ->default(0)
-                            ->required()
-                            ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText(__('panel.shared.order_help')),
-
+                        // Where it sits on the menu is arranged with the arrows
+                        // on the list, not typed here — see OrderActions.
                         Toggle::make('is_active')
                             ->label(__('panel.categories.is_active'))
                             ->default(true)
+                            ->inline(false)
                             ->helperText(__('panel.categories.is_active_help')),
-                    ])
-                    ->columns(2),
+                    ]),
             ]);
     }
 

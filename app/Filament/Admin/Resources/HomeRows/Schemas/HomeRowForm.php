@@ -6,7 +6,6 @@ use App\Enums\HomeRowLayout;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\HomeRow;
 use Filament\Forms\Components\Radio;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -24,14 +23,16 @@ class HomeRowForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
+                TranslatedFields::localeSwitcher(),
+
                 Section::make(__('panel.rows.title_section'))
                     ->description(__('panel.rows.title_section_help'))
                     ->icon(Heroicon::OutlinedTag)
                     // Never required, in any language: a banner into the menu
                     // reads better with nothing over it.
-                    ->schema(TranslatedFields::optionalText('title', __('panel.rows.title_field'), maxLength: 48))
-                    ->columns(2),
+                    ->schema(TranslatedFields::optionalText('title', __('panel.rows.title_field'), maxLength: 48)),
 
                 Section::make(__('panel.rows.layout'))
                     ->description(__('panel.rows.layout_help'))
@@ -52,23 +53,13 @@ class HomeRowForm
                 Section::make(__('panel.rows.placement'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        TextInput::make('position')
-                            ->label(__('panel.shared.order'))
-                            ->numeric()
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(9999)
-                            ->default(0)
-                            ->required()
-                            ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText(__('panel.rows.position_help')),
-
+                        // Where it sits on the home screen is arranged with the
+                        // arrows on the list, not typed here — see OrderActions.
                         Toggle::make('is_active')
                             ->label(__('panel.rows.is_active'))
                             ->default(true)
                             ->inline(false),
-                    ])
-                    ->columns(2),
+                    ]),
             ]);
     }
 

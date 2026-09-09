@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MenuCategories\Tables;
 use App\Enums\Locale;
 use App\Filament\Admin\Resources\MenuCategories\Schemas\MenuCategoryForm;
 use App\Filament\Schemas\TranslatedFields;
+use App\Filament\Tables\OrderActions;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use Filament\Actions\BulkActionGroup;
@@ -38,7 +39,7 @@ class MenuCategoriesTable
                     ->label(Locale::Tamil->fieldLabel(__('panel.shared.name')))
                     ->state(fn (MenuCategory $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
                     ->placeholder(__('panel.shared.not_translated'))
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('menu.name')
                     ->label(__('panel.categories.menu'))
@@ -57,11 +58,6 @@ class MenuCategoriesTable
                     ->boolean()
                     ->sortable()
                     ->tooltip(__('panel.categories.showing_tooltip')),
-
-                TextColumn::make('position')
-                    ->label(__('panel.shared.order'))
-                    ->sortable()
-                    ->toggleable(),
             ])
             ->groups([
                 // Grouped on the foreign key rather than menu.name: that
@@ -87,6 +83,8 @@ class MenuCategoriesTable
                 TernaryFilter::make('is_active')->label(__('panel.shared.showing')),
             ])
             ->recordActions([
+                ...OrderActions::make(fn (MenuCategory $record): Builder => MenuCategory::query()->where('menu_id', $record->menu_id)),
+
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
@@ -104,7 +102,6 @@ class MenuCategoriesTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->reorderable('position')
             ->defaultSort('position')
             // The menu each section belongs to is shown as a column and grouped
             // on, so it is loaded once for the page rather than per row.

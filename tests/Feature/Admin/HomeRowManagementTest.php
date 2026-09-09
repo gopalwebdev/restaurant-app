@@ -77,7 +77,6 @@ it('creates a row against the restaurant whose panel it is', function (): void {
         ->callAction('create', [
             'title' => [Locale::English->value => 'This month', Locale::Tamil->value => 'இந்த மாதம்'],
             'layout' => HomeRowLayout::Carousel->value,
-            'position' => 1,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -99,7 +98,6 @@ it('lets a row be created with no heading at all', function (): void {
     Livewire::test(ListHomeRows::class)
         ->callAction('create', [
             'layout' => HomeRowLayout::Banner->value,
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -179,7 +177,6 @@ it('creates a tile that leaves the app for a link', function (): void {
             'label' => [Locale::English->value => 'Instagram'],
             'action' => HomeTileAction::Link->value,
             'url' => 'https://instagram.com/spicegarden',
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -203,7 +200,6 @@ it('refuses a link tile with no address', function (): void {
         ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Nowhere'],
             'action' => HomeTileAction::Link->value,
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasActionErrors(['url']);

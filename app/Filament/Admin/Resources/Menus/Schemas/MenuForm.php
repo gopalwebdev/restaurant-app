@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\Menus\Schemas;
 
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -26,7 +25,10 @@ class MenuForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
+                TranslatedFields::localeSwitcher(),
+
                 Section::make(__('panel.menus.name_section'))
                     ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedBookOpen)
@@ -39,33 +41,23 @@ class MenuForm
                         // restaurant may not have it twice.
                         uniqueWithin: fn (): Builder => Menu::query(),
                         uniqueMessage: __('panel.menus.unique'),
-                    ))
-                    ->columns(2),
+                    )),
 
                 Section::make(__('panel.menus.description_section'))
                     ->description(__('panel.menus.description_help'))
                     ->icon(Heroicon::OutlinedDocumentText)
                     ->schema(TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 300, rows: 2))
-                    ->columns(2)
                     ->collapsed(),
 
                 Section::make(__('panel.menus.storefront_section'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        TextInput::make('position')
-                            ->label(__('panel.shared.order'))
-                            ->numeric()
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(9999)
-                            ->default(0)
-                            ->required()
-                            ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText(__('panel.shared.order_help')),
-
+                        // Where it sits is arranged with the arrows on the
+                        // list, not typed here — see OrderActions.
                         Toggle::make('is_active')
                             ->label(__('panel.menus.is_active'))
                             ->default(true)
+                            ->inline(false)
                             ->helperText(__('panel.menus.is_active_help')),
                     ])
                     ->columns(2),

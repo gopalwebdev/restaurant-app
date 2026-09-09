@@ -30,12 +30,14 @@ class HomeTileForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
+                TranslatedFields::localeSwitcher(),
+
                 Section::make(__('panel.tiles.label_section'))
                     ->description(__('panel.tiles.label_section_help'))
                     ->icon(Heroicon::OutlinedTag)
-                    ->schema(TranslatedFields::text('label', __('panel.tiles.label_field'), maxLength: 48))
-                    ->columns(2),
+                    ->schema(TranslatedFields::text('label', __('panel.tiles.label_field'), maxLength: 48)),
 
                 Section::make(__('panel.tiles.picture'))
                     ->description(__('panel.tiles.picture_help'))
@@ -113,23 +115,13 @@ class HomeTileForm
                 Section::make(__('panel.tiles.placement'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        TextInput::make('position')
-                            ->label(__('panel.shared.order'))
-                            ->numeric()
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(9999)
-                            ->default(0)
-                            ->required()
-                            ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
-                            ->helperText(__('panel.tiles.position_help')),
-
+                        // Where it sits in the row is arranged with the arrows
+                        // on the list, not typed here — see OrderActions.
                         Toggle::make('is_active')
                             ->label(__('panel.tiles.is_active'))
                             ->default(true)
-                            ->columnSpanFull(),
-                    ])
-                    ->columns(2),
+                            ->inline(false),
+                    ]),
             ]);
     }
 

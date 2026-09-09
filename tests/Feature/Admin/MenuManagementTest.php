@@ -107,7 +107,6 @@ it('creates a menu against the restaurant whose panel it is', function (): void 
     Livewire::test(ListMenus::class)
         ->callAction('create', [
             'name' => [Locale::English->value => 'Dinner', Locale::Tamil->value => 'இரவு உணவு'],
-            'position' => 1,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -190,7 +189,6 @@ it('creates a section on the menu it was filed under', function (): void {
         ->callAction('create', [
             'menu_id' => $menu->getKey(),
             'name' => [Locale::English->value => 'Starters', Locale::Tamil->value => 'தொடக்கங்கள்'],
-            'position' => 1,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -214,7 +212,6 @@ it('refuses a section name the same menu already uses', function (): void {
         ->callAction('create', [
             'menu_id' => $menu->getKey(),
             'name' => [Locale::English->value => 'Starters'],
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasActionErrors(['name.'.Locale::English->value]);
@@ -235,7 +232,6 @@ it('lets a lunch and a dinner menu each have their own Starters', function (): v
         ->callAction('create', [
             'menu_id' => $dinner->getKey(),
             'name' => [Locale::English->value => 'Starters'],
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -260,7 +256,6 @@ it('lets two restaurants both have a section of the same name', function (): voi
         ->callAction('create', [
             'menu_id' => $menu->getKey(),
             'name' => [Locale::English->value => 'Starters'],
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -281,7 +276,6 @@ it('refuses at the database to file a section under another restaurant\'s menu',
         'tenant_id' => $mine->getKey(),
         'menu_id' => $theirMenu->getKey(),
         'name' => json_encode([Locale::English->value => 'Smuggled'], JSON_THROW_ON_ERROR),
-        'position' => 0,
         'is_active' => true,
         'created_at' => now(),
         'updated_at' => now(),
@@ -334,7 +328,6 @@ it('stores a typed price as an exact integer count of minor units', function ():
             'food_type' => FoodType::Vegetarian->value,
             'price' => '249.50',
             'is_available' => true,
-            'position' => 0,
         ])
         ->assertHasNoActionErrors();
 
@@ -363,7 +356,6 @@ it('round-trips a price through the edit form without drift', function (): void 
             'food_type' => $item->food_type->value,
             'price' => '249.50',
             'is_available' => true,
-            'position' => 0,
         ])
         ->assertHasNoActionErrors();
 
@@ -445,7 +437,6 @@ it('saves a dish\'s additions in the same save as the dish', function (): void {
             'food_type' => FoodType::Vegetarian->value,
             'price' => '249.50',
             'is_available' => true,
-            'position' => 0,
             'additions' => [
                 [
                     'name' => [Locale::English->value => 'Extra paneer', Locale::Tamil->value => 'கூடுதல் பன்னீர்'],
@@ -495,7 +486,6 @@ it('lets a dish be saved with no additions at all', function (): void {
             'food_type' => FoodType::Vegetarian->value,
             'price' => '50',
             'is_available' => true,
-            'position' => 0,
         ])
         ->assertHasNoActionErrors();
 
@@ -527,7 +517,6 @@ it('refuses at the database to hang an addition off another restaurant\'s dish',
         'name' => json_encode([Locale::English->value => 'Smuggled'], JSON_THROW_ON_ERROR),
         'price_minor_units' => 1000,
         'is_available' => true,
-        'position' => 0,
         'created_at' => now(),
         'updated_at' => now(),
     ]))->toThrow(QueryException::class);
@@ -593,7 +582,6 @@ it('refuses to file a dish under another restaurant\'s section', function (): vo
             'food_type' => FoodType::Vegetarian->value,
             'price' => '100',
             'is_available' => true,
-            'position' => 0,
         ])
         ->assertHasActionErrors(['menu_category_id']);
 
@@ -618,7 +606,6 @@ it('refuses at the database to file a dish under another restaurant\'s section',
         'price_minor_units' => 1000,
         'food_type' => FoodType::Vegetarian->value,
         'is_available' => true,
-        'position' => 0,
         'created_at' => now(),
         'updated_at' => now(),
     ]))->toThrow(QueryException::class);

@@ -12,6 +12,7 @@ use App\Models\Restaurant;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
@@ -32,7 +33,10 @@ class MenuItemForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
+                TranslatedFields::localeSwitcher(),
+
                 Section::make(__('panel.items.dish'))
                     ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedListBullet)
@@ -48,10 +52,9 @@ class MenuItemForm
                             ->preload()
                             ->live()
                             ->prefixIcon(Heroicon::OutlinedRectangleStack)
-                            ->columnSpanFull()
                             ->helperText(__('panel.items.section_help')),
 
-                        ...TranslatedFields::text(
+                        ...self::spanningFull(TranslatedFields::text(
                             'name',
                             __('panel.shared.name'),
                             maxLength: 120,
@@ -61,7 +64,7 @@ class MenuItemForm
                             uniqueWithin: fn (Get $get): Builder => MenuItem::query()
                                 ->where('menu_category_id', $get('menu_category_id')),
                             uniqueMessage: __('panel.items.unique'),
-                        ),
+                        )),
 
                         Select::make('food_type')
                             ->label(__('panel.items.food_type'))
@@ -69,10 +72,9 @@ class MenuItemForm
                             ->required()
                             ->default(FoodType::Vegetarian->value)
                             ->native(false)
-                            ->columnSpanFull()
                             ->helperText(__('panel.items.food_type_help')),
 
-                        ...TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 500, rows: 3),
+                        ...self::spanningFull(TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 500, rows: 3)),
                     ])
                     ->columns(2),
 
@@ -96,6 +98,7 @@ class MenuItemForm
                         Toggle::make('is_available')
                             ->label(__('panel.items.is_available'))
                             ->default(true)
+                            ->inline(false)
                             ->helperText(__('panel.items.is_available_help')),
 
                         // Featuring puts a dish in the row above the sections
@@ -104,17 +107,8 @@ class MenuItemForm
                         Toggle::make('is_featured')
                             ->label(__('panel.items.is_featured'))
                             ->default(false)
+                            ->inline(false)
                             ->helperText(__('panel.items.is_featured_help')),
-
-                        TextInput::make('position')
-                            ->label(__('panel.items.position'))
-                            ->numeric()
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(9999)
-                            ->default(0)
-                            ->required()
-                            ->prefixIcon(Heroicon::OutlinedBars3BottomLeft),
                     ])
                     ->columns(3),
 
@@ -126,6 +120,24 @@ class MenuItemForm
                     ])
                     ->collapsed(fn (?MenuItem $record): bool => $record?->additions()->doesntExist() ?? true),
             ]);
+    }
+
+    /**
+     * Make a set of translated inputs span the section they sit in.
+     *
+     * Only one language is on screen at a time now, so a translated field is a
+     * single box — and a single box in a two-column grid would leave the other
+     * half of the line empty.
+     *
+     * @param  list<TextInput|Textarea>  $fields
+     * @return list<TextInput|Textarea>
+     */
+    private static function spanningFull(array $fields): array
+    {
+        return array_map(
+            static fn (TextInput|Textarea $field): TextInput|Textarea => $field->columnSpanFull(),
+            $fields,
+        );
     }
 
     /**

@@ -41,10 +41,20 @@ Use plain `->options()` instead, and hand the ids to an action on the page: SetR
 
 This is about **Spatie roles and permissions specifically**, because of that cache — it is not a ban on `->relationship()`. An ordinary `hasMany` has no cache behind it, and `MenuItemForm`'s additions repeater uses `->relationship()` on purpose so a dish and its extras are written in one save.
 
-## Translated fields are two inputs side by side, never a locale switcher
-Guest-facing text is stored one value per language (`.ai/rules/models.md`). Build the inputs with `App\Filament\Schemas\TranslatedFields::text()` / `::textarea()`, which emits one field per App\Enums\Locale case, requires only the fallback language, and attaches the uniqueness rule to that one — matching the database's expression index, so a save can never fail after passing validation.
+## Translated fields are one box and one switcher, not a box per language
+Guest-facing text is stored one value per language (`.ai/rules/models.md`). Build the inputs with `App\Filament\Schemas\TranslatedFields::text()` / `::optionalText()` / `::textarea()`, and put `TranslatedFields::localeSwitcher()` once at the top of the form.
 
-Both languages are shown at once rather than behind tabs: with two languages and a handful of fields that is less machinery, and a name and its translation get edited together. Table columns must go through `TranslatedFields::sort()` / `::search()`, and every edit action needs `->mutateRecordDataUsing(fn (array $data, Model $record) => XForm::fillTranslations($data, $record))` — Spatie hands back one language, and a form editing all of them needs the whole document.
+There is still an input per `App\Enums\Locale` case underneath — that is how every language reaches the save in one go — but only the switched-to one is on screen. A form with a name and a description was four boxes; it is two, and it no longer grows by a box per field per language.
+
+This replaced two-inputs-side-by-side. That arrangement was defended here as "less machinery", and it was, but it doubled the height of every form and left half of each line to a language most restaurants fill in later. Do not go back to it without saying so.
+
+Three things the switcher costs, all handled inside `TranslatedFields` and none of them optional if you add a field type there:
+
+- Hidden languages carry `->dehydratedWhenHidden()`. Without it, typing the Tamil and saving would blank the English.
+- The "English is required" rule rides on **every** language's input, reading the English value out of the form state. Left only on the English input it would never fire, because that input is hidden at exactly the moment it needs to.
+- The uniqueness rule does the same, for the same reason. It is built on the English name because the database's expression index is — a rule that skipped while Tamil was on screen would let a duplicate through to fail at the index instead.
+
+Table columns must still go through `TranslatedFields::sort()` / `::search()`, and every edit action still needs `->mutateRecordDataUsing(fn (array $data, Model $record) => XForm::fillTranslations($data, $record))` — Spatie hands back one language, and a form editing all of them needs the whole document.
 
 ## The panel is worked in a language too, and its labels are methods
 Both panels carry a language switcher in the top bar (`resources/views/filament/language-switcher.blade.php`, hung on `USER_MENU_BEFORE`) and both list `SetLocale` in their own middleware stack — a panel does not run the `web` group, so the middleware that reads the language cookie has to be named there as well.

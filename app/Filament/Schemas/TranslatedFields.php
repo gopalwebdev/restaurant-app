@@ -6,26 +6,76 @@ use App\Enums\Locale;
 use Closure;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * The inputs an admin types a translated field into, one per language.
+ * The inputs an admin types a translated field into: one box per field, and one
+ * switcher for the whole form deciding which language those boxes are showing.
  *
- * Both languages are shown side by side rather than behind a locale switcher.
- * With two languages and a handful of fields that is less machinery and easier
- * to keep in step: a name and its translation are edited together, so nobody
- * has to remember to go back and switch tabs.
+ * A field still has an input per language underneath — that is how the state of
+ * every language reaches the save in one go — but only the switched-to one is
+ * on screen. A form with a name and a description used to be four boxes; it is
+ * two, and the form no longer doubles in height for each language added.
  *
- * English is required and the rest are optional, which is the whole of the
- * fallback story: a dish with no Tamil name is read in English by a guest with
- * Tamil selected, rather than appearing as a blank row.
+ * Two consequences worth knowing:
+ *
+ * - Hidden languages are still dehydrated, so switching to Tamil and saving
+ *   keeps the English that was already typed. Without that, editing one
+ *   language would quietly blank the other.
+ * - Validation that has to hold whichever language is showing — English is
+ *   required, English is unique — is attached to *every* language's input and
+ *   reads the English value out of the form state rather than off the input it
+ *   happens to be attached to. A rule left only on the English input would
+ *   never run while Tamil was the one on screen, and the save would fail at the
+ *   database instead.
  */
 final class TranslatedFields
 {
     /**
-     * A single-line input per language.
+     * The form state holding which language is being edited.
+     *
+     * Never dehydrated: it is a control for the person filling the form in, not
+     * a column on anything. Bubbles up from nested sections, so one switcher at
+     * the top of a form drives every translated field under it.
+     */
+    public const string LOCALE_KEY = '_locale';
+
+    /**
+     * The control that decides which language every box on this form shows.
+     *
+     * Place it once, at the top of the form. Toggle buttons rather than a
+     * select: with a handful of languages the whole choice should be readable
+     * without opening anything, and switching should be one tap.
+     */
+    public static function localeSwitcher(): ToggleButtons
+    {
+        return ToggleButtons::make(self::LOCALE_KEY)
+            ->label(__('panel.shared.editing_language'))
+            ->options(array_reduce(
+                Locale::cases(),
+                static function (array $options, Locale $locale): array {
+                    $options[$locale->value] = $locale->label();
+
+                    return $options;
+                },
+                [],
+            ))
+            ->default(Locale::default()->value)
+            ->live()
+            ->inline()
+            ->grouped()
+            ->dehydrated(false)
+            ->helperText(__('panel.shared.editing_language_help', [
+                'language' => Locale::default()->englishName(),
+            ]))
+            ->columnSpanFull();
+    }
+
+    /**
+     * A single-line input, showing whichever language is switched to.
      *
      * `uniqueWithin` narrows the query the name is checked against — the menu a
      * section sits on, the section a dish sits in — and is only ever applied to
@@ -47,10 +97,11 @@ final class TranslatedFields
                 $field = self::configure(
                     TextInput::make("{$name}.{$locale->value}")->maxLength($maxLength),
                     $locale,
+                    $name,
                     $label,
                 );
 
-                if (! $uniqueWithin instanceof Closure || $locale !== Locale::default()) {
+                if (! $uniqueWithin instanceof Closure) {
                     return $field;
                 }
 
@@ -60,6 +111,7 @@ final class TranslatedFields
                         $record,
                         $name,
                         $uniqueMessage,
+                        $get($name.'.'.Locale::default()->value),
                     ),
                 );
             },
@@ -68,7 +120,7 @@ final class TranslatedFields
     }
 
     /**
-     * A single-line input per language, required in none of them.
+     * A single-line input required in no language at all.
      *
      * For text a record may simply not have — a home screen row's heading,
      * where a banner into the menu reads better with nothing over it. Carries
@@ -83,6 +135,7 @@ final class TranslatedFields
             static fn (Locale $locale): TextInput => self::configure(
                 TextInput::make("{$name}.{$locale->value}")->maxLength($maxLength),
                 $locale,
+                $name,
                 $label,
                 requireFallback: false,
             ),
@@ -91,7 +144,7 @@ final class TranslatedFields
     }
 
     /**
-     * A multi-line input per language.
+     * A multi-line input, showing whichever language is switched to.
      *
      * Never required, in any language: a description is optional everywhere it
      * appears.
@@ -104,6 +157,7 @@ final class TranslatedFields
             static fn (Locale $locale): Textarea => self::configure(
                 Textarea::make("{$name}.{$locale->value}")->maxLength($maxLength)->rows($rows),
                 $locale,
+                $name,
                 $label,
                 requireFallback: false,
             ),
@@ -118,6 +172,10 @@ final class TranslatedFields
      * the database's unique index is built on — so the form and the constraint
      * cannot disagree, and a save can never fail after passing validation.
      *
+     * $value is passed in rather than taken from the input this is attached to:
+     * the rule rides on every language's input so it runs whichever one is on
+     * screen, and all of them are asking about the English value.
+     *
      * @param  Closure(): Builder<covariant Model>  $query  already narrowed to the parent this belongs to
      */
     public static function uniqueFallbackValue(
@@ -125,13 +183,16 @@ final class TranslatedFields
         ?Model $record = null,
         string $column = 'name',
         string $message = 'Something here already has that name.',
+        mixed $value = null,
     ): Closure {
-        return static function (string $attribute, mixed $value, Closure $fail) use ($query, $record, $column, $message): void {
-            if (blank($value)) {
+        return static function (string $attribute, mixed $inputValue, Closure $fail) use ($query, $record, $column, $message, $value): void {
+            $english = $value ?? $inputValue;
+
+            if (blank($english)) {
                 return;
             }
 
-            $matches = $query()->where($column.'->'.Locale::default()->value, $value);
+            $matches = $query()->where($column.'->'.Locale::default()->value, $english);
 
             // Editing a record must not collide with itself.
             if ($record instanceof Model) {
@@ -176,7 +237,22 @@ final class TranslatedFields
     }
 
     /**
-     * Label, requiredness and helper text for one language's input.
+     * Which language the form is currently showing.
+     *
+     * Falls back rather than trusting the state: the switcher is a form field
+     * like any other and can arrive as anything.
+     */
+    private static function editingLocale(Get $get): Locale
+    {
+        $value = $get(self::LOCALE_KEY);
+
+        return is_string($value)
+            ? (Locale::tryFrom($value) ?? Locale::default())
+            : Locale::default();
+    }
+
+    /**
+     * Label, visibility, requiredness and helper text for one language's input.
      *
      * @template TField of TextInput|Textarea
      *
@@ -186,20 +262,44 @@ final class TranslatedFields
     private static function configure(
         TextInput|Textarea $field,
         Locale $locale,
+        string $name,
         string $label,
         bool $requireFallback = true,
     ): TextInput|Textarea {
         $isFallback = $locale === Locale::default();
 
-        return $field
-            ->label($locale->fieldLabel($label))
+        $field = $field
+            ->label($label)
+            ->visible(fn (Get $get): bool => self::editingLocale($get) === $locale)
+            // The languages not on screen still travel with the save, or
+            // editing one would blank the others.
+            ->dehydratedWhenHidden()
             ->required($requireFallback && $isFallback)
             ->helperText($isFallback
                 ? null
-                : sprintf(
-                    'Optional. Guests reading in %s see the %s text when this is empty.',
-                    $locale->englishName(),
-                    Locale::default()->englishName(),
-                ));
+                : __('panel.shared.translation_optional', [
+                    'language' => $locale->englishName(),
+                    'fallback' => Locale::default()->englishName(),
+                ]));
+
+        if (! $requireFallback || $isFallback) {
+            return $field;
+        }
+
+        // English is required whichever language is being looked at, so the
+        // rule rides here too rather than only on the English input, which is
+        // hidden at exactly the moment it would need to fire.
+        return $field->rule(
+            fn (Get $get): Closure => static function (string $attribute, mixed $inputValue, Closure $fail) use ($get, $name, $label): void {
+                if (filled($get($name.'.'.Locale::default()->value))) {
+                    return;
+                }
+
+                $fail(__('panel.shared.fallback_required', [
+                    'field' => $label,
+                    'language' => Locale::default()->englishName(),
+                ]));
+            },
+        );
     }
 }

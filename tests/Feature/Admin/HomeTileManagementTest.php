@@ -101,7 +101,6 @@ it('creates a tile that opens one of this restaurant\'s menus', function (): voi
             'label' => [Locale::English->value => 'Our menu', Locale::Tamil->value => 'எங்கள் மெனு'],
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -127,7 +126,6 @@ it('creates a tile that shows an uploaded PDF', function (): void {
             'label' => [Locale::English->value => 'Wine list'],
             'action' => HomeTileAction::Pdf->value,
             'document_path' => UploadedFile::fake()->create('wine.pdf', 16, 'application/pdf'),
-            'position' => 1,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -159,7 +157,6 @@ it('stores a tile\'s picture on the private disk', function (): void {
             'image_path' => UploadedFile::fake()->image('tile.jpg', 1200, 675),
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -184,7 +181,6 @@ it('lets a tile be created with no picture yet', function (): void {
             'label' => [Locale::English->value => 'Our menu'],
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasNoActionErrors();
@@ -204,7 +200,6 @@ it('requires the label in the fallback language', function (): void {
             'label' => [Locale::Tamil->value => 'எங்கள் மெனு'],
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasActionErrors(['label.'.Locale::English->value]);
@@ -227,7 +222,6 @@ it('refuses a menu tile with no menu chosen', function (): void {
         ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Nowhere'],
             'action' => HomeTileAction::Menu->value,
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasActionErrors(['menu_id']);
@@ -242,7 +236,6 @@ it('refuses a PDF tile with no file uploaded', function (): void {
         ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Nowhere'],
             'action' => HomeTileAction::Pdf->value,
-            'position' => 0,
             'is_active' => true,
         ])
         ->assertHasActionErrors(['document_path']);

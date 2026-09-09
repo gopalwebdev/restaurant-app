@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Menus\Tables;
 use App\Enums\Locale;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Schemas\TranslatedFields;
+use App\Filament\Tables\OrderActions;
 use App\Models\Menu;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -36,7 +37,7 @@ class MenusTable
                     ->label(Locale::Tamil->fieldLabel(__('panel.shared.name')))
                     ->state(fn (Menu $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
                     ->placeholder(__('panel.shared.not_translated'))
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('menu_categories_count')
                     ->label(__('panel.menus.sections_count'))
@@ -49,16 +50,13 @@ class MenusTable
                     ->boolean()
                     ->sortable()
                     ->tooltip(__('panel.menus.showing_tooltip')),
-
-                TextColumn::make('position')
-                    ->label(__('panel.shared.order'))
-                    ->sortable()
-                    ->toggleable(),
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label(__('panel.shared.showing')),
             ])
             ->recordActions([
+                ...OrderActions::make(fn (Menu $record): Builder => Menu::query()->where('tenant_id', $record->tenant_id)),
+
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
@@ -80,7 +78,6 @@ class MenusTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->reorderable('position')
             ->defaultSort('position');
     }
 }
