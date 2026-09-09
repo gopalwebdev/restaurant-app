@@ -34,25 +34,25 @@ The restaurant_user pivot still exists alongside it: tenant_id is the one restau
 The `deleting` hooks deliberately do **not** use those helpers: they call `users()->exists()` / `permissions()->exists()` / `roles()->exists()` directly. A count loaded when a page rendered is right for deciding what to show and wrong for deciding what to destroy.
 
 ## Every level of the menu carries tenant_id, enforced by composite foreign keys
-The menu is four levels — `menus` → `menu_categories` → `menu_items` → `menu_item_additions` — and every one of them carries `tenant_id` directly as well as reaching it through its parent. `home_tiles` does the same for the menu it opens.
+The menu is four levels — `menus` → `menu_categories` → `menu_items` → `menu_item_additions` — and every one of them carries `tenant_id` directly as well as reaching it through its parent. The home screen is two — `home_rows` → `home_tiles` — and does the same, as does a tile for the menu it opens.
 
 That duplication is deliberate and safe: each table has a unique `(id, tenant_id)`, and its child has a **composite** foreign key on `(parent_id, tenant_id)` referencing the pair. Filing a section under another restaurant's menu, a dish under another restaurant's section, or an addition on another restaurant's dish is therefore a database error, not something a forgotten `where()` can let through. Every one of those is pinned by a test in `tests/Feature/Admin/MenuManagementTest.php`.
 
-Keep both columns in step when writing rows. The factories exist for exactly this — `MenuCategoryFactory::inMenu()`, `MenuItemFactory::inCategory()`, `MenuItemAdditionFactory::onItem()`, `HomeTileFactory::openingMenu()` — and setting the two halves independently trips the key. `MenuItemAddition::booted()` derives `tenant_id` from its dish, because Filament's tenancy stamps the model a resource is saving but not the rows a repeater writes alongside it.
+Keep both columns in step when writing rows. The factories exist for exactly this — `MenuCategoryFactory::inMenu()`, `MenuItemFactory::inCategory()`, `MenuItemAdditionFactory::onItem()`, `HomeTileFactory::inRow()` / `::openingMenu()` — and setting the two halves independently trips the key. `MenuItemAddition::booted()` derives `tenant_id` from its dish and `HomeTile::booted()` from its row, because Filament's tenancy stamps the model a resource is saving but not the rows a repeater or a relation manager writes alongside it.
 
 A booted Filament panel stamps `tenant_id` on **every** model created during the request, so a factory that picks its own restaurant will now trip these keys. Create fixtures before `enterRestaurantPanel()`, or name the parent explicitly.
 
 Never resolve an item's currency through `$item->restaurant->settings`: that is a lazy load, which `Model::shouldBeStrict()` throws on outside production and which is an N+1 down a list of dishes. Use `MenuItem::currency()`, or better, pass the currency into `formattedPrice()` once for the whole list — every dish on a menu shares one.
 
 ## Guest-facing text is a translated JSON column, unique on English
-Menu, MenuCategory, MenuItem, MenuItemAddition and HomeTile store their guest-facing text with spatie/laravel-translatable: the column is `json` holding one key per App\Enums\Locale case, and the model declares `public array $translatable`. Use App\Models\Concerns\HasTranslatedNames, never Spatie's trait directly — it adds the one thing the package leaves open, which is that English (Locale::default()) is privileged.
+Menu, MenuCategory, MenuItem, MenuItemAddition, HomeRow and HomeTile store their guest-facing text with spatie/laravel-translatable: the column is `json` holding one key per App\Enums\Locale case, and the model declares `public array $translatable`. Use App\Models\Concerns\HasTranslatedNames, never Spatie's trait directly — it adds the one thing the package leaves open, which is that English (Locale::default()) is privileged.
 
 English is required in the admin forms, is the fallback a guest gets when a translation is missing, and is what every unique index is built on. Those indexes are expression indexes created with a raw `DB::statement` (`... (menu_id, (name ->> 'en'))`) because Blueprint cannot express one; verified identical on Postgres and the SQLite the tests run on.
 
 Consequences: a plain `unique` on the column would compare whole JSON documents and let duplicates through; `where('name', $x)` never matches, use `where(Model::fallbackLocalePath(), $x)` or `'name->en'`; `pluck('name->en')` comes back keyed by the path, so read models and use `$model->name`; and `orderBy`/`searchable` in a Filament table must go through TranslatedFields::sort()/search(). Spatie's toArray() returns one language, so admin forms fill with `$record->fillTranslationsInto($data, ...)`.
 
 ## A tile's action and its destination are paired in the model, not the schema
-home_tiles has two nullable destination columns — menu_id and document_path — and App\Enums\HomeTileAction::targetColumn() is the single place that says which one an action uses. HomeTile::booted() clears the ones the action does not use and throws when the required one is blank; HomeTileForm states the same rule as `visible()`/`required()` validation.
+home_tiles has three nullable destination columns — menu_id, document_path and url — and App\Enums\HomeTileAction::targetColumn() is the single place that says which one an action uses. HomeTile::booted() clears the ones the action does not use and throws when the required one is blank; HomeTileForm states the same rule as `visible()`/`required()` validation.
 
 This would be a CHECK constraint if Laravel's Blueprint could express one and SQLite could add one after CREATE TABLE. Neither is true, so do not go looking for a database guarantee here — and do not remove the model guard, which is the only thing stopping a tile that goes nowhere. Adding a third action means an enum case, a column, and a case in targetColumn(); nothing else.
 
@@ -62,7 +62,7 @@ This would be a CHECK constraint if Laravel's Blueprint could express one and SQ
 Money stays an integer all the way out of PHP. `MenuItem::formattedPrice()` exists for the Filament tables, which are server rendered; the guest and staff apps are sent `price_minor_units` and format it themselves — see `.ai/rules/js.md`. Do not add a `formattedX()` accessor for an Inertia payload.
 
 ## The tenant foreign key is tenant_id on every table, so relationships name it
-Every foreign key pointing at `restaurants` is called `tenant_id` — users, menus, menu_categories, menu_items, menu_item_additions, home_tiles, restaurant_settings and the restaurant_user pivot. One word for the tenant boundary whichever table carries it, matching Filament's own tenancy vocabulary.
+Every foreign key pointing at `restaurants` is called `tenant_id` — users, menus, menu_categories, menu_items, menu_item_additions, home_rows, home_tiles, restaurant_settings and the restaurant_user pivot. One word for the tenant boundary whichever table carries it, matching Filament's own tenancy vocabulary.
 
 The cost is that Laravel's convention would infer `restaurant_id` from `Restaurant::class`, so every relationship must name the key explicitly: `belongsTo(Restaurant::class, 'tenant_id')`, `hasMany(Menu::class, 'tenant_id')`, `belongsToMany(User::class, 'restaurant_user', 'tenant_id', 'user_id')`. A relationship added without it will silently query a column that does not exist.
 

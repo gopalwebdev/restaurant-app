@@ -35,6 +35,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $price_minor_units
  * @property FoodType $food_type
  * @property bool $is_available
+ * @property bool $is_featured
+ * @property int $featured_position
  * @property int $position
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -46,6 +48,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'price_minor_units',
     'food_type',
     'is_available',
+    'is_featured',
+    'featured_position',
     'position',
 ])]
 class MenuItem extends Model
@@ -66,6 +70,8 @@ class MenuItem extends Model
     protected $attributes = [
         'position' => 0,
         'is_available' => true,
+        'is_featured' => false,
+        'featured_position' => 0,
     ];
 
     /**
@@ -166,6 +172,34 @@ class MenuItem extends Model
     }
 
     /**
+     * Limit the query to the dishes one menu leads with.
+     *
+     * Featuring is a flag on the dish, and a dish reaches its menu through its
+     * section — so this states that hop once rather than at each call site.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopeFeaturedOnMenu(Builder $query, int $menuId): void
+    {
+        $query->where('is_featured', true)
+            ->whereRelation('menuCategory', 'menu_id', $menuId);
+    }
+
+    /**
+     * Order the way the restaurant arranged the dishes it leads with.
+     *
+     * A separate order from scopeInMenuOrder(): that one places a dish inside
+     * its section, this one places it in the featured row, and a dish answers
+     * both questions at once.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopeInFeaturedOrder(Builder $query): void
+    {
+        $query->orderBy('featured_position')->orderBy(self::fallbackLocalePath());
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -174,6 +208,8 @@ class MenuItem extends Model
             'price_minor_units' => 'integer',
             'food_type' => FoodType::class,
             'is_available' => 'boolean',
+            'is_featured' => 'boolean',
+            'featured_position' => 'integer',
             'position' => 'integer',
         ];
     }

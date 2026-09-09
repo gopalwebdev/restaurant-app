@@ -98,6 +98,14 @@ class MenuItemForm
                             ->default(true)
                             ->helperText(__('panel.items.is_available_help')),
 
+                        // Featuring puts a dish in the row above the sections
+                        // on the guest's menu screen. The order those are read
+                        // in is dragged on the menu's own page, not typed here.
+                        Toggle::make('is_featured')
+                            ->label(__('panel.items.is_featured'))
+                            ->default(false)
+                            ->helperText(__('panel.items.is_featured_help')),
+
                         TextInput::make('position')
                             ->label(__('panel.items.position'))
                             ->numeric()

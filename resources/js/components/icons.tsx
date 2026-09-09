@@ -3,12 +3,12 @@ import type { SVGProps } from 'react';
 /**
  * The handful of icons the two phone apps need.
  *
- * Written out rather than pulled from an icon package: four glyphs do not earn
- * a dependency, and these ship as part of the bundle instead of as another
- * download on a phone at a table.
+ * Written out rather than pulled from an icon package: a handful of glyphs do
+ * not earn a dependency, and these ship as part of the bundle instead of as
+ * another download on a phone at a table.
  *
- * All four inherit `currentColor` and size themselves from the button they sit
- * in, which is what `[&_svg]:size-4` in components/ui/button.tsx expects.
+ * All of them inherit `currentColor` and size themselves from the button they
+ * sit in, which is what `[&_svg]:size-4` in components/ui/button.tsx expects.
  */
 
 type IconProps = SVGProps<SVGSVGElement>;
@@ -58,6 +58,15 @@ export function LanguagesIcon(props: IconProps) {
         <svg {...base} {...props}>
             <circle cx="12" cy="12" r="9" />
             <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+        </svg>
+    );
+}
+
+/** Marks the row of dishes a menu leads with. */
+export function StarIcon(props: IconProps) {
+    return (
+        <svg {...base} {...props}>
+            <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9z" />
         </svg>
     );
 }

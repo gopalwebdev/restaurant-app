@@ -158,7 +158,7 @@ it('translates the tiles on the home screen too', function (): void {
         ->assertOk()
         ->assertDontSee('Our menu')
         ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
-            ->where('tiles.0.label', 'எங்கள் மெனு'),
+            ->where('rows.0.tiles.0.label', 'எங்கள் மெனு'),
         );
 });
 

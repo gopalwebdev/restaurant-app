@@ -68,6 +68,29 @@ final class TranslatedFields
     }
 
     /**
+     * A single-line input per language, required in none of them.
+     *
+     * For text a record may simply not have — a home screen row's heading,
+     * where a banner into the menu reads better with nothing over it. Carries
+     * no uniqueness rule for the same reason: two untitled rows are not a
+     * clash, and the index that backs this skips null titles too.
+     *
+     * @return list<TextInput>
+     */
+    public static function optionalText(string $name, string $label, int $maxLength = 120): array
+    {
+        return array_map(
+            static fn (Locale $locale): TextInput => self::configure(
+                TextInput::make("{$name}.{$locale->value}")->maxLength($maxLength),
+                $locale,
+                $label,
+                requireFallback: false,
+            ),
+            Locale::cases(),
+        );
+    }
+
+    /**
      * A multi-line input per language.
      *
      * Never required, in any language: a description is optional everywhere it

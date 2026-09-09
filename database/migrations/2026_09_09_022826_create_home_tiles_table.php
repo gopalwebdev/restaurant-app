@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\HomeTileShape;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -30,7 +29,10 @@ return new class extends Migration
             $table->string('image_path')->nullable();
             $table->string('document_path')->nullable();
 
-            $table->string('shape', 32)->default(HomeTileShape::Rectangle->value);
+            // Dropped again by add_rows_and_links_to_home_tiles_table: the row
+            // a tile sits in owns its layout now. Literal rather than an enum
+            // reference, because App\Enums\HomeTileShape no longer exists.
+            $table->string('shape', 32)->default('rectangle');
             $table->string('action', 32);
 
             // The destination of a Menu tile. Composite again: a tile can only

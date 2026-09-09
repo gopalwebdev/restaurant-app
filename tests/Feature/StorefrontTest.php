@@ -9,7 +9,7 @@ it('serves the guest home screen from a restaurant\'s own subdomain', function (
         'name' => 'Tenant One',
     ]);
 
-    // A guest scanning a QR code lands on the tiles the restaurant arranged,
+    // A guest scanning a QR code lands on the rows the restaurant arranged,
     // and walks from there into a menu or a PDF.
     $this->get('http://t1.restaurant-app.test/')
         ->assertOk()
@@ -17,7 +17,7 @@ it('serves the guest home screen from a restaurant\'s own subdomain', function (
             ->component('home')
             ->where('restaurant.name', $restaurant->name)
             ->where('restaurant.slug', 't1')
-            ->has('tiles', 0),
+            ->has('rows', 0),
         );
 });
 

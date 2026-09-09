@@ -5,23 +5,38 @@ import Home from '@/pages/guest/home';
 
 const restaurant = { name: 'Spice Garden', slug: 'spice' };
 
-function tile(
-    overrides: Partial<Parameters<typeof Home>[0]['tiles'][number]> = {},
-) {
+type HomeProps = Parameters<typeof Home>[0];
+type RowProp = HomeProps['rows'][number];
+type TileProp = RowProp['tiles'][number];
+
+function tile(overrides: Partial<TileProp> = {}): TileProp {
     return {
         id: 1,
         label: 'Menu',
-        shape: 'rectangle',
-        aspectRatio: '16 / 9',
         imageUrl: 'http://spice.restaurant-app.test/tiles/1/image',
         href: 'http://spice.restaurant-app.test/menus/1',
+        isExternal: false,
+        ...overrides,
+    };
+}
+
+/** A banner row, which is what a restaurant leads with. */
+function row(overrides: Partial<RowProp> = {}): RowProp {
+    return {
+        id: 1,
+        title: null,
+        layout: 'banner',
+        aspectRatio: '16 / 9',
+        isScrollable: false,
+        isCircular: false,
+        tiles: [tile()],
         ...overrides,
     };
 }
 
 describe('guest home', () => {
     it('names the restaurant at the top', () => {
-        render(<Home restaurant={restaurant} tiles={[tile()]} />);
+        render(<Home restaurant={restaurant} rows={[row()]} />);
 
         expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
             'Spice Garden',
@@ -32,10 +47,14 @@ describe('guest home', () => {
         render(
             <Home
                 restaurant={restaurant}
-                tiles={[
-                    tile({ id: 1, label: 'Menu' }),
-                    tile({ id: 2, label: 'Drinks' }),
-                    tile({ id: 3, label: 'Offers' }),
+                rows={[
+                    row({
+                        tiles: [
+                            tile({ id: 1, label: 'Menu' }),
+                            tile({ id: 2, label: 'Drinks' }),
+                            tile({ id: 3, label: 'Offers' }),
+                        ],
+                    }),
                 ]}
             />,
         );
@@ -49,15 +68,45 @@ describe('guest home', () => {
         expect(links[2]).toHaveTextContent('Offers');
     });
 
+    it('draws the rows in the order the restaurant arranged them', () => {
+        render(
+            <Home
+                restaurant={restaurant}
+                rows={[
+                    row({ id: 1, title: 'Eat', tiles: [tile({ id: 1 })] }),
+                    row({ id: 2, title: 'Offers', tiles: [tile({ id: 2 })] }),
+                ]}
+            />,
+        );
+
+        const headings = screen.getAllByRole('heading', { level: 2 });
+
+        expect(headings).toHaveLength(2);
+        expect(headings[0]).toHaveTextContent('Eat');
+        expect(headings[1]).toHaveTextContent('Offers');
+    });
+
+    it('draws no heading over a row that has none', () => {
+        render(<Home restaurant={restaurant} rows={[row({ title: null })]} />);
+
+        expect(
+            screen.queryByRole('heading', { level: 2 }),
+        ).not.toBeInTheDocument();
+    });
+
     it('sends each tile where the server said it goes', () => {
         render(
             <Home
                 restaurant={restaurant}
-                tiles={[
-                    tile({
-                        id: 7,
-                        label: 'Wine list',
-                        href: 'http://spice.restaurant-app.test/tiles/7',
+                rows={[
+                    row({
+                        tiles: [
+                            tile({
+                                id: 7,
+                                label: 'Wine list',
+                                href: 'http://spice.restaurant-app.test/tiles/7',
+                            }),
+                        ],
                     }),
                 ]}
             />,
@@ -69,9 +118,60 @@ describe('guest home', () => {
         );
     });
 
+    it('leaves the app through a plain anchor for a link tile', () => {
+        render(
+            <Home
+                restaurant={restaurant}
+                rows={[
+                    row({
+                        layout: 'links',
+                        isCircular: true,
+                        isScrollable: true,
+                        aspectRatio: '1 / 1',
+                        tiles: [
+                            tile({
+                                label: 'Instagram',
+                                href: 'https://instagram.com/spice',
+                                isExternal: true,
+                            }),
+                        ],
+                    }),
+                ]}
+            />,
+        );
+
+        // Inertia would otherwise try to fetch Instagram as a page of this app.
+        const link = screen.getByRole('link');
+
+        expect(link).toHaveAttribute('href', 'https://instagram.com/spice');
+        expect(link).toHaveAttribute('target', '_blank');
+    });
+
+    it('labels a circular tile underneath, where there is room for it', () => {
+        render(
+            <Home
+                restaurant={restaurant}
+                rows={[
+                    row({
+                        layout: 'links',
+                        isCircular: true,
+                        isScrollable: true,
+                        aspectRatio: '1 / 1',
+                        tiles: [tile({ label: 'WhatsApp' })],
+                    }),
+                ]}
+            />,
+        );
+
+        expect(screen.getByText('WhatsApp')).toBeInTheDocument();
+    });
+
     it("labels a tile's picture for a screen reader", () => {
         render(
-            <Home restaurant={restaurant} tiles={[tile({ label: 'Menu' })]} />,
+            <Home
+                restaurant={restaurant}
+                rows={[row({ tiles: [tile({ label: 'Menu' })] })]}
+            />,
         );
 
         expect(screen.getByRole('img', { name: 'Menu' })).toBeInTheDocument();
@@ -81,7 +181,9 @@ describe('guest home', () => {
         render(
             <Home
                 restaurant={restaurant}
-                tiles={[tile({ label: 'Drinks', imageUrl: null })]}
+                rows={[
+                    row({ tiles: [tile({ label: 'Drinks', imageUrl: null })] }),
+                ]}
             />,
         );
 
@@ -90,7 +192,7 @@ describe('guest home', () => {
     });
 
     it('says so plainly when the restaurant has arranged nothing yet', () => {
-        render(<Home restaurant={restaurant} tiles={[]} />);
+        render(<Home restaurant={restaurant} rows={[]} />);
 
         expect(screen.getByText(/no home screen yet/i)).toBeInTheDocument();
         expect(screen.queryByRole('link')).not.toBeInTheDocument();

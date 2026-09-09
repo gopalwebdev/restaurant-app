@@ -24,6 +24,7 @@ return [
     'menu' => [
         'title' => 'Menu',
         'empty' => 'This menu is not ready yet. Please ask a member of staff.',
+        'featured' => 'Featured',
         'additions' => 'Add to this',
         'free' => 'Free',
     ],

@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Menus;
 
+use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
+use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Admin\Resources\Menus\Tables\MenusTable;
 use App\Models\Menu;
@@ -67,10 +69,21 @@ class MenuResource extends Resource
         return MenusTable::configure($table);
     }
 
+    /**
+     * The dishes this menu leads with hang under its own page.
+     */
+    public static function getRelations(): array
+    {
+        return [
+            FeaturedItemsRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListMenus::route('/'),
+            'edit' => EditMenu::route('/{record}/edit'),
         ];
     }
 }

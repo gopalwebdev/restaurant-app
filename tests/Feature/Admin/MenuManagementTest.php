@@ -7,7 +7,9 @@ use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
 use App\Filament\Admin\Resources\MenuCategories\Pages\ListMenuCategories;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
+use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
@@ -662,4 +664,79 @@ it('counts an item orderable only when it, its section and its menu are showing'
         ->and($names)->not->toContain($inHiddenSection->name)
         // Hiding a whole menu has to take everything under it down too.
         ->and($names)->not->toContain($inHiddenMenu->name);
+});
+
+/*
+|--------------------------------------------------------------------------
+| The dishes a menu leads with
+|--------------------------------------------------------------------------
+|
+| Featuring is a flag on the dish, not a table of its own: a dish is either led
+| with or it is not, and it keeps its place under its own section either way.
+|
+*/
+
+it('features a dish and puts it at the end of the row', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $already = MenuItem::factory()->inCategory($category)->create(['is_featured' => true, 'featured_position' => 3]);
+    $next = MenuItem::factory()->inCategory($category)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(FeaturedItemsRelationManager::class, [
+        'ownerRecord' => $menu,
+        'pageClass' => EditMenu::class,
+    ])
+        ->callAction(TestAction::make('feature')->table(), ['menu_item_id' => $next->getKey()])
+        ->assertHasNoActionErrors();
+
+    expect($next->refresh()->is_featured)->toBeTrue()
+        ->and($next->featured_position)->toBe(4)
+        ->and($already->refresh()->featured_position)->toBe(3);
+});
+
+it('takes a dish out of the featured row without taking it off the menu', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $item = MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(FeaturedItemsRelationManager::class, [
+        'ownerRecord' => $menu,
+        'pageClass' => EditMenu::class,
+    ])
+        ->callAction(TestAction::make('unfeature')->table($item));
+
+    expect($item->refresh()->is_featured)->toBeFalse()
+        ->and($item->is_available)->toBeTrue()
+        ->and($item->menu_category_id)->toBe($category->getKey());
+});
+
+it('shows only the featured dishes of this menu', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $otherMenu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    $featured = MenuItem::factory()
+        ->inCategory(MenuCategory::factory()->inMenu($menu)->create())
+        ->create(['is_featured' => true]);
+    $plain = MenuItem::factory()
+        ->inCategory(MenuCategory::factory()->inMenu($menu)->create())
+        ->create();
+    $elsewhere = MenuItem::factory()
+        ->inCategory(MenuCategory::factory()->inMenu($otherMenu)->create())
+        ->create(['is_featured' => true]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(FeaturedItemsRelationManager::class, [
+        'ownerRecord' => $menu,
+        'pageClass' => EditMenu::class,
+    ])
+        ->assertCanSeeTableRecords([$featured])
+        ->assertCanNotSeeTableRecords([$plain, $elsewhere]);
 });

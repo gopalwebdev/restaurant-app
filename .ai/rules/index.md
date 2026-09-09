@@ -9,8 +9,10 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Enums/**, app/Enums/Role.php | .ai/rules/enums.md |
 | app/Filament/** | .ai/rules/filament.md |
 | ** | .ai/rules/general.md |
+| app/Filament/Admin/Resources/HomeRows/** | .ai/rules/home-rows.md |
 | resources/js/** | .ai/rules/js.md |
 | lang/** | .ai/rules/lang.md |
+| app/Filament/Admin/Resources/Menus/** | .ai/rules/menus.md |
 | app/Http/Middleware/**, app/Http/Middleware/SetLocale.php | .ai/rules/middleware.md |
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Models/User.php, app/Models/**, app/Models/MenuItem.php, app/Models/HomeTile.php | .ai/rules/models.md |

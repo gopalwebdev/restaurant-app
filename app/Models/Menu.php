@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 /**
  * One of a restaurant's menus: Lunch, Dinner, Drinks.
@@ -85,6 +86,21 @@ class Menu extends Model
     public function homeTiles(): HasMany
     {
         return $this->hasMany(HomeTile::class);
+    }
+
+    /**
+     * Every dish on this menu, whichever section it sits in.
+     *
+     * Reached through the sections because that is the only path there is —
+     * a dish carries its section and its restaurant, never its menu. The
+     * featured row on the guest's menu screen and the panel's own reordering
+     * of it both read this.
+     *
+     * @return HasManyThrough<MenuItem, MenuCategory, $this>
+     */
+    public function menuItems(): HasManyThrough
+    {
+        return $this->hasManyThrough(MenuItem::class, MenuCategory::class);
     }
 
     /**

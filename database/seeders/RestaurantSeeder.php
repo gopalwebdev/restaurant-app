@@ -5,10 +5,11 @@ namespace Database\Seeders;
 use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
 use App\Enums\FoodType;
+use App\Enums\HomeRowLayout;
 use App\Enums\HomeTileAction;
-use App\Enums\HomeTileShape;
 use App\Enums\Locale;
 use App\Enums\Role;
+use App\Models\HomeRow;
 use App\Models\HomeTile;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -281,16 +282,27 @@ class RestaurantSeeder extends Seeder
      */
     private function seedHomeScreen(Restaurant $restaurant, Menu $menu): void
     {
+        // One banner row holding one tile into the menu: the smallest home
+        // screen that actually works, and the shape most restaurants start
+        // from before they add a rail of photographs beside it.
+        $row = HomeRow::query()->firstOrCreate(
+            ['tenant_id' => $restaurant->getKey(), 'position' => 0],
+            ['layout' => HomeRowLayout::Banner, 'is_active' => true],
+        );
+
         $this->firstOrCreateByEnglishName(
-            HomeTile::query()->where('tenant_id', $restaurant->getKey()),
+            HomeTile::query()->where('home_row_id', $row->getKey()),
             ['en' => 'Menu', 'ta' => 'மெனு'],
             fn (): HomeTile => new HomeTile([
-                'shape' => HomeTileShape::Rectangle,
                 'action' => HomeTileAction::Menu,
                 'position' => 0,
                 'is_active' => true,
             ]),
-            ['tenant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
+            [
+                'tenant_id' => $restaurant->getKey(),
+                'home_row_id' => $row->getKey(),
+                'menu_id' => $menu->getKey(),
+            ],
             column: 'label',
         );
     }

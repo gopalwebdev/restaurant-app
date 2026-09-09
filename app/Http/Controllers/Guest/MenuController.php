@@ -56,12 +56,31 @@ class MenuController extends Controller
             ->get()
             ->filter(fn (MenuCategory $category): bool => $category->menuItems->isNotEmpty());
 
+        // The dishes this menu leads with, above its sections. A separate query
+        // rather than a flag read off the sections above: featuring has its own
+        // order, and the same dish appears again under its section — a guest
+        // scrolling down should find it where they expect it.
+        $featured = MenuItem::query()
+            ->select(['id', 'menu_category_id', 'name', 'description', 'price_minor_units', 'food_type'])
+            ->where('tenant_id', $restaurant->getKey())
+            ->featuredOnMenu($menu->getKey())
+            ->orderable()
+            ->with(['additions' => fn ($additions) => $additions
+                ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
+                ->available()
+                ->inMenuOrder()])
+            ->inFeaturedOrder()
+            ->get();
+
         return Inertia::render('menu', [
             'menu' => [
                 'id' => $menu->getKey(),
                 'name' => $menu->name,
                 'description' => $menu->description,
             ],
+            'featured' => $featured->map(
+                fn (MenuItem $item): array => $this->presentItem($item),
+            )->values()->all(),
             'sections' => $sections->map(fn (MenuCategory $category): array => [
                 'id' => $category->getKey(),
                 'name' => $category->name,

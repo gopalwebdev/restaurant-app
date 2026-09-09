@@ -93,7 +93,18 @@ class Restaurant extends Model
     }
 
     /**
-     * The tiles a guest lands on after scanning a table's QR code.
+     * The rows of the home screen a guest lands on after scanning a table's
+     * QR code, each holding its own tiles.
+     *
+     * @return HasMany<HomeRow, $this>
+     */
+    public function homeRows(): HasMany
+    {
+        return $this->hasMany(HomeRow::class, 'tenant_id');
+    }
+
+    /**
+     * Every tile on this restaurant's home screen, across all of its rows.
      *
      * @return HasMany<HomeTile, $this>
      */

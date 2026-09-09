@@ -13,6 +13,7 @@ describe('guest menu', () => {
             <Menu
                 restaurant={restaurant}
                 menu={menu}
+                featured={[]}
                 sections={[]}
                 acceptingOrders
                 homeUrl={homeUrl}
@@ -31,6 +32,7 @@ describe('guest menu', () => {
             <Menu
                 restaurant={restaurant}
                 menu={menu}
+                featured={[]}
                 sections={[]}
                 acceptingOrders
                 homeUrl={homeUrl}
@@ -50,6 +52,7 @@ describe('guest menu', () => {
                 menu={menu}
                 acceptingOrders
                 homeUrl={homeUrl}
+                featured={[]}
                 sections={[
                     {
                         id: 1,
@@ -86,6 +89,7 @@ describe('guest menu', () => {
                 menu={menu}
                 acceptingOrders
                 homeUrl={homeUrl}
+                featured={[]}
                 sections={[
                     {
                         id: 1,
@@ -128,6 +132,7 @@ describe('guest menu', () => {
             <Menu
                 restaurant={restaurant}
                 menu={menu}
+                featured={[]}
                 sections={[]}
                 acceptingOrders={false}
                 homeUrl={homeUrl}

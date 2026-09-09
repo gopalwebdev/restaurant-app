@@ -86,6 +86,14 @@ class MenuItemsTable
                     ->boolean()
                     ->sortable(),
 
+                IconColumn::make('is_featured')
+                    ->label(__('panel.items.is_featured'))
+                    ->boolean()
+                    ->trueIcon(Heroicon::OutlinedStar)
+                    ->falseIcon(Heroicon::OutlinedMinusSmall)
+                    ->sortable()
+                    ->tooltip(__('panel.items.is_featured_help')),
+
                 TextColumn::make('position')
                     ->label(__('panel.shared.order'))
                     ->sortable()
@@ -129,6 +137,8 @@ class MenuItemsTable
                     ->options(FoodType::options()),
 
                 TernaryFilter::make('is_available')->label(__('panel.items.is_available')),
+
+                TernaryFilter::make('is_featured')->label(__('panel.items.is_featured')),
             ])
             ->recordActions([
                 EditAction::make()

@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Filament\Admin\Resources\HomeTiles\Schemas;
+namespace App\Filament\Admin\Resources\HomeRows\Schemas;
 
 use App\Enums\HomeTileAction;
-use App\Enums\HomeTileShape;
 use App\Filament\Admin\Resources\MenuCategories\Schemas\MenuCategoryForm;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\HomeTile;
@@ -63,8 +62,8 @@ class HomeTileForm
                     ->description(__('panel.tiles.destination_help'))
                     ->icon(Heroicon::OutlinedCursorArrowRays)
                     ->schema([
-                        // A radio rather than a select: there are two answers,
-                        // each needs a line of explanation, and both should be
+                        // A radio rather than a select: each answer needs a
+                        // line of explanation, and all of them should be
                         // readable without opening anything.
                         Radio::make('action')
                             ->label(__('panel.tiles.on_tap'))
@@ -75,9 +74,9 @@ class HomeTileForm
                             ->live()
                             ->columnSpanFull(),
 
-                        // Exactly one of the next two is filled, decided by the
-                        // action above. The model clears the other on save and
-                        // refuses a tile with neither — see HomeTile::booted().
+                        // Exactly one of the next three is filled, decided by
+                        // the action above. The model clears the others on save
+                        // and refuses a tile with none — see HomeTile::booted().
                         Select::make('menu_id')
                             ->label(__('panel.tiles.menu_to_open'))
                             ->options(fn (): array => MenuCategoryForm::menuOptions())
@@ -87,6 +86,15 @@ class HomeTileForm
                             ->visible(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Menu))
                             ->required(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Menu))
                             ->helperText(__('panel.tiles.menu_to_open_help')),
+
+                        TextInput::make('url')
+                            ->label(__('panel.tiles.link'))
+                            ->url()
+                            ->maxLength(2048)
+                            ->prefixIcon(Heroicon::OutlinedLink)
+                            ->visible(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Link))
+                            ->required(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Link))
+                            ->helperText(__('panel.tiles.link_help')),
 
                         FileUpload::make('document_path')
                             ->label(__('panel.tiles.document'))
@@ -105,14 +113,6 @@ class HomeTileForm
                 Section::make(__('panel.tiles.placement'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        Select::make('shape')
-                            ->label(__('panel.tiles.shape'))
-                            ->options(HomeTileShape::options())
-                            ->default(HomeTileShape::Rectangle->value)
-                            ->required()
-                            ->native(false)
-                            ->helperText(__('panel.tiles.shape_help')),
-
                         TextInput::make('position')
                             ->label(__('panel.shared.order'))
                             ->numeric()

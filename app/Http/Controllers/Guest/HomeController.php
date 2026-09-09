@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 
 use App\Enums\HomeTileAction;
 use App\Http\Controllers\Controller;
+use App\Models\HomeRow;
 use App\Models\HomeTile;
 use App\Models\Menu;
 use App\Models\Restaurant;
@@ -13,9 +14,14 @@ use Inertia\Response;
 /**
  * The screen a guest lands on after scanning the QR code at their table.
  *
- * What is on it is the restaurant's arrangement, not ours: it chooses the
- * tiles, their pictures, their order and what each one opens. This reads that
- * arrangement and hands it over; the guest app draws whatever it is given.
+ * What is on it is the restaurant's arrangement, not ours: it chooses the rows,
+ * what each one looks like, the tiles inside them and where each one goes. This
+ * reads that arrangement and hands it over; the guest app draws whatever it is
+ * given, one renderer per layout.
+ *
+ * Rows and their tiles come down together — one screen a guest scrolls — and a
+ * row whose tiles all lead nowhere is dropped rather than drawn as an empty
+ * band.
  */
 class HomeController extends Controller
 {
@@ -23,29 +29,66 @@ class HomeController extends Controller
     {
         abort_unless($restaurant->is_active, 404);
 
-        $tiles = HomeTile::query()
+        $rows = HomeRow::query()
+            ->select(['id', 'title', 'layout'])
             ->where('tenant_id', $restaurant->getKey())
             ->active()
             // A menu tile pointing at a hidden menu would open an empty screen,
             // so the menu comes along and the ones that lead nowhere are
             // dropped below rather than shown and then apologised for.
-            ->with('menu')
+            ->with(['tiles' => fn ($tiles) => $tiles
+                ->select(['id', 'home_row_id', 'label', 'image_path', 'action', 'menu_id', 'url'])
+                ->active()
+                ->with('menu:id,is_active')
+                ->inDisplayOrder()])
             ->inDisplayOrder()
-            ->get()
-            ->filter(fn (HomeTile $tile): bool => $this->leadsSomewhere($tile));
+            ->get();
 
         return Inertia::render('home', [
-            'tiles' => $tiles->map(fn (HomeTile $tile): array => [
-                'id' => $tile->getKey(),
-                'label' => $tile->label,
-                'shape' => $tile->shape->value,
-                'aspectRatio' => $tile->shape->aspectRatio(),
-                'imageUrl' => $tile->hasImage()
-                    ? route('guest.tiles.image.show', ['restaurant' => $restaurant->slug, 'tile' => $tile->getKey()])
-                    : null,
-                'href' => $this->destinationOf($tile, $restaurant),
-            ])->values()->all(),
+            'rows' => $rows
+                ->map(fn (HomeRow $row): array => $this->presentRow($row, $restaurant))
+                ->filter(fn (array $row): bool => $row['tiles'] !== [])
+                ->values()
+                ->all(),
         ]);
+    }
+
+    /**
+     * One row, and the tiles a guest can actually get somewhere from.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentRow(HomeRow $row, Restaurant $restaurant): array
+    {
+        return [
+            'id' => $row->getKey(),
+            // A row with no heading and a row whose heading is an empty string
+            // are the same row to a guest, and Spatie hands back the latter for
+            // a null column — so both leave here as null and the app draws no
+            // heading at all rather than an empty one.
+            'title' => filled($row->title) ? $row->title : null,
+            'layout' => $row->layout->value,
+            // Sent rather than assumed in React, so the layout stored is the
+            // layout rendered and there is no second list to keep in step.
+            'aspectRatio' => $row->layout->aspectRatio(),
+            'isScrollable' => $row->layout->isScrollable(),
+            'isCircular' => $row->layout->isCircular(),
+            'tiles' => $row->tiles
+                ->filter(fn (HomeTile $tile): bool => $this->leadsSomewhere($tile))
+                ->map(fn (HomeTile $tile): array => [
+                    'id' => $tile->getKey(),
+                    'label' => $tile->label,
+                    'imageUrl' => $tile->hasImage()
+                        ? route('guest.tiles.image.show', ['restaurant' => $restaurant->slug, 'tile' => $tile->getKey()])
+                        : null,
+                    'href' => $this->destinationOf($tile, $restaurant),
+                    // A link leaves the app, so the browser is told to treat it
+                    // as one rather than as another screen of this one.
+                    'isExternal' => $tile->action === HomeTileAction::Link,
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 
     /**
@@ -62,8 +105,8 @@ class HomeController extends Controller
             return true;
         }
 
-        // menu_id is nullable because a PDF tile has none, so a menu tile leads
-        // somewhere only when its menu is both there and showing.
+        // menu_id is nullable because a PDF or link tile has none, so a menu
+        // tile leads somewhere only when its menu is both there and showing.
         $menu = $tile->menu;
 
         return $menu instanceof Menu && $menu->is_active;
@@ -87,6 +130,7 @@ class HomeController extends Controller
                 'restaurant' => $restaurant->slug,
                 'tile' => $tile->getKey(),
             ]),
+            HomeTileAction::Link => (string) $tile->url,
         };
     }
 }

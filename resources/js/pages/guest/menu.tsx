@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 
 import { AppBar } from '@/components/app-bar';
 import { FoodTypeDot, type FoodType } from '@/components/food-type-dot';
+import { StarIcon } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useMoney } from '@/hooks/use-money';
@@ -32,6 +33,8 @@ interface Section {
 interface MenuProps {
     restaurant: { name: string; slug: string } | null;
     menu: { id: number; name: string; description: string | null };
+    /** The dishes this menu leads with, above its sections. */
+    featured: MenuItem[];
     sections: Section[];
     acceptingOrders: boolean;
     homeUrl: string;
@@ -53,6 +56,7 @@ interface MenuProps {
 export default function Menu({
     restaurant,
     menu,
+    featured,
     sections,
     acceptingOrders,
     homeUrl,
@@ -80,7 +84,31 @@ export default function Menu({
                     </p>
                 )}
 
-                {sections.length === 0 ? (
+                {featured.length > 0 && (
+                    <section className="pt-6">
+                        <h2 className="text-muted-foreground flex items-center gap-1.5 px-5 text-xs font-semibold tracking-widest uppercase">
+                            <StarIcon className="size-3.5" />
+                            {t('menu.featured')}
+                        </h2>
+
+                        {/* A rail rather than a list: these are the dishes the
+                            restaurant wants seen first, and a guest should meet
+                            them before scrolling rather than instead of the
+                            sections below, where each one also appears. */}
+                        <ul className="mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {featured.map((item) => (
+                                <li
+                                    key={item.id}
+                                    className="bg-card w-64 shrink-0 snap-start rounded-xl border"
+                                >
+                                    <Dish item={item} />
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
+
+                {sections.length === 0 && featured.length === 0 ? (
                     <p className="text-muted-foreground px-5 py-16 text-center text-sm">
                         {t('menu.empty')}
                     </p>

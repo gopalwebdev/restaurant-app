@@ -18,11 +18,15 @@ enum HomeTileAction: string
     /** Renders an uploaded PDF inside the app, with a back arrow out of it. */
     case Pdf = 'pdf';
 
+    /** Leaves the app for somewhere the restaurant is also found. */
+    case Link = 'link';
+
     public function label(): string
     {
         return match ($this) {
             self::Menu => 'Open a menu',
             self::Pdf => 'Show a PDF',
+            self::Link => 'Open a link',
         };
     }
 
@@ -34,6 +38,7 @@ enum HomeTileAction: string
         return match ($this) {
             self::Menu => 'Takes the guest to one of your menus.',
             self::Pdf => 'Shows an uploaded PDF — a drinks list, an offer, a licence.',
+            self::Link => 'Leaves the app for somewhere else — Instagram, WhatsApp, your own site.',
         };
     }
 
@@ -49,6 +54,7 @@ enum HomeTileAction: string
         return match ($this) {
             self::Menu => 'menu_id',
             self::Pdf => 'document_path',
+            self::Link => 'url',
         };
     }
 

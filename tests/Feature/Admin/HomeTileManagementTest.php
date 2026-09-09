@@ -1,11 +1,12 @@
 <?php
 
 use App\Enums\HomeTileAction;
-use App\Enums\HomeTileShape;
 use App\Enums\Locale;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\HomeTiles\Pages\ListHomeTiles;
+use App\Filament\Admin\Resources\HomeRows\Pages\EditHomeRow;
+use App\Filament\Admin\Resources\HomeRows\RelationManagers\TilesRelationManager;
+use App\Models\HomeRow;
 use App\Models\HomeTile;
 use App\Models\Menu;
 use App\Models\Restaurant;
@@ -93,13 +94,13 @@ it('creates a tile that opens one of this restaurant\'s menus', function (): voi
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Our menu', Locale::Tamil->value => 'எங்கள் மெனு'],
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 0,
             'is_active' => true,
         ])
@@ -111,7 +112,6 @@ it('creates a tile that opens one of this restaurant\'s menus', function (): voi
         ->and($tile->action)->toBe(HomeTileAction::Menu)
         ->and($tile->menu_id)->toBe($menu->getKey())
         ->and($tile->document_path)->toBeNull()
-        ->and($tile->shape)->toBe(HomeTileShape::Rectangle)
         ->and($tile->getTranslation('label', Locale::Tamil->value))->toBe('எங்கள் மெனு');
 });
 
@@ -120,13 +120,13 @@ it('creates a tile that shows an uploaded PDF', function (): void {
 
     $restaurant = Restaurant::factory()->create();
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Wine list'],
             'action' => HomeTileAction::Pdf->value,
             'document_path' => UploadedFile::fake()->create('wine.pdf', 16, 'application/pdf'),
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 1,
             'is_active' => true,
         ])
@@ -151,14 +151,14 @@ it('stores a tile\'s picture on the private disk', function (): void {
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Our menu'],
             'image_path' => UploadedFile::fake()->image('tile.jpg', 1200, 675),
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 0,
             'is_active' => true,
         ])
@@ -175,15 +175,15 @@ it('lets a tile be created with no picture yet', function (): void {
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
     // A restaurant arranging its home screen before it has photography is the
     // normal state on day one; the guest app draws the label instead.
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Our menu'],
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 0,
             'is_active' => true,
         ])
@@ -197,13 +197,13 @@ it('requires the label in the fallback language', function (): void {
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::Tamil->value => 'எங்கள் மெனு'],
             'action' => HomeTileAction::Menu->value,
             'menu_id' => $menu->getKey(),
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 0,
             'is_active' => true,
         ])
@@ -221,12 +221,12 @@ it('refuses a menu tile with no menu chosen', function (): void {
     Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Nowhere'],
             'action' => HomeTileAction::Menu->value,
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 0,
             'is_active' => true,
         ])
@@ -236,12 +236,12 @@ it('refuses a menu tile with no menu chosen', function (): void {
 it('refuses a PDF tile with no file uploaded', function (): void {
     $restaurant = Restaurant::factory()->create();
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
 
-    Livewire::test(ListHomeTiles::class)
-        ->callAction('create', [
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
+        ->callAction(TestAction::make('create')->table(), [
             'label' => [Locale::English->value => 'Nowhere'],
             'action' => HomeTileAction::Pdf->value,
-            'shape' => HomeTileShape::Rectangle->value,
             'position' => 0,
             'is_active' => true,
         ])
@@ -257,7 +257,6 @@ it('refuses to save a tile with no destination, whatever the form says', functio
     expect(fn () => HomeTile::query()->create([
         'label' => [Locale::English->value => 'Nowhere'],
         'action' => HomeTileAction::Menu,
-        'shape' => HomeTileShape::Rectangle,
     ])->forceFill(['tenant_id' => $restaurant->getKey()])->save())
         ->toThrow(LogicException::class);
 });
@@ -287,34 +286,42 @@ it('clears the destination a tile no longer uses when its action changes', funct
 it('fills the edit form with every language, not just the current one', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
-    $tile = HomeTile::factory()->openingMenu($menu)->create([
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
+    $tile = HomeTile::factory()->openingMenu($menu)->inRow($row)->create([
         'label' => [Locale::English->value => 'Our menu', Locale::Tamil->value => 'எங்கள் மெனு'],
     ]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListHomeTiles::class)
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
         ->mountAction(TestAction::make('edit')->table($tile))
         ->assertActionDataSet([
             'label' => [Locale::English->value => 'Our menu', Locale::Tamil->value => 'எங்கள் மெனு'],
         ]);
 });
 
-it('shows only this restaurant\'s tiles', function (): void {
+it('shows only the tiles in the row being edited', function (): void {
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
 
+    $myRow = HomeRow::factory()->ofRestaurant($mine)->create();
     $myTile = HomeTile::factory()
         ->openingMenu(Menu::factory()->create(['tenant_id' => $mine->getKey()]))
+        ->inRow($myRow)
         ->create();
 
+    // Another restaurant's tile, which this row could not hold even if the
+    // relation manager forgot to scope: the composite foreign key on
+    // (home_row_id, tenant_id) is what makes that a database error.
+    $theirRow = HomeRow::factory()->ofRestaurant($theirs)->create();
     $theirTile = HomeTile::factory()
         ->openingMenu(Menu::factory()->create(['tenant_id' => $theirs->getKey()]))
+        ->inRow($theirRow)
         ->create();
 
     enterRestaurantPanel($mine, RoleEnum::Admin);
 
-    Livewire::test(ListHomeTiles::class)
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $myRow, 'pageClass' => EditHomeRow::class])
         ->assertCanSeeTableRecords([$myTile])
         ->assertCanNotSeeTableRecords([$theirTile]);
 });
@@ -323,12 +330,13 @@ it('orders the tiles the way the home screen shows them', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
-    $last = HomeTile::factory()->openingMenu($menu)->create(['position' => 5]);
-    $first = HomeTile::factory()->openingMenu($menu)->create(['position' => 1]);
+    $row = HomeRow::factory()->ofRestaurant($restaurant)->create();
+    $last = HomeTile::factory()->openingMenu($menu)->inRow($row)->create(['position' => 5]);
+    $first = HomeTile::factory()->openingMenu($menu)->inRow($row)->create(['position' => 1]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListHomeTiles::class)
+    Livewire::test(TilesRelationManager::class, ['ownerRecord' => $row, 'pageClass' => EditHomeRow::class])
         ->assertCanSeeTableRecords([$first, $last], inOrder: true);
 });
 

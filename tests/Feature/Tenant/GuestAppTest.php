@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Appearance;
+use App\Enums\Locale;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
@@ -8,6 +9,7 @@ use App\Models\MenuItemAddition;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Schema;
+use Inertia\Testing\AssertableInertia;
 
 beforeEach(function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -215,4 +217,53 @@ it('makes only the staff app installable', function (): void {
     $this->get(guestUrl($restaurant))
         ->assertDontSee('rel="manifest"', escape: false)
         ->assertDontSee('serviceWorker', escape: false);
+});
+
+it('leads a menu with the dishes the restaurant featured', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    $second = MenuItem::factory()->inCategory($category)->create([
+        'name' => [Locale::English->value => 'Rasmalai'],
+        'is_featured' => true,
+        'featured_position' => 2,
+    ]);
+    $first = MenuItem::factory()->inCategory($category)->create([
+        'name' => [Locale::English->value => 'Paneer Tikka'],
+        'is_featured' => true,
+        'featured_position' => 1,
+    ]);
+    $plain = MenuItem::factory()->inCategory($category)->create();
+
+    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/menus/'.$menu->getKey())
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->has('featured', 2)
+            ->where('featured.0.id', $first->getKey())
+            ->where('featured.0.name', 'Paneer Tikka')
+            ->where('featured.1.id', $second->getKey())
+            // A featured dish still appears under its own section, so a guest
+            // scrolling down finds it where they expect it.
+            ->has('sections.0.items', 3),
+        );
+});
+
+it('leaves a sold-out dish out of the featured row', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    MenuItem::factory()->inCategory($category)->create([
+        'is_featured' => true,
+        'is_available' => false,
+    ]);
+    $available = MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
+
+    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/menus/'.$menu->getKey())
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->has('featured', 1)
+            ->where('featured.0.id', $available->getKey()),
+        );
 });

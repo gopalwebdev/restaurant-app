@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\HomeTileAction;
-use App\Enums\HomeTileShape;
 use App\Models\Concerns\HasTranslatedNames;
 use Carbon\CarbonImmutable;
 use Database\Factories\HomeTileFactory;
@@ -15,18 +14,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 /**
- * One tile on the home screen a guest lands on.
+ * One tile inside a row of the home screen a guest lands on.
  *
- * A tile is a picture and a destination. The restaurant arranges them, so the
- * order, the pictures and what each one opens are all data rather than a fixed
- * screen — and the guest app draws whatever it is given.
+ * A tile is a picture and a destination. How it is *drawn* is not its own
+ * business — the row it sits in owns that, through HomeRowLayout — so there is
+ * no shape here. What it opens is: a menu, an uploaded PDF, or a link out of
+ * the app, one target column each. See App\Enums\HomeTileAction.
  *
  * @property int $id
  * @property int $tenant_id
+ * @property int $home_row_id
  * @property string $label
  * @property string|null $image_path
  * @property string|null $document_path
- * @property HomeTileShape $shape
+ * @property string|null $url
  * @property HomeTileAction $action
  * @property int|null $menu_id
  * @property int $position
@@ -35,10 +36,11 @@ use LogicException;
  * @property CarbonImmutable|null $updated_at
  */
 #[Fillable([
+    'home_row_id',
     'label',
     'image_path',
     'document_path',
-    'shape',
+    'url',
     'action',
     'menu_id',
     'position',
@@ -60,7 +62,6 @@ class HomeTile extends Model
      * @var array<string, mixed>
      */
     protected $attributes = [
-        'shape' => HomeTileShape::Rectangle->value,
         'position' => 0,
         'is_active' => true,
     ];
@@ -77,6 +78,22 @@ class HomeTile extends Model
      */
     protected static function booted(): void
     {
+        // Take the restaurant from the row this sits in. It is the same
+        // restaurant by definition — the composite foreign key insists on it —
+        // so nothing that creates a tile has to remember. That includes the
+        // tiles relation manager, where Filament's tenancy stamps the row a
+        // resource is saving but not the rows hanging off it.
+        static::creating(function (self $tile): void {
+            if (filled($tile->tenant_id) || blank($tile->home_row_id)) {
+                return;
+            }
+
+            $tile->tenant_id = HomeRow::query()
+                ->withoutGlobalScopes()
+                ->whereKey($tile->home_row_id)
+                ->value('tenant_id');
+        });
+
         static::saving(function (self $tile): void {
             $required = $tile->action->targetColumn();
 
@@ -102,6 +119,16 @@ class HomeTile extends Model
     public function restaurant(): BelongsTo
     {
         return $this->belongsTo(Restaurant::class, 'tenant_id');
+    }
+
+    /**
+     * The row this tile sits in, which decides how it is drawn.
+     *
+     * @return BelongsTo<HomeRow, $this>
+     */
+    public function homeRow(): BelongsTo
+    {
+        return $this->belongsTo(HomeRow::class);
     }
 
     /**
@@ -143,7 +170,7 @@ class HomeTile extends Model
      */
     public function scopeInDisplayOrder(Builder $query): void
     {
-        $query->orderBy('position')->orderBy(self::fallbackLocalePath('label'));
+        $query->orderBy('position')->orderBy('id');
     }
 
     /**
@@ -152,7 +179,6 @@ class HomeTile extends Model
     protected function casts(): array
     {
         return [
-            'shape' => HomeTileShape::class,
             'action' => HomeTileAction::class,
             'position' => 'integer',
             'is_active' => 'boolean',
