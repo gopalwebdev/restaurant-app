@@ -3,10 +3,9 @@
 namespace App\Filament\Admin\Resources\HomeRows\RelationManagers;
 
 use App\Enums\HomeTileAction;
-use App\Enums\Locale;
 use App\Filament\Admin\Resources\HomeRows\Schemas\HomeTileForm;
 use App\Filament\Schemas\TranslatedFields;
-use App\Filament\Tables\OrderActions;
+use App\Filament\Tables\Reordering;
 use App\Models\HomeTile;
 use App\Models\Menu;
 use Filament\Actions\BulkActionGroup;
@@ -67,12 +66,6 @@ class TilesRelationManager extends RelationManager
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'label', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'label', $direction)),
 
-                TextColumn::make('label_ta')
-                    ->label(Locale::Tamil->fieldLabel(__('panel.tiles.label_field')))
-                    ->state(fn (HomeTile $record): ?string => $record->getTranslation('label', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder(__('panel.shared.not_translated'))
-                    ->toggleable(),
-
                 TextColumn::make('action')
                     ->label(__('panel.tiles.on_tap'))
                     ->badge()
@@ -99,8 +92,6 @@ class TilesRelationManager extends RelationManager
                     ->icon(Heroicon::OutlinedPlus),
             ])
             ->recordActions([
-                ...OrderActions::make(fn (HomeTile $record): Builder => HomeTile::query()->where('home_row_id', $record->home_row_id)),
-
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
@@ -116,6 +107,8 @@ class TilesRelationManager extends RelationManager
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->reorderable('position')
+            ->reorderRecordsTriggerAction(Reordering::trigger())
             ->defaultSort('position')
             ->emptyStateHeading(__('panel.tiles.empty_heading'))
             ->emptyStateDescription(__('panel.tiles.empty_description'))

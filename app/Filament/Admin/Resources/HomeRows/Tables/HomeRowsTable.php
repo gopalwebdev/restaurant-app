@@ -3,10 +3,9 @@
 namespace App\Filament\Admin\Resources\HomeRows\Tables;
 
 use App\Enums\HomeRowLayout;
-use App\Enums\Locale;
 use App\Filament\Admin\Resources\HomeRows\Schemas\HomeRowForm;
 use App\Filament\Schemas\TranslatedFields;
-use App\Filament\Tables\OrderActions;
+use App\Filament\Tables\Reordering;
 use App\Models\HomeRow;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -32,12 +31,6 @@ class HomeRowsTable
                     ->placeholder(__('panel.rows.untitled'))
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'title', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'title', $direction)),
-
-                TextColumn::make('title_ta')
-                    ->label(Locale::Tamil->fieldLabel(__('panel.rows.title_field')))
-                    ->state(fn (HomeRow $record): ?string => $record->getTranslation('title', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder(__('panel.shared.not_translated'))
-                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('layout')
                     ->label(__('panel.rows.layout_column'))
@@ -69,9 +62,6 @@ class HomeRowsTable
                 TernaryFilter::make('is_active')->label(__('panel.shared.showing')),
             ])
             ->recordActions([
-                // Every row on this restaurant's home screen — the panel's tenancy
-                // scope is what keeps that to this restaurant.
-                ...OrderActions::make(fn (HomeRow $record): Builder => HomeRow::query()),
 
                 EditAction::make()
                     ->iconButton()
@@ -88,6 +78,8 @@ class HomeRowsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->reorderable('position')
+            ->reorderRecordsTriggerAction(Reordering::trigger())
             ->defaultSort('position')
             ->emptyStateHeading(__('panel.rows.empty_heading'))
             ->emptyStateDescription(__('panel.rows.empty_description'))

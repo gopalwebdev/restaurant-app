@@ -65,8 +65,8 @@ class MenuCategoryForm
                 Section::make(__('panel.categories.on_the_menu'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        // Where it sits on the menu is arranged with the arrows
-                        // on the list, not typed here — see OrderActions.
+                        // Where it sits in the list is arranged by dragging
+                        // the rows there, not typed here — see Reordering.
                         Toggle::make('is_active')
                             ->label(__('panel.categories.is_active'))
                             ->default(true)

@@ -115,8 +115,8 @@ class HomeTileForm
                 Section::make(__('panel.tiles.placement'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        // Where it sits in the row is arranged with the arrows
-                        // on the list, not typed here — see OrderActions.
+                        // Where it sits in the list is arranged by dragging
+                        // the rows there, not typed here — see Reordering.
                         Toggle::make('is_active')
                             ->label(__('panel.tiles.is_active'))
                             ->default(true)

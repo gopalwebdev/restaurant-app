@@ -65,6 +65,42 @@ class RestaurantSeeder extends Seeder
     public const array MENU_NAME = ['en' => 'Main Menu', 'ta' => 'முதன்மை மெனு'];
 
     /**
+     * The second menu every seeded restaurant gets.
+     *
+     * One menu was enough to read a storefront but not enough to work the
+     * panel: moving a category to another menu, and filing one under the right
+     * card, both need somewhere to move it to.
+     *
+     * @var array<string, string>
+     */
+    public const array DRINKS_MENU_NAME = ['en' => 'Drinks', 'ta' => 'பானங்கள்'];
+
+    /**
+     * The starter drinks card.
+     *
+     * @var list<array{
+     *     name: array<string, string>,
+     *     items: list<array{name: array<string, string>, price_minor_units: int, food_type: FoodType}>
+     * }>
+     */
+    public const array DRINKS = [
+        [
+            'name' => ['en' => 'Hot drinks', 'ta' => 'சூடான பானங்கள்'],
+            'items' => [
+                ['name' => ['en' => 'Filter Coffee', 'ta' => 'பில்டர் காபி'], 'price_minor_units' => 4000, 'food_type' => FoodType::Vegetarian],
+                ['name' => ['en' => 'Masala Chai', 'ta' => 'மசாலா டீ'], 'price_minor_units' => 3500, 'food_type' => FoodType::Vegetarian],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Cold drinks', 'ta' => 'குளிர் பானங்கள்'],
+            'items' => [
+                ['name' => ['en' => 'Fresh Lime Soda', 'ta' => 'எலுமிச்சை சோடா'], 'price_minor_units' => 6000, 'food_type' => FoodType::Vegetarian],
+                ['name' => ['en' => 'Mango Lassi', 'ta' => 'மாம்பழ லஸ்ஸி'], 'price_minor_units' => 9000, 'food_type' => FoodType::Vegetarian],
+            ],
+        ],
+    ];
+
+    /**
      * The starter menu every seeded restaurant gets.
      *
      * Every name is a map of locale to text, exactly as the columns store it.
@@ -234,7 +270,28 @@ class RestaurantSeeder extends Seeder
             ['tenant_id' => $restaurant->getKey()],
         );
 
-        foreach (self::MENU as $position => $section) {
+        $this->seedCard($restaurant, $menu, self::MENU);
+
+        $drinks = $this->firstOrCreateByEnglishName(
+            Menu::query()->where('tenant_id', $restaurant->getKey()),
+            self::DRINKS_MENU_NAME,
+            fn (): Menu => new Menu(['position' => 1, 'is_active' => true]),
+            ['tenant_id' => $restaurant->getKey()],
+        );
+
+        $this->seedCard($restaurant, $drinks, self::DRINKS);
+
+        $this->seedHomeScreen($restaurant, $menu);
+    }
+
+    /**
+     * One menu's categories, their dishes, and each dish's additions.
+     *
+     * @param  list<array<string, mixed>>  $card
+     */
+    private function seedCard(Restaurant $restaurant, Menu $menu, array $card): void
+    {
+        foreach ($card as $position => $section) {
             $category = $this->firstOrCreateByEnglishName(
                 MenuCategory::query()->where('menu_id', $menu->getKey()),
                 $section['name'],
@@ -269,8 +326,6 @@ class RestaurantSeeder extends Seeder
                 }
             }
         }
-
-        $this->seedHomeScreen($restaurant, $menu);
     }
 
     /**

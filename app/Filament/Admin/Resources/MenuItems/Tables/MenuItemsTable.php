@@ -3,10 +3,9 @@
 namespace App\Filament\Admin\Resources\MenuItems\Tables;
 
 use App\Enums\FoodType;
-use App\Enums\Locale;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
 use App\Filament\Schemas\TranslatedFields;
-use App\Filament\Tables\OrderActions;
+use App\Filament\Tables\Reordering;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
@@ -36,12 +35,6 @@ class MenuItemsTable
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'name', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction))
                     ->description(fn (MenuItem $record): ?string => $record->description),
-
-                TextColumn::make('name_ta')
-                    ->label(Locale::Tamil->fieldLabel(__('panel.shared.name')))
-                    ->state(fn (MenuItem $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
-                    ->placeholder(__('panel.shared.not_translated'))
-                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('menuCategory.name')
                     ->label(__('panel.items.section'))
@@ -137,8 +130,6 @@ class MenuItemsTable
                 TernaryFilter::make('is_featured')->label(__('panel.items.is_featured')),
             ])
             ->recordActions([
-                ...OrderActions::make(fn (MenuItem $record): Builder => MenuItem::query()->where('menu_category_id', $record->menu_category_id)),
-
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
@@ -158,6 +149,8 @@ class MenuItemsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->reorderable('position')
+            ->reorderRecordsTriggerAction(Reordering::trigger())
             ->defaultSort('position')
             // The section and its menu are both shown, so they are loaded once
             // for the page rather than per row.

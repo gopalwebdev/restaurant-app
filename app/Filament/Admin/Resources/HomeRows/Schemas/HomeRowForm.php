@@ -53,8 +53,8 @@ class HomeRowForm
                 Section::make(__('panel.rows.placement'))
                     ->icon(Heroicon::OutlinedEye)
                     ->schema([
-                        // Where it sits on the home screen is arranged with the
-                        // arrows on the list, not typed here — see OrderActions.
+                        // Where it sits in the list is arranged by dragging
+                        // the rows there, not typed here — see Reordering.
                         Toggle::make('is_active')
                             ->label(__('panel.rows.is_active'))
                             ->default(true)

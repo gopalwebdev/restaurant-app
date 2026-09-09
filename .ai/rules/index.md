@@ -4,6 +4,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 
 | Applies to | Rule file |
 | --- | --- |
+| app/Actions/Menus/** | .ai/rules/actions-menus.md |
 | app/** | .ai/rules/app.md |
 | config/**, config/restaurants.php | .ai/rules/config.md |
 | app/Enums/**, app/Enums/Role.php | .ai/rules/enums.md |
@@ -20,6 +21,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Policies/** | .ai/rules/policies.md |
 | app/Providers/Filament/*.php, app/Providers/Filament/AdminPanelProvider.php | .ai/rules/providers-filament.md |
 | app/Filament/SuperAdmin/Resources/Restaurants/** | .ai/rules/resources-restaurants.md |
+| app/Filament/Admin/Resources/**/Tables/*.php | .ai/rules/resources-tables.md |
 | app/Actions/Restaurants/** | .ai/rules/restaurants.md |
 | routes/** | .ai/rules/routes.md |
 | app/Filament/**/Tables/*.php, app/Filament/Tables/** | .ai/rules/tables.md |
