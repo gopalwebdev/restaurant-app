@@ -61,26 +61,42 @@ class ListAccountsCommand extends Command
     }
 
     /**
-     * Each restaurant's administrators, who sign in on its own subdomain.
+     * Everyone attached to a restaurant, and which of its two surfaces they use.
+     *
+     * An admin runs the restaurant from the panel on a laptop; staff work the
+     * floor from the phone app. Someone holding both roles is listed for both,
+     * because they really can open both.
      *
      * @return list<array{string, string, string}>
      */
     private function restaurantRows(): array
     {
         $restaurants = Restaurant::query()
-            ->with(['users' => fn ($query) => $query->role(Role::Admin->value)])
+            ->with(['users' => fn ($query) => $query->with('roles')])
             ->orderBy('name')
             ->get();
 
         $rows = [];
 
         foreach ($restaurants as $restaurant) {
+            $host = $restaurant->slug.'.'.config('app.domain');
+
             foreach ($restaurant->users as $user) {
-                $rows[] = [
-                    $restaurant->name.' admin',
-                    $user->email,
-                    $restaurant->slug.'.'.config('app.domain').'/'.AdminPanel::Admin->path(),
-                ];
+                if ($user->hasRole(Role::Admin->value)) {
+                    $rows[] = [
+                        $restaurant->name.' admin',
+                        $user->email,
+                        $host.'/'.AdminPanel::Admin->path(),
+                    ];
+                }
+
+                if ($user->hasRole(Role::Staff->value)) {
+                    $rows[] = [
+                        $restaurant->name.' staff',
+                        $user->email,
+                        $host.'/staff/login',
+                    ];
+                }
             }
         }
 

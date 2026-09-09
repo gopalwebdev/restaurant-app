@@ -3,7 +3,7 @@
 use App\Models\Restaurant;
 use Inertia\Testing\AssertableInertia;
 
-it('serves a restaurant storefront from its own subdomain', function (): void {
+it('serves the guest menu from a restaurant\'s own subdomain', function (): void {
     $restaurant = Restaurant::factory()->create([
         'slug' => 't1',
         'name' => 'Tenant One',
@@ -12,7 +12,7 @@ it('serves a restaurant storefront from its own subdomain', function (): void {
     $this->get('http://t1.restaurant-app.test/')
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
-            ->component('storefront')
+            ->component('menu')
             ->where('restaurant.name', $restaurant->name)
             ->where('restaurant.slug', 't1'),
         );

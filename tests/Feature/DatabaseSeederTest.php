@@ -87,11 +87,15 @@ it('lists every account and where it signs in', function (): void {
 it('can be seeded again without duplicating anything', function (): void {
     $this->seed(DatabaseSeeder::class);
 
-    expect(User::query()->count())->toBe(1 + count(RestaurantSeeder::RESTAURANTS))
+    // The product team, plus an admin and a staff member for each restaurant:
+    // one to run it from the panel, one to work the floor from the phone app.
+    $perRestaurant = 2;
+
+    expect(User::query()->count())->toBe(1 + ($perRestaurant * count(RestaurantSeeder::RESTAURANTS)))
         ->and(Restaurant::query()->count())->toBe(count(RestaurantSeeder::RESTAURANTS));
 
-    Restaurant::query()->get()->each(function (Restaurant $restaurant): void {
-        expect($restaurant->users()->count())->toBe(1)
+    Restaurant::query()->get()->each(function (Restaurant $restaurant) use ($perRestaurant): void {
+        expect($restaurant->users()->count())->toBe($perRestaurant)
             ->and($restaurant->settings()->count())->toBe(1);
     });
 });

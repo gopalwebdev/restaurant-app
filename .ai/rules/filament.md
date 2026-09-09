@@ -28,6 +28,8 @@ Both panels run `strictAuthorization()`, so a resource whose policy lacks the me
 ## Panels are for laptops and larger screens, not phones
 Both panels are back-office tools — the product team's, and a restaurant admin's — used sitting down at a laptop or a bigger display. "Staff" in this codebase means the floor staff on phones, who are not in a panel at all. Design for that width and do not spend effort making a panel page work on a phone: no phone-first layouts, and no hiding columns below a breakpoint with visibleFrom()/hiddenFrom(), which only costs information when a laptop window is dragged narrow. A table may show every column it needs, and a form may assume the room to use columns().
 
+This is enforced, not just intended: both panels render `resources/views/filament/desktop-only.blade.php` through the `BODY_START` render hook, which covers the panel with a "open this on a laptop" message below 1024px. It is CSS-only and inline, so it is correct on first paint and needs none of the utilities a panel does not ship. It is a door, not a second layout — building a phone layout for a panel is exactly what this rule rules out.
+
 Guests and staff are the opposite — see .ai/rules/js.md, which is phone-only. Staff are deliberately not a panel: they are on phones, and this rule is the reason.
 
 Panels are served Filament's own compiled CSS, which carries its fi- classes and no general Tailwind utilities, so any styling of your own needs inline styles or a panel theme rather than utility classes.

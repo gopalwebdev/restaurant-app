@@ -35,8 +35,14 @@ return [
 
     'pages' => [
 
+        // One directory per app. Each Inertia entry is scoped to its own with
+        // the `pages` option in resources/js/{guest,staff}.tsx, which is what
+        // keeps their bundles apart, so component names are relative to these
+        // rather than to js/pages — 'menu', not 'guest/menu'.
         'paths' => [
             resource_path('js/pages'),
+            resource_path('js/pages/guest'),
+            resource_path('js/pages/staff'),
         ],
 
         'extensions' => [

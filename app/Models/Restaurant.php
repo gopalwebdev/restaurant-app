@@ -108,6 +108,26 @@ class Restaurant extends Model
     }
 
     /**
+     * Whether this restaurant is taking new orders right now.
+     *
+     * Resolved the same way as currency(), and for the same reason: reaching
+     * through $this->settings is a lazy load, which Model::shouldBeStrict()
+     * turns into an exception outside production.
+     */
+    public function isAcceptingOrders(): bool
+    {
+        if ($this->relationLoaded('settings')) {
+            $settings = $this->getRelation('settings');
+
+            return $settings instanceof RestaurantSetting && $settings->accepts_orders;
+        }
+
+        return (bool) RestaurantSetting::query()
+            ->where('restaurant_id', $this->getKey())
+            ->value('accepts_orders');
+    }
+
+    /**
      * Where this restaurant's staff sign in.
      *
      * The panel's own login route carries no domain — signing in happens before

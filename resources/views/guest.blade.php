@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        {{-- viewport-fit=cover so the app reaches under a phone's notch. --}}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="theme-color" content="{{ $theme['primary_color'] }}">
+
+        {{-- A table's QR code should not turn up in search results. --}}
+        <meta name="robots" content="noindex">
+
+        @include('partials.theme')
+
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+        @fonts
+        @viteReactRefresh
+        {{-- Only this app's entry and only the page being shown: a guest never
+             downloads the staff app, and neither downloads Filament. --}}
+        @vite(['resources/css/app.css', 'resources/js/guest.tsx', "resources/js/pages/guest/{$page['component']}.tsx"])
+
+        <x-inertia::head>
+            <title>{{ config('app.name') }}</title>
+        </x-inertia::head>
+    </head>
+    <body class="font-sans antialiased">
+        <x-inertia::app />
+    </body>
+</html>

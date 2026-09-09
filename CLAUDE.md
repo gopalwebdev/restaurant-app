@@ -221,3 +221,12 @@ Every change that touches behaviour must leave those files true **in the same ch
 - It only moved code around → nothing to do.
 
 Treat this as part of the definition of done, alongside `vendor/bin/pint --dirty` and the tests. Check it before reporting any work as complete.
+
+## MCP servers
+
+`.mcp.json` registers the servers this project expects you to use. Prefer them over shell commands or guesswork:
+
+- **laravel-boost** — database schema and queries, version-correct docs for Laravel, Filament, Inertia, Tailwind and Pest (`search-docs`), logs, and `record-rule`. This is the docs server for nearly every backend package here; do not search the web for what it covers.
+- **shadcn** — the component registry behind `components.json`. Use it to find and add UI components rather than hand-writing them or copying from memory.
+
+If you add a library that ships an MCP server, register it here in the same change.

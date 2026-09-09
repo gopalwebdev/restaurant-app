@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Appearance;
 use App\Enums\Currency;
 use Database\Factories\RestaurantSettingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,6 +25,8 @@ use Illuminate\Support\Carbon;
  * @property bool $accepts_orders
  * @property string|null $opens_at
  * @property string|null $closes_at
+ * @property string $theme_primary_color
+ * @property Appearance $theme_appearance
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -35,6 +38,8 @@ use Illuminate\Support\Carbon;
     'accepts_orders',
     'opens_at',
     'closes_at',
+    'theme_primary_color',
+    'theme_appearance',
 ])]
 class RestaurantSetting extends Model
 {
@@ -58,6 +63,7 @@ class RestaurantSetting extends Model
     {
         return [
             'currency' => Currency::class,
+            'theme_appearance' => Appearance::class,
             'accepts_orders' => 'boolean',
         ];
     }

@@ -10,7 +10,15 @@ import { defineConfig, lazyPlugins } from 'vite-plus';
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.tsx'],
+            // One entry per app. Inertia loads the page component as its own
+            // chunk on top of these, so a guest downloads the guest entry and
+            // one page, and never a byte of the staff app or of Filament.
+            input: [
+                'resources/css/app.css',
+                'resources/js/app.tsx',
+                'resources/js/guest.tsx',
+                'resources/js/staff.tsx',
+            ],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {

@@ -26,7 +26,7 @@ class RestaurantSeeder extends Seeder
     /**
      * The restaurants to seed, keyed by the slug that becomes their subdomain.
      *
-     * @var list<array{slug: string, name: string, address: string, pincode: string, email: string, phone: string, admin_name: string, admin_email: string}>
+     * @var list<array{slug: string, name: string, address: string, pincode: string, email: string, phone: string, admin_name: string, admin_email: string, staff_name: string, staff_email: string}>
      */
     public const array RESTAURANTS = [
         [
@@ -38,6 +38,8 @@ class RestaurantSeeder extends Seeder
             'phone' => '9876543210',
             'admin_name' => 'Spice Garden Admin',
             'admin_email' => 'gopalwebdev+spice@gmail.com',
+            'staff_name' => 'Spice Garden Staff',
+            'staff_email' => 'gopalwebdev+spice-staff@gmail.com',
         ],
     ];
 
@@ -112,6 +114,16 @@ class RestaurantSeeder extends Seeder
 
             $admin->syncRoles([Role::Admin->value]);
             $restaurant->users()->syncWithoutDetaching([$admin->getKey()]);
+
+            // Someone to open the staff app with. Plus-addressing means every
+            // seeded account's sign-in code lands in the same real inbox.
+            $staff = User::query()->firstOrCreate(
+                ['email' => $definition['staff_email']],
+                ['name' => $definition['staff_name'], 'tenant_id' => $restaurant->getKey(), 'email_verified_at' => now()],
+            );
+
+            $staff->syncRoles([Role::Staff->value]);
+            $restaurant->users()->syncWithoutDetaching([$staff->getKey()]);
 
             $this->seedMenu($restaurant);
         }

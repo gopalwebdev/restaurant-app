@@ -10,9 +10,11 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Filament/** | .ai/rules/filament.md |
 | ** | .ai/rules/general.md |
 | resources/js/** | .ai/rules/js.md |
+| app/Http/Middleware/** | .ai/rules/middleware.md |
 | database/migrations/** | .ai/rules/migrations.md |
 | app/Models/User.php, app/Models/**, app/Models/MenuItem.php | .ai/rules/models.md |
 | app/Actions/Otp/** | .ai/rules/otp.md |
 | app/Policies/** | .ai/rules/policies.md |
 | app/Actions/Restaurants/** | .ai/rules/restaurants.md |
 | routes/** | .ai/rules/routes.md |
+| resources/views/** | .ai/rules/views.md |

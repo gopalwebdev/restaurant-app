@@ -5,6 +5,15 @@ paths:
 
 # Js
 
+## Two apps, two entries, two page directories
+`resources/js/guest.tsx` and `resources/js/staff.tsx` are separate Inertia entries. Each sets `pages: './pages/guest'` or `'./pages/staff'`, which the `@inertiajs/vite` plugin turns into a resolver scoped to that directory — and that scoping is the whole mechanism keeping the two bundles apart. A page under `pages/staff` is unreachable from the guest entry and vice versa, verified against the built manifest in tests/Feature/Tenant/GuestAppTest.php.
+
+Consequences worth knowing before you touch any of it:
+
+- Component names are relative to the app's own directory: render `'menu'`, not `'guest/menu'`. Both directories are listed in `config/inertia.php` under `pages.paths` so `assertInertia()` can find them.
+- Each app has its own root template (`resources/views/{guest,staff}.blade.php`) chosen by its own middleware, `HandleGuestAppRequests` / `HandleStaffAppRequests`. Adding a page to an app means putting it under that app's directory, nothing more.
+- Never import across `pages/guest` and `pages/staff`. Shared pieces go in `components/` or `layouts/`, which both may use.
+
 ## Vitest specs live in resources/js/tests, never beside a page
 `vp test` (Vitest, configured in the `test` block of vite.config.ts) only collects `resources/js/tests/**/*.test.{ts,tsx}`.
 

@@ -12,6 +12,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -53,6 +54,12 @@ class SuperAdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
             ])
+            // Panels are for laptops and larger; a phone is shown a door
+            // rather than a layout nobody designed. See .ai/rules/filament.md.
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): View => view('filament.desktop-only'),
+            )
             // A resource with no policy, or a policy missing the method being
             // asked about, is refused rather than waved through. Without this a
             // page added tomorrow is open to anyone who can reach the panel,
