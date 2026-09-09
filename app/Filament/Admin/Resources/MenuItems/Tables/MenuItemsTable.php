@@ -3,14 +3,14 @@
 namespace App\Filament\Admin\Resources\MenuItems\Tables;
 
 use App\Enums\FoodType;
+use App\Enums\Locale;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
-use App\Models\MenuCategory;
+use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuItem;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Facades\Filament;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -18,24 +18,40 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class MenuItemsTable
 {
     public static function configure(Table $table): Table
     {
+
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->searchable()
-                    ->sortable()
+                    // A translated column holds a JSON document, so searching
+                    // and sorting have to name the language they mean.
+                    ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'name', $search))
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction))
                     ->description(fn (MenuItem $record): ?string => $record->description),
+
+                TextColumn::make('name_ta')
+                    ->label(Locale::Tamil->fieldLabel('Name'))
+                    ->state(fn (MenuItem $record): ?string => $record->getTranslation('name', Locale::Tamil->value, useFallbackLocale: false) ?: null)
+                    ->placeholder('Not translated')
+                    ->toggleable(),
 
                 TextColumn::make('menuCategory.name')
                     ->label('Section')
                     ->icon(Heroicon::OutlinedRectangleStack)
                     ->badge()
+                    ->color('gray'),
+
+                TextColumn::make('menuCategory.menu.name')
+                    ->label('Menu')
+                    ->icon(Heroicon::OutlinedBookOpen)
+                    ->badge()
                     ->color('gray')
-                    ->sortable(),
+                    ->toggleable(),
 
                 TextColumn::make('food_type')
                     ->label('Type')
@@ -52,6 +68,13 @@ class MenuItemsTable
                     ->sortable()
                     ->alignEnd(),
 
+                TextColumn::make('additions_count')
+                    ->label('Additions')
+                    ->icon(Heroicon::OutlinedPlusCircle)
+                    ->counts('additions')
+                    ->sortable()
+                    ->toggleable(),
+
                 IconColumn::make('is_available')
                     ->label('Available')
                     ->boolean()
@@ -64,16 +87,13 @@ class MenuItemsTable
             ])
             ->groups([
                 Group::make('menuCategory.name')->label('Section'),
+                Group::make('menuCategory.menu.name')->label('Menu'),
             ])
             ->defaultGroup('menuCategory.name')
             ->filters([
                 SelectFilter::make('menu_category_id')
                     ->label('Section')
-                    ->options(fn (): array => MenuCategory::query()
-                        ->where('restaurant_id', Filament::getTenant()?->getKey())
-                        ->inMenuOrder()
-                        ->pluck('name', 'id')
-                        ->all()),
+                    ->options(fn (): array => MenuItemForm::sectionOptions()),
 
                 SelectFilter::make('food_type')
                     ->label('Food type')
@@ -85,12 +105,16 @@ class MenuItemsTable
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
-                    ->mutateRecordDataUsing(fn (array $data): array => MenuItemForm::fillPrice($data))
+                    ->mutateRecordDataUsing(fn (array $data, MenuItem $record): array => MenuItemForm::fillTranslations(
+                        MenuItemForm::fillPrice($data),
+                        $record,
+                    ))
                     ->mutateDataUsing(fn (array $data): array => MenuItemForm::storePrice($data)),
 
                 DeleteAction::make()
                     ->iconButton()
-                    ->icon(Heroicon::OutlinedTrash),
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->modalDescription('The additions on this dish are deleted with it.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -98,6 +122,9 @@ class MenuItemsTable
                 ]),
             ])
             ->reorderable('position')
-            ->defaultSort('position');
+            ->defaultSort('position')
+            // The section and its menu are both shown, so they are loaded once
+            // for the page rather than per row.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('menuCategory.menu'));
     }
 }

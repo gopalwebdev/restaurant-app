@@ -42,6 +42,7 @@ enum Role: string
             // but they do not change what is sold or who works here.
             self::Staff => [
                 Permission::MenuView,
+                Permission::StorefrontView,
                 Permission::OrderViewAny,
                 Permission::OrderManage,
             ],
@@ -50,6 +51,7 @@ enum Role: string
             // rather than view-any is the whole of the difference from staff.
             self::Guest => [
                 Permission::MenuView,
+                Permission::StorefrontView,
                 Permission::OrderCreate,
                 Permission::OrderViewOwn,
             ],

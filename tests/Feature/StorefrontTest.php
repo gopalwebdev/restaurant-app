@@ -3,18 +3,21 @@
 use App\Models\Restaurant;
 use Inertia\Testing\AssertableInertia;
 
-it('serves the guest menu from a restaurant\'s own subdomain', function (): void {
+it('serves the guest home screen from a restaurant\'s own subdomain', function (): void {
     $restaurant = Restaurant::factory()->create([
         'slug' => 't1',
         'name' => 'Tenant One',
     ]);
 
+    // A guest scanning a QR code lands on the tiles the restaurant arranged,
+    // and walks from there into a menu or a PDF.
     $this->get('http://t1.restaurant-app.test/')
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
-            ->component('menu')
+            ->component('home')
             ->where('restaurant.name', $restaurant->name)
-            ->where('restaurant.slug', 't1'),
+            ->where('restaurant.slug', 't1')
+            ->has('tiles', 0),
         );
 });
 

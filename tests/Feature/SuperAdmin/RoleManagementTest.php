@@ -418,6 +418,8 @@ it('seeds a guest role that reads the menu and orders for itself', function (): 
     expect($guest->isBuiltIn())->toBeTrue()
         ->and($guest->permissions->pluck('name')->all())->toEqualCanonicalizing([
             PermissionEnum::MenuView->value,
+            // The tiles a guest lands on are read with the menu they lead to.
+            PermissionEnum::StorefrontView->value,
             PermissionEnum::OrderCreate->value,
             PermissionEnum::OrderViewOwn->value,
         ]);
@@ -428,10 +430,13 @@ it('seeds staff who work orders but do not change the menu', function (): void {
 
     expect($staff->permissions->pluck('name')->all())->toEqualCanonicalizing([
         PermissionEnum::MenuView->value,
+        PermissionEnum::StorefrontView->value,
         PermissionEnum::OrderViewAny->value,
         PermissionEnum::OrderManage->value,
     ])
         ->and($staff->hasPermissionTo(PermissionEnum::MenuManage->value))->toBeFalse()
+        // Reading the home screen is not arranging it.
+        ->and($staff->hasPermissionTo(PermissionEnum::StorefrontManage->value))->toBeFalse()
         ->and($staff->hasPermissionTo(PermissionEnum::UserManage->value))->toBeFalse();
 });
 

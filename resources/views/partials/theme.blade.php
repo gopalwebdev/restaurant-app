@@ -25,5 +25,12 @@
         if (prefersDark) {
             document.documentElement.classList.add('dark');
         }
+
+        // Left on the element for React to read back. The server has already
+        // decided this — the visitor's own choice if they have made one, the
+        // restaurant's setting otherwise — and the theme toggle has to start
+        // in the same state the page was painted in rather than guess and
+        // then correct itself in front of the guest.
+        document.documentElement.dataset.appearance = appearance;
     })();
 </script>

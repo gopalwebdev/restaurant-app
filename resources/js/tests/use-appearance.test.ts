@@ -16,22 +16,75 @@ function stubSystemPreference(prefersDark: boolean): void {
     );
 }
 
+/**
+ * Stand in for what the server painted the page with.
+ *
+ * partials/theme.blade.php writes this onto the root element after resolving
+ * the visitor's cookie against the restaurant's own setting.
+ */
+function stubServerAppearance(appearance: string | null): void {
+    if (appearance === null) {
+        delete document.documentElement.dataset.appearance;
+
+        return;
+    }
+
+    document.documentElement.dataset.appearance = appearance;
+}
+
+/**
+ * The value of the appearance cookie, or an empty string when it has none.
+ *
+ * Clearing a cookie leaves its name behind with no value, so the name alone
+ * does not tell you whether anything was stored.
+ */
+function storedAppearanceCookie(): string {
+    return (
+        document.cookie
+            .split('; ')
+            .find((entry) => entry.startsWith('appearance='))
+            ?.slice('appearance='.length) ?? ''
+    );
+}
+
 describe('use-appearance', () => {
     beforeEach(() => {
         localStorage.clear();
         document.documentElement.className = '';
+        document.documentElement.style.colorScheme = '';
         document.cookie = 'appearance=;max-age=0;path=/';
+        stubServerAppearance(null);
         stubSystemPreference(false);
     });
 
-    it('starts out following the system', () => {
+    it('adopts what the server painted the page with', () => {
+        stubServerAppearance('dark');
+
+        initializeTheme();
+
+        const { result } = renderHook(() => useAppearance());
+
+        expect(result.current.appearance).toBe('dark');
+        expect(document.documentElement).toHaveClass('dark');
+    });
+
+    it('stores nothing until the visitor actually chooses', () => {
+        stubServerAppearance('dark');
+
+        initializeTheme();
+
+        // Persisting here would pin the visitor to today's setting and quietly
+        // override the restaurant the next time it changed its own.
+        expect(localStorage.getItem('appearance')).toBeNull();
+        expect(storedAppearanceCookie()).toBe('');
+    });
+
+    it('falls back to following the system when the server said nothing', () => {
         initializeTheme();
 
         const { result } = renderHook(() => useAppearance());
 
         expect(result.current.appearance).toBe('system');
-        expect(localStorage.getItem('appearance')).toBe('system');
-        expect(document.cookie).toContain('appearance=system');
     });
 
     it('resolves to dark when the system asks for dark', () => {
@@ -69,12 +122,15 @@ describe('use-appearance', () => {
         });
 
         expect(localStorage.getItem('appearance')).toBe('dark');
+        // The cookie is what lets the server paint the next first response the
+        // same way, before React has run.
         expect(document.cookie).toContain('appearance=dark');
         expect(document.documentElement.style.colorScheme).toBe('dark');
     });
 
-    it('picks up the stored mode rather than the system one', () => {
+    it('prefers what the visitor chose over what the server painted', () => {
         localStorage.setItem('appearance', 'dark');
+        stubServerAppearance('light');
         stubSystemPreference(false);
 
         initializeTheme();
@@ -83,6 +139,28 @@ describe('use-appearance', () => {
 
         expect(result.current.appearance).toBe('dark');
         expect(document.documentElement).toHaveClass('dark');
+    });
+
+    it('flips to the opposite of what is on screen', () => {
+        stubServerAppearance('system');
+        stubSystemPreference(true);
+        initializeTheme();
+
+        const { result } = renderHook(() => useAppearance());
+
+        // "System" resolved to dark, so one tap means light — which is what the
+        // guest sees the single button do.
+        act(() => {
+            result.current.toggleAppearance();
+        });
+
+        expect(result.current.appearance).toBe('light');
+
+        act(() => {
+            result.current.toggleAppearance();
+        });
+
+        expect(result.current.appearance).toBe('dark');
     });
 
     it('tells every subscriber about a change', () => {

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\FoodType;
+use App\Enums\Locale;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,14 +22,15 @@ class MenuItemFactory extends Factory
         // chosen independently would trip the composite foreign key, which is
         // exactly the mistake that key exists to catch.
         $category = MenuCategory::factory();
+        $english = Locale::English->value;
 
         return [
             'menu_category_id' => $category,
             'restaurant_id' => fn (array $attributes): int => MenuCategory::query()
                 ->whereKey($attributes['menu_category_id'])
                 ->value('restaurant_id'),
-            'name' => ucfirst(fake()->unique()->word()).' '.fake()->unique()->numberBetween(1, 9999),
-            'description' => fake()->optional()->sentence(),
+            'name' => [$english => ucfirst(fake()->unique()->word()).' '.fake()->unique()->numberBetween(1, 9999)],
+            'description' => [$english => fake()->sentence()],
             'price_minor_units' => fake()->numberBetween(5000, 90000),
             'food_type' => fake()->randomElement(FoodType::cases()),
             'is_available' => true,
@@ -44,6 +46,33 @@ class MenuItemFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'menu_category_id' => $category->getKey(),
             'restaurant_id' => $category->restaurant_id,
+        ]);
+    }
+
+    /**
+     * A dish with every language filled in.
+     */
+    public function translated(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'name' => [
+                Locale::English->value => $attributes['name'][Locale::English->value],
+                Locale::Tamil->value => 'உணவு '.fake()->unique()->numberBetween(1, 9999),
+            ],
+            'description' => [
+                Locale::English->value => $attributes['description'][Locale::English->value],
+                Locale::Tamil->value => 'சுவையான உணவு.',
+            ],
+        ]);
+    }
+
+    /**
+     * A dish with no description, which is allowed and common.
+     */
+    public function withoutDescription(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'description' => null,
         ]);
     }
 

@@ -1,6 +1,12 @@
 import { createInertiaApp } from '@inertiajs/react';
 
+import { initializeTheme } from '@/hooks/use-appearance';
 import { MobileFrame } from '@/layouts/mobile-frame';
+
+// Adopt whatever the server already painted, so the theme toggle starts in the
+// state the guest is looking at. The colour itself was applied before this ran
+// — see resources/views/partials/theme.blade.php.
+initializeTheme();
 
 /**
  * The guest app.

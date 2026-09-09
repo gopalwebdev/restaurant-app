@@ -38,3 +38,10 @@ Panels are served Filament's own compiled CSS, which carries its fi- classes and
 A `CheckboxList::make('permissions')->relationship(...)` writes the pivot table directly, which bypasses Spatie's `syncRoles()` / `syncPermissions()` and so never calls `forgetCachedPermissions()`. The registrar then answers every `can()` check for the rest of the request from the set that was there before the save.
 
 Use plain `->options()` instead, and hand the ids to an action on the page: SetRolePermissions (roles) or SetUserRoles (users). Both go through Spatie, which flushes the cache. Edit pages fill the field back in `mutateFormDataBeforeFill()`.
+
+This is about **Spatie roles and permissions specifically**, because of that cache — it is not a ban on `->relationship()`. An ordinary `hasMany` has no cache behind it, and `MenuItemForm`'s additions repeater uses `->relationship()` on purpose so a dish and its extras are written in one save.
+
+## Translated fields are two inputs side by side, never a locale switcher
+Guest-facing text is stored one value per language (`.ai/rules/models.md`). Build the inputs with `App\Filament\Schemas\TranslatedFields::text()` / `::textarea()`, which emits one field per App\Enums\Locale case, requires only the fallback language, and attaches the uniqueness rule to that one — matching the database's expression index, so a save can never fail after passing validation.
+
+Both languages are shown at once rather than behind tabs: with two languages and a handful of fields that is less machinery, and a name and its translation get edited together. Table columns must go through `TranslatedFields::sort()` / `::search()`, and every edit action needs `->mutateRecordDataUsing(fn (array $data, Model $record) => XForm::fillTranslations($data, $record))` — Spatie hands back one language, and a form editing all of them needs the whole document.

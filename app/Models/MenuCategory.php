@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslatedNames;
 use Database\Factories\MenuCategoryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,24 +13,37 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * A section of one restaurant's menu: Starters, Biryani, Desserts.
+ * A section of one of a restaurant's menus: Starters, Biryani, Desserts.
  *
  * Categories are ordered by hand rather than alphabetically, because a menu is
  * read in the order the restaurant means it to be read.
  *
+ * menu_id is carried alongside restaurant_id and the pair is a composite
+ * foreign key into menus, so a section can never end up under another
+ * restaurant's menu. The name is translated — see HasTranslatedNames.
+ *
  * @property int $id
  * @property int $restaurant_id
+ * @property int $menu_id
+ * @property-read Menu $menu
  * @property string $name
  * @property int $position
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'position', 'is_active'])]
+#[Fillable(['menu_id', 'name', 'position', 'is_active'])]
 class MenuCategory extends Model
 {
     /** @use HasFactory<MenuCategoryFactory> */
     use HasFactory;
+
+    use HasTranslatedNames;
+
+    /**
+     * @var list<string>
+     */
+    public array $translatable = ['name'];
 
     /**
      * Categories are new and hidden until told otherwise is the wrong default,
@@ -50,6 +64,16 @@ class MenuCategory extends Model
     public function restaurant(): BelongsTo
     {
         return $this->belongsTo(Restaurant::class);
+    }
+
+    /**
+     * The menu this section appears on.
+     *
+     * @return BelongsTo<Menu, $this>
+     */
+    public function menu(): BelongsTo
+    {
+        return $this->belongsTo(Menu::class);
     }
 
     /**
@@ -79,7 +103,7 @@ class MenuCategory extends Model
      */
     public function scopeInMenuOrder(Builder $query): void
     {
-        $query->orderBy('position')->orderBy('name');
+        $query->orderBy('position')->orderBy(self::fallbackLocalePath());
     }
 
     /**

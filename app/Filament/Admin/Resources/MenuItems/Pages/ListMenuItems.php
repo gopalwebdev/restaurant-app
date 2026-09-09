@@ -20,12 +20,13 @@ class ListMenuItems extends ListRecords
             CreateAction::make()
                 ->label('New dish')
                 ->icon(Heroicon::OutlinedPlus)
-                // A dish has to go in a section, so there is nothing useful to
-                // do until one exists. Saying so beats an empty select.
+                // A dish has to go in a section, and a section on a menu, so
+                // there is nothing useful to do until one exists. Saying so
+                // beats an empty select.
                 ->disabled(fn (): bool => ! $this->hasAnyCategory())
                 ->tooltip(fn (): ?string => $this->hasAnyCategory()
                     ? null
-                    : 'Add a section to the menu first.')
+                    : 'Add a menu and a section to it first.')
                 ->mutateDataUsing(fn (array $data): array => MenuItemForm::storePrice($data)),
         ];
     }

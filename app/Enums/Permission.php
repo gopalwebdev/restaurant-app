@@ -21,6 +21,12 @@ enum Permission: string
     case OrderManage = 'order.manage';
     case UserManage = 'user.manage';
 
+    /** See the tiles a guest lands on. Everyone who reads a menu holds this. */
+    case StorefrontView = 'storefront.view';
+
+    /** Arrange the tiles a guest lands on: their order, images and destinations. */
+    case StorefrontManage = 'storefront.manage';
+
     /** Change one restaurant's own configuration. */
     case SettingsManage = 'settings.manage';
 

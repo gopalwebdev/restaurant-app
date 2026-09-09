@@ -15,4 +15,9 @@ class HandleStaffAppRequests extends HandleTenantInertiaRequests
      * @var string
      */
     protected $rootView = 'staff';
+
+    protected function translationFile(): string
+    {
+        return 'staff';
+    }
 }

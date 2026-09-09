@@ -1,6 +1,10 @@
 import { createInertiaApp } from '@inertiajs/react';
 
+import { initializeTheme } from '@/hooks/use-appearance';
 import { MobileFrame } from '@/layouts/mobile-frame';
+
+// Adopt whatever the server already painted; see the note in guest.tsx.
+initializeTheme();
 
 /**
  * The staff app.

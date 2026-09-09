@@ -54,7 +54,7 @@ enum PermissionGroup: string
             self::Menu => 'Seeing and editing what a restaurant sells.',
             self::Orders => 'Placing orders and working through them.',
             self::People => 'Managing who staffs a restaurant.',
-            self::Restaurant => 'Changing one restaurant\'s own configuration.',
+            self::Restaurant => 'Changing one restaurant\'s own configuration and the home screen guests land on.',
             self::ProductTeam => 'Running the platform itself. A role holding any of these is never offered inside a restaurant panel.',
             self::Other => 'Permissions added from this panel. They do nothing until code checks for them.',
         };
@@ -102,7 +102,7 @@ enum PermissionGroup: string
             self::Menu => ['menu'],
             self::Orders => ['order'],
             self::People => ['user'],
-            self::Restaurant => ['settings'],
+            self::Restaurant => ['settings', 'storefront'],
             self::ProductTeam => ['restaurant', 'role', 'permission'],
             self::Other => [],
         };

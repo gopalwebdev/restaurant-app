@@ -1,0 +1,83 @@
+<?php
+
+namespace App\Models\Concerns;
+
+use App\Enums\Locale;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\Translatable\HasTranslations;
+
+/**
+ * A model whose guest-facing text is stored one value per language.
+ *
+ * Spatie's HasTranslations does the reading and writing: the column holds
+ * {"en": "Starters", "ta": "தொடக்கம்"} and `$model->name` gives back whichever
+ * matches the current locale, falling back to English. Using models must
+ * declare `public array $translatable`.
+ *
+ * What this adds is the one thing the package leaves to the application:
+ * English is privileged. It is the fallback, it is what the admin forms
+ * require, and it is the value every unique index in the schema is built on
+ * — so queries that sort or match on a name have to say so, and this is where
+ * they say it once.
+ */
+trait HasTranslatedNames
+{
+    use HasTranslations;
+
+    /**
+     * The query path to a translated column's fallback value.
+     *
+     * Laravel compiles a `column->key` path per driver, so this stays correct
+     * on the Postgres of production and the SQLite of the test suite without
+     * any raw SQL. It is deliberately the same expression the unique indexes
+     * are built on, so validation and the database agree.
+     */
+    public static function fallbackLocalePath(string $column = 'name'): string
+    {
+        return $column.'->'.Locale::default()->value;
+    }
+
+    /**
+     * The SQL fragment matching a translated column's fallback value.
+     *
+     * Only for the places a path cannot go — a Filament uniqueness rule, which
+     * needs a `whereRaw`. Everything else should use fallbackLocalePath().
+     */
+    public static function fallbackLocaleExpression(string $column = 'name'): string
+    {
+        return sprintf("%s ->> '%s'", $column, Locale::default()->value);
+    }
+
+    /**
+     * Order alphabetically by the name a reader of the fallback language sees.
+     *
+     * Sorting on the raw column would sort JSON documents, which puts things in
+     * an order nobody asked for the moment a second language is filled in.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopeOrderByName(Builder $query): void
+    {
+        $query->orderBy(self::fallbackLocalePath());
+    }
+
+    /**
+     * Put every language of the named columns into a Filament form's data.
+     *
+     * Spatie hands back the current locale's string for a translated attribute,
+     * which is right everywhere except an admin form: that edits all of them at
+     * once, so it needs the whole document. Lives here rather than in the form
+     * because only a model that holds translations can answer it.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function fillTranslationsInto(array $data, string ...$columns): array
+    {
+        foreach ($columns as $column) {
+            $data[$column] = $this->getTranslations($column);
+        }
+
+        return $data;
+    }
+}

@@ -7,6 +7,7 @@ export type UseAppearanceReturn = {
     readonly appearance: Appearance;
     readonly resolvedAppearance: ResolvedAppearance;
     readonly updateAppearance: (mode: Appearance) => void;
+    readonly toggleAppearance: () => void;
 };
 
 const listeners = new Set<() => void>();
@@ -29,12 +30,35 @@ const setCookie = (name: string, value: string, days = 365): void => {
     document.cookie = `${name}=${value};path=/;max-age=${maxAge};SameSite=Lax`;
 };
 
-const getStoredAppearance = (): Appearance => {
+const isAppearance = (value: unknown): value is Appearance =>
+    value === 'light' || value === 'dark' || value === 'system';
+
+const getStoredAppearance = (): Appearance | null => {
     if (typeof window === 'undefined') {
-        return 'system';
+        return null;
     }
 
-    return (localStorage.getItem('appearance') as Appearance) || 'system';
+    const stored = localStorage.getItem('appearance');
+
+    return isAppearance(stored) ? stored : null;
+};
+
+/**
+ * What the server painted the page with.
+ *
+ * Written onto the root element by resources/views/partials/theme.blade.php,
+ * which has already resolved the visitor's own choice against the restaurant's
+ * setting. Reading it back from there — rather than from a prop — is what
+ * guarantees the toggle starts in the state the guest is actually looking at.
+ */
+const getServerAppearance = (): Appearance | null => {
+    if (typeof document === 'undefined') {
+        return null;
+    }
+
+    const painted = document.documentElement.dataset.appearance;
+
+    return isAppearance(painted) ? painted : null;
 };
 
 const isDarkMode = (appearance: Appearance): boolean => {
@@ -70,21 +94,27 @@ const mediaQuery = (): MediaQueryList | null => {
 
 const handleSystemThemeChange = (): void => applyTheme(currentAppearance);
 
+/**
+ * Adopt whatever the page is already showing.
+ *
+ * Deliberately writes nothing: a visitor who has never touched the toggle has
+ * expressed no preference, and storing one here would pin them to today's
+ * setting and quietly override the restaurant the next time it changed its own.
+ * Only updateAppearance() persists, because only that is a choice.
+ */
 export function initializeTheme(): void {
     if (typeof window === 'undefined') {
         return;
     }
 
-    if (!localStorage.getItem('appearance')) {
-        localStorage.setItem('appearance', 'system');
-        setCookie('appearance', 'system');
-    }
+    currentAppearance =
+        getStoredAppearance() ?? getServerAppearance() ?? 'system';
 
-    currentAppearance = getStoredAppearance();
     applyTheme(currentAppearance);
 
-    // Set up system theme change listener
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
+
+    notify();
 }
 
 export function useAppearance(): UseAppearanceReturn {
@@ -101,15 +131,32 @@ export function useAppearance(): UseAppearanceReturn {
     const updateAppearance = (mode: Appearance): void => {
         currentAppearance = mode;
 
-        // Store in localStorage for client-side persistence...
+        // localStorage for the next visit on this browser...
         localStorage.setItem('appearance', mode);
 
-        // Store in cookie for SSR...
+        // ...and a cookie so the server can paint the next first response the
+        // same way, before React has run. See partials/theme.blade.php.
         setCookie('appearance', mode);
 
         applyTheme(mode);
         notify();
     };
 
-    return { appearance, resolvedAppearance, updateAppearance } as const;
+    /**
+     * Flip between light and dark.
+     *
+     * The phone apps offer one button rather than a three-way menu, so this
+     * resolves "system" against what the phone is actually showing and moves to
+     * the opposite of that — which is what the guest sees the button do.
+     */
+    const toggleAppearance = (): void => {
+        updateAppearance(resolvedAppearance === 'dark' ? 'light' : 'dark');
+    };
+
+    return {
+        appearance,
+        resolvedAppearance,
+        updateAppearance,
+        toggleAppearance,
+    } as const;
 }

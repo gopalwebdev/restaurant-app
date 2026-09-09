@@ -1,0 +1,185 @@
+<?php
+
+namespace App\Filament\Admin\Resources\HomeTiles\Schemas;
+
+use App\Enums\HomeTileAction;
+use App\Enums\HomeTileShape;
+use App\Filament\Admin\Resources\MenuCategories\Schemas\MenuCategoryForm;
+use App\Filament\Schemas\TranslatedFields;
+use App\Models\HomeTile;
+use App\Models\Restaurant;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+
+class HomeTileForm
+{
+    /**
+     * The columns this form edits in more than one language.
+     *
+     * @var list<string>
+     */
+    public const array TRANSLATED = ['label'];
+
+    public static function configure(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Section::make('Label')
+                    ->description('Read out by screen readers, shown on the tile when there is no picture yet, and used as the heading of the page a PDF tile opens.')
+                    ->icon(Heroicon::OutlinedTag)
+                    ->schema(TranslatedFields::text('label', 'Label', maxLength: 48))
+                    ->columns(2),
+
+                Section::make('Picture')
+                    ->description('A wide picture, since tiles are rectangles. A tile without one still works — the guest app draws the label on your brand colour instead.')
+                    ->icon(Heroicon::OutlinedPhoto)
+                    ->schema([
+                        FileUpload::make('image_path')
+                            ->hiddenLabel()
+                            ->image()
+                            ->imageEditor()
+                            // Kept on the private disk and served through a
+                            // route that checks the restaurant in the domain,
+                            // so one restaurant's uploads are never reachable
+                            // from another's subdomain.
+                            ->disk('local')
+                            ->directory(fn (): string => self::uploadDirectory())
+                            ->visibility('private')
+                            ->preventFilePathTampering()
+                            ->maxSize(4096)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->helperText('JPEG, PNG or WebP, up to 4 MB. Around 1200 by 675 pixels looks right.'),
+                    ]),
+
+                Section::make('Where it goes')
+                    ->description('What happens when a guest taps this tile.')
+                    ->icon(Heroicon::OutlinedCursorArrowRays)
+                    ->schema([
+                        // A radio rather than a select: there are two answers,
+                        // each needs a line of explanation, and both should be
+                        // readable without opening anything.
+                        Radio::make('action')
+                            ->label('On tap')
+                            ->options(HomeTileAction::options())
+                            ->descriptions(self::actionDescriptions())
+                            ->default(HomeTileAction::Menu->value)
+                            ->required()
+                            ->live()
+                            ->columnSpanFull(),
+
+                        // Exactly one of the next two is filled, decided by the
+                        // action above. The model clears the other on save and
+                        // refuses a tile with neither — see HomeTile::booted().
+                        Select::make('menu_id')
+                            ->label('Menu to open')
+                            ->options(fn (): array => MenuCategoryForm::menuOptions())
+                            ->searchable()
+                            ->preload()
+                            ->prefixIcon(Heroicon::OutlinedBookOpen)
+                            ->visible(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Menu))
+                            ->required(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Menu))
+                            ->helperText('Only this restaurant\'s menus. A tile pointing at a hidden menu stops being shown.'),
+
+                        FileUpload::make('document_path')
+                            ->label('PDF to show')
+                            ->disk('local')
+                            ->directory(fn (): string => self::uploadDirectory())
+                            ->visibility('private')
+                            ->preventFilePathTampering()
+                            ->maxSize(10240)
+                            ->acceptedFileTypes(['application/pdf'])
+                            ->visible(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Pdf))
+                            ->required(fn (Get $get): bool => self::actionIs($get, HomeTileAction::Pdf))
+                            ->helperText('Up to 10 MB. Shown inside the app, with a back arrow out of it.'),
+                    ])
+                    ->columns(1),
+
+                Section::make('On the home screen')
+                    ->icon(Heroicon::OutlinedEye)
+                    ->schema([
+                        Select::make('shape')
+                            ->label('Shape')
+                            ->options(HomeTileShape::options())
+                            ->default(HomeTileShape::Rectangle->value)
+                            ->required()
+                            ->native(false)
+                            ->helperText('Only rectangles for now.'),
+
+                        TextInput::make('position')
+                            ->label('Order')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(0)
+                            ->maxValue(9999)
+                            ->default(0)
+                            ->required()
+                            ->prefixIcon(Heroicon::OutlinedBars3BottomLeft)
+                            ->helperText('Lower numbers come first. Drag the rows on the list to set this instead.'),
+
+                        Toggle::make('is_active')
+                            ->label('Showing to guests')
+                            ->default(true)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+            ]);
+    }
+
+    /**
+     * Put every language back into the form when a tile is edited.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function fillTranslations(array $data, HomeTile $record): array
+    {
+        return $record->fillTranslationsInto($data, ...self::TRANSLATED);
+    }
+
+    /**
+     * Whether the action currently chosen in the form is this one.
+     */
+    private static function actionIs(Get $get, HomeTileAction $action): bool
+    {
+        return HomeTileAction::tryFrom((string) $get('action')) === $action;
+    }
+
+    /**
+     * What each action does, shown under its option.
+     *
+     * @return array<string, string>
+     */
+    private static function actionDescriptions(): array
+    {
+        return array_reduce(
+            HomeTileAction::cases(),
+            static function (array $descriptions, HomeTileAction $action): array {
+                $descriptions[$action->value] = $action->description();
+
+                return $descriptions;
+            },
+            [],
+        );
+    }
+
+    /**
+     * Where this restaurant's tile uploads live.
+     *
+     * A directory per restaurant, so one restaurant's files are separated from
+     * another's on the disk as well as by the route that serves them.
+     */
+    private static function uploadDirectory(): string
+    {
+        $tenant = Filament::getTenant();
+
+        return 'home-tiles/'.($tenant instanceof Restaurant ? $tenant->getKey() : 'shared');
+    }
+}

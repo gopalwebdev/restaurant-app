@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetLocale;
 use App\Models\Restaurant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,9 +21,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // TLS, so the forwarded headers must be trusted for correct HTTPS URLs.
         $middleware->trustProxies(at: '*');
 
-        $middleware->encryptCookies(except: ['appearance']);
+        // Both are read by JavaScript as well as by PHP — the theme toggle and
+        // the language toggle each need to know what is currently set before
+        // the server can tell them — so neither may be encrypted.
+        $middleware->encryptCookies(except: ['appearance', 'locale']);
 
+        // SetLocale comes first: everything after it, the Inertia middleware
+        // included, renders in the language it chooses.
         $middleware->web(append: [
+            SetLocale::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

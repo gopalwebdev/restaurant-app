@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\Appearance;
+use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
+use App\Models\MenuItemAddition;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
 
@@ -15,6 +17,25 @@ function guestUrl(Restaurant $restaurant): string
     return 'http://'.$restaurant->slug.'.restaurant-app.test/';
 }
 
+function guestMenuUrl(Restaurant $restaurant, Menu $menu): string
+{
+    return 'http://'.$restaurant->slug.'.restaurant-app.test/menus/'.$menu->getKey();
+}
+
+/**
+ * A menu with one section holding one dish, for the restaurant given.
+ *
+ * @return array{Menu, MenuCategory, MenuItem}
+ */
+function seedOneDish(Restaurant $restaurant): array
+{
+    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $item = MenuItem::factory()->inCategory($category)->create();
+
+    return [$menu, $category, $item];
+}
+
 /*
 |--------------------------------------------------------------------------
 | The menu at the table
@@ -23,10 +44,9 @@ function guestUrl(Restaurant $restaurant): string
 
 it('serves the menu with no sign-in', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $category = MenuCategory::factory()->create(['restaurant_id' => $restaurant->getKey()]);
-    $item = MenuItem::factory()->inCategory($category)->create();
+    [$menu, $category, $item] = seedOneDish($restaurant);
 
-    $this->get(guestUrl($restaurant))
+    $this->get(guestMenuUrl($restaurant, $menu))
         ->assertOk()
         ->assertSee($item->name)
         ->assertSee($category->name);
@@ -34,44 +54,60 @@ it('serves the menu with no sign-in', function (): void {
 
 it('leaves out what a guest cannot order', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $showing = MenuCategory::factory()->create(['restaurant_id' => $restaurant->getKey()]);
-    $hidden = MenuCategory::factory()->hidden()->create(['restaurant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+
+    $showing = MenuCategory::factory()->inMenu($menu)->create();
+    $hidden = MenuCategory::factory()->inMenu($menu)->hidden()->create();
 
     $available = MenuItem::factory()->inCategory($showing)->create();
     $soldOut = MenuItem::factory()->inCategory($showing)->unavailable()->create();
     $inHidden = MenuItem::factory()->inCategory($hidden)->create();
 
+    $offered = MenuItemAddition::factory()->onItem($available)->create();
+    $runOut = MenuItemAddition::factory()->onItem($available)->unavailable()->create();
+
     // A phone menu should not make someone scroll past things they cannot
     // have, so these are absent rather than greyed out.
-    $this->get(guestUrl($restaurant))
+    $this->get(guestMenuUrl($restaurant, $menu))
         ->assertOk()
         ->assertSee($available->name)
+        ->assertSee($offered->name)
         ->assertDontSee($soldOut->name)
-        ->assertDontSee($inHidden->name);
+        ->assertDontSee($inHidden->name)
+        ->assertDontSee($runOut->name);
+});
+
+it('takes a whole hidden menu down, sections and dishes with it', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->hidden()->create(['restaurant_id' => $restaurant->getKey()]);
+    MenuItem::factory()->inCategory(MenuCategory::factory()->inMenu($menu)->create())->create();
+
+    $this->get(guestMenuUrl($restaurant, $menu))->assertNotFound();
 });
 
 it('shows only this restaurant\'s menu', function (): void {
     $mine = Restaurant::factory()->create();
     $theirs = Restaurant::factory()->create();
 
-    $mineItem = MenuItem::factory()->inCategory(
-        MenuCategory::factory()->create(['restaurant_id' => $mine->getKey()]),
-    )->create();
+    [$myMenu, , $mineItem] = seedOneDish($mine);
+    [$theirMenu, , $theirsItem] = seedOneDish($theirs);
 
-    $theirsItem = MenuItem::factory()->inCategory(
-        MenuCategory::factory()->create(['restaurant_id' => $theirs->getKey()]),
-    )->create();
-
-    $this->get(guestUrl($mine))
+    $this->get(guestMenuUrl($mine, $myMenu))
         ->assertOk()
         ->assertSee($mineItem->name)
         ->assertDontSee($theirsItem->name);
+
+    // The restaurant arrives in the domain rather than the path, so scoped
+    // bindings do not cover this: the controller has to refuse it by hand.
+    $this->get(guestMenuUrl($mine, $theirMenu))->assertNotFound();
 });
 
 it('hides a restaurant that is switched off', function (): void {
     $restaurant = Restaurant::factory()->create(['is_active' => false]);
+    [$menu] = seedOneDish($restaurant);
 
     $this->get(guestUrl($restaurant))->assertNotFound();
+    $this->get(guestMenuUrl($restaurant, $menu))->assertNotFound();
 });
 
 /*
@@ -99,6 +135,19 @@ it('paints both apps in the restaurant\'s colour', function (): void {
         ->assertSee('--primary: #0EA5E9', escape: false);
 });
 
+it('lets a visitor\'s own light or dark choice beat the restaurant\'s', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $restaurant->settings->update(['theme_appearance' => Appearance::Dark]);
+
+    // The restaurant's setting is a default, not a decision. The cookie is
+    // unencrypted so the toggle in React and the server read the same value.
+    $this->withUnencryptedCookie('appearance', Appearance::Light->value)
+        ->get(guestUrl($restaurant))
+        ->assertOk()
+        ->assertSee('"light"', escape: false)
+        ->assertDontSee('"dark"', escape: false);
+});
+
 /*
 |--------------------------------------------------------------------------
 | The two apps never load each other, or Filament
@@ -122,7 +171,7 @@ it('loads only its own entry and page', function (): void {
     $guest = $this->get(guestUrl($restaurant))->assertOk()->getContent();
 
     expect($guest)->toContain($chunk('resources/js/guest.tsx'))
-        ->and($guest)->toContain($chunk('resources/js/pages/guest/menu.tsx'))
+        ->and($guest)->toContain($chunk('resources/js/pages/guest/home.tsx'))
         ->and($guest)->not->toContain($chunk('resources/js/staff.tsx'))
         ->and($guest)->not->toContain($chunk('resources/js/pages/staff/login.tsx'))
         ->and($guest)->not->toContain($chunk('resources/js/app.tsx'));
@@ -133,7 +182,7 @@ it('loads only its own entry and page', function (): void {
     expect($staff)->toContain($chunk('resources/js/staff.tsx'))
         ->and($staff)->toContain($chunk('resources/js/pages/staff/login.tsx'))
         ->and($staff)->not->toContain($chunk('resources/js/guest.tsx'))
-        ->and($staff)->not->toContain($chunk('resources/js/pages/guest/menu.tsx'));
+        ->and($staff)->not->toContain($chunk('resources/js/pages/guest/home.tsx'));
 });
 
 it('makes only the staff app installable', function (): void {

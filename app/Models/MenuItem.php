@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Enums\Currency;
 use App\Enums\FoodType;
+use App\Models\Concerns\HasTranslatedNames;
 use Database\Factories\MenuItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -51,6 +53,13 @@ class MenuItem extends Model
     /** @use HasFactory<MenuItemFactory> */
     use HasFactory;
 
+    use HasTranslatedNames;
+
+    /**
+     * @var list<string>
+     */
+    public array $translatable = ['name', 'description'];
+
     /**
      * @var array<string, mixed>
      */
@@ -77,6 +86,16 @@ class MenuItem extends Model
     public function menuCategory(): BelongsTo
     {
         return $this->belongsTo(MenuCategory::class);
+    }
+
+    /**
+     * The extras this dish may be ordered with.
+     *
+     * @return HasMany<MenuItemAddition, $this>
+     */
+    public function additions(): HasMany
+    {
+        return $this->hasMany(MenuItemAddition::class);
     }
 
     /**
@@ -127,10 +146,13 @@ class MenuItem extends Model
      */
     public function scopeOrderable(Builder $query): void
     {
-        // The same condition MenuCategory::scopeActive() applies, stated here
-        // against the relation so the query stays a single statement.
+        // The same conditions MenuCategory::scopeActive() and
+        // Menu::scopeActive() apply, stated here against the relations so the
+        // query stays a single statement. All three matter: hiding a whole
+        // menu has to take its sections and their dishes with it.
         $query->where('is_available', true)
-            ->whereRelation('menuCategory', 'is_active', true);
+            ->whereRelation('menuCategory', 'is_active', true)
+            ->whereRelation('menuCategory.menu', 'is_active', true);
     }
 
     /**
@@ -140,7 +162,7 @@ class MenuItem extends Model
      */
     public function scopeInMenuOrder(Builder $query): void
     {
-        $query->orderBy('position')->orderBy('name');
+        $query->orderBy('position')->orderBy(self::fallbackLocalePath());
     }
 
     /**

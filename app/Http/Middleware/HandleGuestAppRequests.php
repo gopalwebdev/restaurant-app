@@ -13,4 +13,9 @@ class HandleGuestAppRequests extends HandleTenantInertiaRequests
      * @var string
      */
     protected $rootView = 'guest';
+
+    protected function translationFile(): string
+    {
+        return 'guest';
+    }
 }

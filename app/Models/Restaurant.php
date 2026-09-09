@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
@@ -71,6 +72,26 @@ class Restaurant extends Model
     public function settings(): HasOne
     {
         return $this->hasOne(RestaurantSetting::class);
+    }
+
+    /**
+     * The menus this restaurant serves.
+     *
+     * @return HasMany<Menu, $this>
+     */
+    public function menus(): HasMany
+    {
+        return $this->hasMany(Menu::class);
+    }
+
+    /**
+     * The tiles a guest lands on after scanning a table's QR code.
+     *
+     * @return HasMany<HomeTile, $this>
+     */
+    public function homeTiles(): HasMany
+    {
+        return $this->hasMany(HomeTile::class);
     }
 
     /**

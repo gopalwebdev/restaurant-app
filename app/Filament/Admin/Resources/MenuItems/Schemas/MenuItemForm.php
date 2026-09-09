@@ -4,51 +4,64 @@ namespace App\Filament\Admin\Resources\MenuItems\Schemas;
 
 use App\Enums\Currency;
 use App\Enums\FoodType;
+use App\Enums\Locale;
+use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuCategory;
+use App\Models\MenuItem;
 use App\Models\Restaurant;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Validation\Rules\Unique;
+use Illuminate\Database\Eloquent\Builder;
 
 class MenuItemForm
 {
+    /**
+     * The columns this form edits in more than one language.
+     *
+     * @var list<string>
+     */
+    public const array TRANSLATED = ['name', 'description'];
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
                 Section::make('Dish')
+                    ->description('Both languages are edited together. English is required; a guest reading in Tamil sees the English text wherever the Tamil is blank.')
                     ->icon(Heroicon::OutlinedListBullet)
                     ->schema([
-                        TextInput::make('name')
-                            ->required()
-                            ->maxLength(120)
-                            ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule): Unique => $rule->where(
-                                'restaurant_id',
-                                self::tenantKey(),
-                            ))
-                            ->columnSpanFull(),
-
                         // Only this restaurant's sections are offered, and the
                         // composite foreign key refuses anything else even if
                         // the submitted id is tampered with.
                         Select::make('menu_category_id')
                             ->label('Section')
-                            ->options(fn (): array => MenuCategory::query()
-                                ->where('restaurant_id', self::tenantKey())
-                                ->inMenuOrder()
-                                ->pluck('name', 'id')
-                                ->all())
+                            ->options(fn (): array => self::sectionOptions())
                             ->required()
                             ->searchable()
                             ->preload()
+                            ->live()
                             ->prefixIcon(Heroicon::OutlinedRectangleStack)
-                            ->helperText('Hiding a section hides everything in it, this dish included.'),
+                            ->columnSpanFull()
+                            ->helperText('Hiding a section, or the menu it is on, hides everything in it — this dish included.'),
+
+                        ...TranslatedFields::text(
+                            'name',
+                            'Name',
+                            maxLength: 120,
+                            // Unique within the section rather than the whole
+                            // restaurant, matching the database index: a lunch
+                            // and a dinner menu may both list a "Paneer Tikka".
+                            uniqueWithin: fn (Get $get): Builder => MenuItem::query()
+                                ->where('menu_category_id', $get('menu_category_id')),
+                            uniqueMessage: 'This section already has a dish with that name.',
+                        ),
 
                         Select::make('food_type')
                             ->label('Food type')
@@ -56,13 +69,10 @@ class MenuItemForm
                             ->required()
                             ->default(FoodType::Vegetarian->value)
                             ->native(false)
-                            ->helperText('Shown to guests as the veg or non-veg mark.'),
-
-                        Textarea::make('description')
-                            ->maxLength(500)
-                            ->rows(3)
                             ->columnSpanFull()
-                            ->helperText('Optional. What the dish is, in a line or two.'),
+                            ->helperText('Shown to guests as the veg or non-veg mark. Never translated — it is a regulatory mark, and its colours mean a fixed thing.'),
+
+                        ...TranslatedFields::textarea('description', 'Description', maxLength: 500, rows: 3),
                     ])
                     ->columns(2),
 
@@ -99,7 +109,91 @@ class MenuItemForm
                             ->prefixIcon(Heroicon::OutlinedBars3BottomLeft),
                     ])
                     ->columns(3),
+
+                Section::make('Additions')
+                    ->description('Extras this dish can be ordered with — extra cheese, a large portion, no onions. Leave empty if it has none.')
+                    ->icon(Heroicon::OutlinedPlusCircle)
+                    ->schema([
+                        self::additions(),
+                    ])
+                    ->collapsed(fn (?MenuItem $record): bool => $record?->additions()->doesntExist() ?? true),
             ]);
+    }
+
+    /**
+     * The extras a dish can be ordered with.
+     *
+     * A repeater bound to the relationship, so additions are written in the
+     * same save as the dish they belong to. The rule in .ai/rules/filament.md
+     * against `->relationship()` is about Spatie roles and permissions, whose
+     * cache is only flushed by syncRoles()/syncPermissions(); this is a plain
+     * hasMany with no cache behind it, and the rule does not apply.
+     */
+    private static function additions(): Repeater
+    {
+        return Repeater::make('additions')
+            ->relationship()
+            ->hiddenLabel()
+            ->schema([
+                ...TranslatedFields::text('name', 'Addition', maxLength: 64),
+
+                TextInput::make('price')
+                    ->label('Extra charge')
+                    ->required()
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(99999)
+                    ->step(0.01)
+                    ->default(0)
+                    ->prefix(fn (): string => self::currency()->symbol())
+                    ->helperText('Zero is fine — "no onions" costs nothing and is still worth listing.'),
+
+                Toggle::make('is_available')
+                    ->label('Available now')
+                    ->default(true),
+            ])
+            ->columns(2)
+            ->orderColumn('position')
+            // Most dishes have none, and a blank row waiting to be filled in
+            // would make every save fail validation until it was deleted.
+            ->defaultItems(0)
+            ->addActionLabel('Add an addition')
+            ->itemLabel(fn (array $state): ?string => self::additionLabel($state))
+            ->collapsible()
+            // The repeater edits a major-unit price the same way the dish above
+            // does, and each row is converted on its own way in and out.
+            ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::storePrice($data))
+            ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::storePrice($data))
+            ->mutateRelationshipDataBeforeFillUsing(fn (array $data): array => self::fillPrice($data));
+    }
+
+    /**
+     * The heading shown on a collapsed addition row.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private static function additionLabel(array $state): ?string
+    {
+        $name = $state['name'] ?? null;
+
+        if (! is_array($name)) {
+            return null;
+        }
+
+        $label = $name[Locale::default()->value] ?? null;
+
+        return is_string($label) && filled($label) ? $label : null;
+    }
+
+    /**
+     * Put every language back into the form when a dish is edited.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function fillTranslations(array $data, MenuItem $record): array
+    {
+        return $record->fillTranslationsInto($data, ...self::TRANSLATED);
     }
 
     /**
@@ -143,6 +237,29 @@ class MenuItemForm
         return $tenant instanceof Restaurant
             ? $tenant->currency()
             : Currency::IndianRupee;
+    }
+
+    /**
+     * This restaurant's sections, labelled with the menu they sit on.
+     *
+     * Two menus may each have a "Starters", so the menu has to be part of the
+     * label or the select offers the same word twice.
+     *
+     * @return array<int, string>
+     */
+    public static function sectionOptions(): array
+    {
+        return MenuCategory::query()
+            ->where('restaurant_id', self::tenantKey())
+            ->with('menu')
+            ->inMenuOrder()
+            ->get()
+            // menu_id is not nullable and cascades, so a section always has a
+            // menu — there is nothing to fall back to here.
+            ->mapWithKeys(fn (MenuCategory $category): array => [
+                $category->getKey() => sprintf('%s · %s', $category->menu->name, $category->name),
+            ])
+            ->all();
     }
 
     /**
