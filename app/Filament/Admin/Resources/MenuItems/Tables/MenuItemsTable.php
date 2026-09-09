@@ -6,6 +6,8 @@ use App\Enums\FoodType;
 use App\Enums\Locale;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
 use App\Filament\Schemas\TranslatedFields;
+use App\Models\Menu;
+use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -90,10 +92,33 @@ class MenuItemsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->groups([
-                Group::make('menuCategory.name')->label(__('panel.items.section')),
-                Group::make('menuCategory.menu.name')->label(__('panel.categories.menu')),
+                // Grouped on foreign keys rather than the translated name
+                // columns: those hold JSON, and Postgres has no ordering
+                // operator for json — grouping or sorting by one 500s there,
+                // even though SQLite (what the tests run against) tolerates
+                // it. Each group states its own key, title and order instead
+                // of leaning on the relationship path. See
+                // .ai/rules/filament.md.
+                Group::make('menu_category_id')
+                    ->label(__('panel.items.section'))
+                    ->getTitleFromRecordUsing(fn (MenuItem $record): string => $record->menuCategory->name)
+                    ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy(
+                        MenuCategory::query()->select('position')->whereColumn('menu_categories.id', 'menu_items.menu_category_id'),
+                        $direction,
+                    )),
+
+                Group::make('menuCategory.menu_id')
+                    ->label(__('panel.categories.menu'))
+                    ->getTitleFromRecordUsing(fn (MenuItem $record): string => $record->menuCategory->menu->name)
+                    ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy(
+                        Menu::query()
+                            ->select('menus.position')
+                            ->join('menu_categories', 'menu_categories.menu_id', '=', 'menus.id')
+                            ->whereColumn('menu_categories.id', 'menu_items.menu_category_id'),
+                        $direction,
+                    )),
             ])
-            ->defaultGroup('menuCategory.name')
+            ->defaultGroup('menu_category_id')
             ->filters([
                 SelectFilter::make('menu_category_id')
                     ->label(__('panel.items.section'))

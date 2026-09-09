@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Enums\Currency;
 use App\Enums\Permission;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
@@ -10,7 +9,6 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
@@ -95,20 +93,8 @@ class Settings extends Page
                     ->columns(2),
 
                 Section::make('Trading')
-                    ->description('When this restaurant is open and what it charges in.')
+                    ->description('When this restaurant is open.')
                     ->schema([
-                        Select::make('timezone')
-                            ->label('Timezone')
-                            ->options(array_combine(
-                                timezone_identifiers_list(),
-                                timezone_identifiers_list(),
-                            ))
-                            ->searchable()
-                            ->required(),
-                        Select::make('currency')
-                            ->label('Currency')
-                            ->options(Currency::options())
-                            ->required(),
                         TimePicker::make('opens_at')
                             ->label('Opens at')
                             ->seconds(false),

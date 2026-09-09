@@ -144,3 +144,49 @@ it('redirects a guest on a restaurant panel to that restaurant login', function 
     $this->get('http://t1.restaurant-app.test/admin')
         ->assertRedirect('http://t1.restaurant-app.test/admin/login');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Branding
+|--------------------------------------------------------------------------
+|
+| A restaurant's own name replaces the generic panel name once someone is
+| signed in and a tenant is known — see AdminPanelProvider::brandName(). The
+| tenant menu is off (.ai/rules/filament.md), so there is nowhere for another
+| restaurant's name to leak into this page at all.
+*/
+
+it('shows the generic panel name before anyone signs in', function (): void {
+    Restaurant::factory()->create(['slug' => 't1', 'name' => 'Spice Garden']);
+
+    $this->get('http://t1.restaurant-app.test/admin/login')
+        ->assertOk()
+        ->assertSee(config('app.name'))
+        ->assertDontSee('Spice Garden');
+});
+
+it("shows the restaurant's own name once someone is signed in", function (): void {
+    $restaurant = Restaurant::factory()->create(['slug' => 't1', 'name' => 'Spice Garden']);
+    $user = User::factory()->create();
+    $user->restaurants()->attach($restaurant);
+    $user->assignRole(Role::Admin->value);
+
+    $this->actingAs($user)
+        ->get('http://t1.restaurant-app.test/admin')
+        ->assertOk()
+        ->assertSee('Spice Garden')
+        ->assertDontSee(config('app.name'));
+});
+
+it('gives a super admin no tenant menu to switch restaurants from', function (): void {
+    $restaurant = Restaurant::factory()->create(['slug' => 't1', 'name' => 'Spice Garden']);
+    $other = Restaurant::factory()->create(['name' => 'Other Place']);
+
+    $user = User::factory()->superAdmin()->create();
+
+    $this->actingAs($user)
+        ->get('http://t1.restaurant-app.test/admin')
+        ->assertOk()
+        ->assertSee('Spice Garden')
+        ->assertDontSee('Other Place');
+});

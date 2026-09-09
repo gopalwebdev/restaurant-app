@@ -72,6 +72,12 @@ class SuperAdminPanelProvider extends PanelProvider
             // page added tomorrow is open to anyone who can reach the panel,
             // and nothing says so.
             ->strictAuthorization()
+            // A create or edit page runs with no transaction otherwise, so a
+            // validation exception thrown mid-save (EnsureRoleFitsWithinLimit,
+            // for one) leaves whatever already ran committed — a user row with
+            // no role, or a rename that "failed". This is what makes a refusal
+            // actually refuse nothing rather than half of it.
+            ->databaseTransactions()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

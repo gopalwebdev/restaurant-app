@@ -48,6 +48,15 @@ it('gives every seeded restaurant exactly one admin', function (): void {
     });
 });
 
+it('belongs the seeded admin to their restaurant, not the product team', function (): void {
+    Restaurant::query()->get()->each(function (Restaurant $restaurant): void {
+        $admin = $restaurant->users()->role(Role::Admin->value)->firstOrFail();
+
+        expect($admin->tenant_id)->toBe($restaurant->getKey())
+            ->and($admin->belongsToProductTeam())->toBeFalse();
+    });
+});
+
 it('lets each restaurant admin into their own panel and no further', function (): void {
     $restaurant = Restaurant::query()->firstOrFail();
     $admin = $restaurant->users()->role(Role::Admin->value)->firstOrFail();

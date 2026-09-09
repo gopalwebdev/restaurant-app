@@ -3,6 +3,9 @@
 namespace App\Filament\SuperAdmin\Resources\Restaurants\Schemas;
 
 use App\Enums\CountryCallingCode;
+use App\Enums\Role as RoleEnum;
+use App\Models\Restaurant;
+use Closure;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -64,6 +67,31 @@ class RestaurantForm
                     ])
                     ->columns(2),
 
+                Section::make('Limits')
+                    ->description('How many accounts may hold each role here.')
+                    ->schema([
+                        TextInput::make('max_admins')
+                            ->label('Max admins')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->default(fn (): int => (int) config('restaurants.default_max_admins'))
+                            ->required()
+                            ->helperText('At least one restaurant admin is required.')
+                            ->rule(fn (?Restaurant $record): Closure => self::notBelowCurrentHolders($record, RoleEnum::Admin)),
+
+                        TextInput::make('max_staff')
+                            ->label('Max staff')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->default(fn (): int => (int) config('restaurants.default_max_staff'))
+                            ->required()
+                            ->helperText('How many floor staff accounts this restaurant may have at once.')
+                            ->rule(fn (?Restaurant $record): Closure => self::notBelowCurrentHolders($record, RoleEnum::Staff)),
+                    ])
+                    ->columns(2),
+
                 // The platform's own record of how to reach whoever runs this
                 // restaurant. What guests see is on the restaurant's settings
                 // page, which the restaurant edits itself.
@@ -110,5 +138,41 @@ class RestaurantForm
                     ])
                     ->columns(2),
             ]);
+    }
+
+    /**
+     * Refuse a limit lower than the roster it would already break.
+     *
+     * A restaurant with 3 staff may not be dropped to a limit of 2 — the panel
+     * says how many to remove first rather than silently locking the extra
+     * ones out of a role they still hold. $record is null while creating,
+     * where a fresh restaurant has no roster yet to break.
+     */
+    private static function notBelowCurrentHolders(?Restaurant $record, RoleEnum $role): Closure
+    {
+        return static function (string $attribute, mixed $value, Closure $fail) use ($record, $role): void {
+            if (! $record instanceof Restaurant) {
+                return;
+            }
+
+            $current = $record->roleHolderCount($role);
+            $limit = (int) $value;
+
+            if ($current <= $limit) {
+                return;
+            }
+
+            $noun = $role === RoleEnum::Admin
+                ? ($current === 1 ? 'admin' : 'admins')
+                : ($current === 1 ? 'staff member' : 'staff members');
+
+            $fail(sprintf(
+                'This restaurant has %d %s. Remove %d before lowering the limit to %d.',
+                $current,
+                $noun,
+                $current - $limit,
+                $limit,
+            ));
+        };
     }
 }

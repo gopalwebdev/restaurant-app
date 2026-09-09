@@ -5,7 +5,13 @@
     Styles are inline because a panel is served Filament's own compiled CSS,
     which carries its fi- classes and no general utilities to lean on. The
     colours are the panel's own, so each panel brands itself.
+
+    $name overrides the panel's own brandName() — the admin panel passes the
+    signed-in restaurant's own name once one is known, and falls back to its
+    generic name before that. The product team's panel never passes it: it
+    has no tenant to name itself after.
 --}}
+@php($name ??= $panel->brandName())
 <span style="display: inline-flex; align-items: center; gap: 0.625rem;">
     <span
         aria-hidden="true"
@@ -25,6 +31,6 @@
     </span>
 
     <span style="font-weight: 600; letter-spacing: -0.01em;">
-        {{ $panel->brandName() }}
+        {{ $name }}
     </span>
 </span>

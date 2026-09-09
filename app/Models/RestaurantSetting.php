@@ -19,7 +19,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $restaurant_id
  * @property string|null $contact_email
  * @property string|null $contact_phone
- * @property string $timezone
  * @property Currency $currency
  * @property bool $accepts_orders
  * @property string|null $opens_at
@@ -30,7 +29,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'contact_email',
     'contact_phone',
-    'timezone',
     'currency',
     'accepts_orders',
     'opens_at',

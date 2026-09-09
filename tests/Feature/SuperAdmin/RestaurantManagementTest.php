@@ -296,6 +296,14 @@ it('lists every restaurant on the platform', function (): void {
         ->assertCanSeeTableRecords($restaurants);
 });
 
+it("links straight to a restaurant's own admin sign-in, now that the tenant menu is off", function (): void {
+    $restaurant = Restaurant::factory()->create(['slug' => 't1']);
+    enterProductTeamPanel();
+
+    Livewire::test(ListRestaurants::class)
+        ->assertTableActionHasUrl('openAdmin', $restaurant->adminSignInUrl(), $restaurant);
+});
+
 it('updates a restaurant', function (): void {
     $restaurant = Restaurant::factory()->create(['phone' => '9000000000']);
     enterProductTeamPanel();
@@ -322,4 +330,65 @@ it('deletes a restaurant', function (): void {
         ->callAction('delete');
 
     expect(Restaurant::query()->whereKey($restaurant->getKey())->exists())->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Role limits
+|--------------------------------------------------------------------------
+|
+| How many accounts may hold the admin and staff roles is set here, per
+| restaurant — see Restaurant::roleLimit() and
+| App\Actions\Restaurants\EnsureRoleFitsWithinLimit, which enforces it
+| whenever a role is actually granted.
+|
+*/
+
+it('sets a restaurant\'s admin and staff limits', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterProductTeamPanel();
+
+    Livewire::test(EditRestaurant::class, ['record' => $restaurant->getRouteKey()])
+        ->fillForm(['max_admins' => 2, 'max_staff' => 10])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($restaurant->refresh()->max_admins)->toBe(2)
+        ->and($restaurant->max_staff)->toBe(10);
+});
+
+it('refuses to lower a limit below the roster it would already break', function (): void {
+    $restaurant = Restaurant::factory()->create(['max_staff' => 5]);
+
+    User::factory()->count(3)->create()->each(function (User $member) use ($restaurant): void {
+        $member->restaurants()->attach($restaurant);
+        $member->assignRole(Role::Staff->value);
+    });
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditRestaurant::class, ['record' => $restaurant->getRouteKey()])
+        ->fillForm(['max_staff' => 2])
+        ->call('save')
+        ->assertHasFormErrors(['max_staff']);
+
+    expect($restaurant->refresh()->max_staff)->toBe(5);
+});
+
+it('allows lowering a limit down to exactly the current roster', function (): void {
+    $restaurant = Restaurant::factory()->create(['max_staff' => 5]);
+
+    User::factory()->count(3)->create()->each(function (User $member) use ($restaurant): void {
+        $member->restaurants()->attach($restaurant);
+        $member->assignRole(Role::Staff->value);
+    });
+
+    enterProductTeamPanel();
+
+    Livewire::test(EditRestaurant::class, ['record' => $restaurant->getRouteKey()])
+        ->fillForm(['max_staff' => 3])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($restaurant->refresh()->max_staff)->toBe(3);
 });

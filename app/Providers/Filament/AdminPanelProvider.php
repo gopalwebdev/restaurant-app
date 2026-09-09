@@ -6,6 +6,7 @@ use App\Enums\AdminPanel;
 use App\Filament\Admin\Auth\Login;
 use App\Http\Middleware\SetLocale;
 use App\Models\Restaurant;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -40,12 +41,22 @@ class AdminPanelProvider extends PanelProvider
             ->tenant(Restaurant::class, slugAttribute: 'slug')
             ->tenantDomain('{tenant:slug}.'.config('app.domain'))
             ->login(Login::class)
-            ->brandName(AdminPanel::Admin->brandName())
-            ->brandLogo(fn (): View => view('filament.brand', ['panel' => AdminPanel::Admin]))
+            ->brandName(fn (): string => self::brandName())
+            ->brandLogo(fn (): View => view('filament.brand', [
+                'panel' => AdminPanel::Admin,
+                'name' => self::brandName(),
+            ]))
             ->brandLogoHeight('2rem')
             ->colors([
                 'primary' => Color::Amber,
             ])
+            // Signed in, a restaurant sees only its own name in the topbar,
+            // not a name plus a switcher into other restaurants: an admin
+            // panel is scoped to one restaurant, and there is nowhere else to
+            // switch to. A super admin supporting one restaurant opens it from
+            // the Restaurants table in their own panel instead. See
+            // .ai/rules/filament.md.
+            ->tenantMenu(false)
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\Filament\Admin\Pages')
             ->pages([
@@ -72,6 +83,12 @@ class AdminPanelProvider extends PanelProvider
             // page added tomorrow is open to anyone who can reach the panel,
             // and nothing says so.
             ->strictAuthorization()
+            // A create or edit page runs with no transaction otherwise, so a
+            // validation exception thrown mid-save (EnsureRoleFitsWithinLimit,
+            // for one) leaves whatever already ran committed — a user row with
+            // no role, or a rename that "failed". This is what makes a refusal
+            // actually refuse nothing rather than half of it.
+            ->databaseTransactions()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -89,5 +106,17 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+
+    /**
+     * What this panel calls itself: the restaurant's own name once someone is
+     * signed in and a tenant is known, and the generic panel name on the
+     * sign-in page, where there is no tenant yet to name.
+     */
+    private static function brandName(): string
+    {
+        $tenant = Filament::getTenant();
+
+        return $tenant instanceof Restaurant ? $tenant->name : AdminPanel::Admin->brandName();
     }
 }

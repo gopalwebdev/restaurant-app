@@ -2,6 +2,8 @@
 
 namespace App\Actions\Restaurants;
 
+use App\Enums\Role as RoleEnum;
+use App\Models\Restaurant;
 use App\Models\Role;
 use App\Models\User;
 
@@ -9,10 +11,12 @@ use App\Models\User;
  * Set the roles of someone on a restaurant's roster.
  *
  * This is the only path a restaurant panel takes to a user's roles, and it
- * holds the two rules that make that safe.
+ * holds the rules that make that safe.
  */
 class SetRestaurantUserRoles
 {
+    public function __construct(private readonly EnsureRoleFitsWithinLimit $ensureRoleFits) {}
+
     /**
      * @param  list<string>  $roleNames
      */
@@ -30,9 +34,22 @@ class SetRestaurantUserRoles
         $assignable = Role::query()
             ->assignableWithinRestaurant()
             ->whereIn('name', $roleNames)
-            ->pluck('name')
-            ->all();
+            ->get();
 
-        $user->syncRoles($assignable);
+        // A brand new account, mid-way through being added to its first
+        // restaurant, has none yet — nothing to check the grant against.
+        $restaurant = $user->restaurants()->first();
+
+        if ($restaurant instanceof Restaurant) {
+            foreach ($assignable as $role) {
+                $roleEnum = RoleEnum::tryFrom($role->name);
+
+                if ($roleEnum instanceof RoleEnum) {
+                    ($this->ensureRoleFits)($restaurant, $roleEnum, $user);
+                }
+            }
+        }
+
+        $user->syncRoles($assignable->pluck('name')->all());
     }
 }

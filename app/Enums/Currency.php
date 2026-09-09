@@ -3,18 +3,15 @@
 namespace App\Enums;
 
 /**
- * The currencies a restaurant may price its menu in.
+ * The currency a restaurant prices its menu in.
  *
- * Backing values are ISO 4217 codes, which is what any payment provider will
- * expect, so the stored value never needs translating.
+ * India is the only market for now (see .ai/rules/app.md), so there is
+ * exactly one case. Kept as an enum rather than a constant so a second market
+ * is a case added here, not a rewrite of every place currency is read.
  */
 enum Currency: string
 {
     case IndianRupee = 'INR';
-    case UnitedStatesDollar = 'USD';
-    case Euro = 'EUR';
-    case PoundSterling = 'GBP';
-    case UaeDirham = 'AED';
 
     /**
      * The symbol shown next to a price.
@@ -23,10 +20,6 @@ enum Currency: string
     {
         return match ($this) {
             self::IndianRupee => '₹',
-            self::UnitedStatesDollar => '$',
-            self::Euro => '€',
-            self::PoundSterling => '£',
-            self::UaeDirham => 'AED',
         };
     }
 
@@ -34,18 +27,14 @@ enum Currency: string
      * How many digits the minor unit has.
      *
      * Money is stored as an integer count of minor units, so this is what turns
-     * a stored 24950 into ₹249.50 and back. Every currency here happens to use
-     * two, but a match rather than a constant is the point: adding a
-     * zero-decimal currency such as JPY must not silently divide by 100.
+     * a stored 24950 into ₹249.50 and back. A match rather than a constant is
+     * the point: adding a zero-decimal currency such as JPY must not silently
+     * divide by 100.
      */
     public function minorUnitDigits(): int
     {
         return match ($this) {
-            self::IndianRupee,
-            self::UnitedStatesDollar,
-            self::Euro,
-            self::PoundSterling,
-            self::UaeDirham => 2,
+            self::IndianRupee => 2,
         };
     }
 
@@ -85,31 +74,5 @@ enum Currency: string
     public function toMajorUnits(int $minorUnits): float
     {
         return $minorUnits / $this->minorUnitsPerMajor();
-    }
-
-    /**
-     * The name shown when choosing a currency.
-     */
-    public function label(): string
-    {
-        return sprintf('%s (%s)', $this->value, $this->symbol());
-    }
-
-    /**
-     * Every currency, keyed by its stored value, for a select field.
-     *
-     * @return array<string, string>
-     */
-    public static function options(): array
-    {
-        return array_reduce(
-            self::cases(),
-            static function (array $options, self $currency): array {
-                $options[$currency->value] = $currency->label();
-
-                return $options;
-            },
-            [],
-        );
     }
 }

@@ -240,7 +240,11 @@ it('refuses a product team role even when one is submitted anyway', function ():
 });
 
 it('changes the roles of someone who staffs only this restaurant', function (): void {
-    $restaurant = Restaurant::factory()->create();
+    // Two admins on purpose: enterRestaurantPanel() seats one to work the
+    // panel from, and this test promotes a second — a restaurant with the
+    // default limit of one would refuse that promotion for a reason this
+    // test is not about. See UserManagementTest's own limit coverage.
+    $restaurant = Restaurant::factory()->create(['max_admins' => 2]);
 
     $member = User::factory()->create();
     $member->restaurants()->attach($restaurant);
@@ -274,6 +278,88 @@ it('leaves the roles of someone who staffs two restaurants alone', function (): 
 
     expect($member->refresh()->name)->toBe('Renamed')
         ->and($member->getRoleNames()->all())->toBe([RoleEnum::Staff->value]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Role limits
+|--------------------------------------------------------------------------
+|
+| A restaurant may hold only so many admins and staff at once — see
+| Restaurant::roleLimit() and App\Actions\Restaurants\EnsureRoleFitsWithinLimit.
+|
+*/
+
+it('refuses a second admin once the restaurant already has one', function (): void {
+    // The default limit: enterRestaurantPanel() seats the one admin this
+    // restaurant is allowed.
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(CreateUser::class)
+        ->fillForm([
+            'name' => 'Second Admin',
+            'email' => 'second-admin@example.com',
+            'roles' => [RoleEnum::Admin->value],
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['roles']);
+
+    expect(User::query()->withEmail('second-admin@example.com')->exists())->toBeFalse();
+});
+
+it('refuses staff past the restaurant\'s own limit', function (): void {
+    // Created before the panel is entered: once it is, Filament's tenancy
+    // observer puts anyone created into the restaurant being served, and
+    // attaching it again here would collide with that.
+    $restaurant = Restaurant::factory()->create(['max_staff' => 1]);
+    $existing = User::factory()->create();
+    $existing->restaurants()->attach($restaurant);
+    $existing->assignRole(RoleEnum::Staff->value);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(CreateUser::class)
+        ->fillForm([
+            'name' => 'Second Staff',
+            'email' => 'second-staff@example.com',
+            'roles' => [RoleEnum::Staff->value],
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['roles']);
+
+    expect(User::query()->withEmail('second-staff@example.com')->exists())->toBeFalse();
+});
+
+it('still allows the last staff slot the limit permits', function (): void {
+    $restaurant = Restaurant::factory()->create(['max_staff' => 1]);
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(CreateUser::class)
+        ->fillForm([
+            'name' => 'Only Staff',
+            'email' => 'only-staff@example.com',
+            'roles' => [RoleEnum::Staff->value],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(User::query()->withEmail('only-staff@example.com')->exists())->toBeTrue();
+});
+
+it('does not count someone against their own limit while re-saving their roles', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $admin = enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // The restaurant already has its one allowed admin — the person entering
+    // the panel — so re-saving that same admin's own roles must not be
+    // refused as though it were a second one.
+    Livewire::test(EditUser::class, ['record' => $admin->getKey()])
+        ->fillForm(['roles' => [RoleEnum::Admin->value]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($admin->refresh()->hasRole(RoleEnum::Admin->value))->toBeTrue();
 });
 
 /*

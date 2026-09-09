@@ -183,16 +183,18 @@ class RestaurantSeeder extends Seeder
             $restaurant->settings()->firstOrCreate([], [
                 'contact_email' => "hello@{$definition['slug']}.example.com",
                 'contact_phone' => '+91 98765 43210',
-                'timezone' => 'Asia/Kolkata',
                 'currency' => Currency::IndianRupee,
                 'accepts_orders' => true,
                 'opens_at' => '09:00:00',
                 'closes_at' => '23:00:00',
             ]);
 
+            // The admin belongs to this restaurant, not the product team: a
+            // null tenant_id would file them under "Product team" in the
+            // super-admin panel, which they are not.
             $admin = User::query()->firstOrCreate(
                 ['email' => $definition['admin_email']],
-                ['name' => $definition['admin_name'], 'email_verified_at' => now()],
+                ['name' => $definition['admin_name'], 'tenant_id' => $restaurant->getKey(), 'email_verified_at' => now()],
             );
 
             $admin->syncRoles([Role::Admin->value]);

@@ -24,14 +24,12 @@ it('shows the settings of the restaurant whose panel it is', function (): void {
     $restaurant = Restaurant::factory()->create();
     $restaurant->settings()->update([
         'contact_email' => 'hello@spice.example.com',
-        'currency' => Currency::PoundSterling,
     ]);
     enterRestaurantPanel($restaurant, Role::Admin);
 
     Livewire::test(Settings::class)
         ->assertFormSet([
             'contact_email' => 'hello@spice.example.com',
-            'currency' => Currency::PoundSterling->value,
         ]);
 });
 
@@ -72,8 +70,6 @@ it('saves changes against the restaurant in the panel', function (): void {
         ->fillForm([
             'contact_email' => 'new@example.com',
             'contact_phone' => '+44 20 7946 0000',
-            'timezone' => 'Europe/London',
-            'currency' => Currency::PoundSterling->value,
             'accepts_orders' => false,
         ])
         ->call('save')
@@ -82,8 +78,6 @@ it('saves changes against the restaurant in the panel', function (): void {
     $settings = $restaurant->refresh()->settings;
 
     expect($settings->contact_email)->toBe('new@example.com')
-        ->and($settings->timezone)->toBe('Europe/London')
-        ->and($settings->currency)->toBe(Currency::PoundSterling)
         ->and($settings->accepts_orders)->toBeFalse();
 });
 
@@ -101,14 +95,13 @@ it('leaves other restaurants settings alone when saving', function (): void {
     expect($other->refresh()->settings->contact_email)->toBe('theirs@example.com');
 });
 
-it('insists on a timezone and a currency', function (): void {
+it('always prices in rupees, with no currency to choose', function (): void {
     $restaurant = Restaurant::factory()->create();
     enterRestaurantPanel($restaurant, Role::Admin);
 
-    Livewire::test(Settings::class)
-        ->fillForm(['timezone' => null, 'currency' => null])
-        ->call('save')
-        ->assertHasFormErrors(['timezone' => 'required', 'currency' => 'required']);
+    Livewire::test(Settings::class)->assertFormFieldDoesNotExist('currency');
+
+    expect($restaurant->currency())->toBe(Currency::IndianRupee);
 });
 
 it('rejects an address that is not an email', function (): void {

@@ -286,6 +286,30 @@ it('refuses at the database to file a section under another restaurant\'s menu',
     ]))->toThrow(QueryException::class);
 });
 
+it('groups sections by their menu without ordering on the translated json column', function (): void {
+    // menu.name and menu_categories.name are both translated json columns.
+    // Postgres has no ordering operator for json, so a group whose default
+    // ordering selects one 500s there even though SQLite — what this suite
+    // runs against — tolerates it silently. Inspecting the compiled SQL
+    // catches that regardless of which database is running.
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    MenuCategory::factory()->inMenu($menu)->count(2)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    $group = Livewire::test(ListMenuCategories::class)
+        ->assertOk()
+        ->instance()
+        ->getTable()
+        ->getDefaultGroup();
+
+    $sql = $group->orderQuery(MenuCategory::query(), 'asc')->toSql();
+
+    expect($sql)->toContain('position')
+        ->and($sql)->not->toContain('name');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Dishes, and the money they are priced in
@@ -364,15 +388,37 @@ it('fills the edit form with every language, not just the current one', function
         ]);
 });
 
-it('formats a price in the restaurant\'s own currency', function (): void {
+it('formats a price in rupees', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $restaurant->settings->update(['currency' => Currency::UnitedStatesDollar]);
     $category = MenuCategory::factory()
         ->inMenu(Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]))
         ->create();
     $item = MenuItem::factory()->inCategory($category)->create(['price_minor_units' => 1250]);
 
-    expect($item->formattedPrice())->toBe('$12.50');
+    expect($item->formattedPrice())->toBe('₹12.50');
+});
+
+it('groups dishes by their section and by their menu without ordering on json', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['restaurant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    MenuItem::factory()->inCategory($category)->count(2)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    $table = Livewire::test(ListMenuItems::class)->assertOk()->instance()->getTable();
+
+    $bySection = $table->getDefaultGroup();
+    $sectionSql = $bySection->orderQuery(MenuItem::query(), 'asc')->toSql();
+
+    expect($sectionSql)->toContain('position')
+        ->and($sectionSql)->not->toContain('name');
+
+    $byMenu = $table->getGroup('menuCategory.menu_id');
+    $menuSql = $byMenu->orderQuery(MenuItem::query(), 'asc')->toSql();
+
+    expect($menuSql)->toContain('position')
+        ->and($menuSql)->not->toContain('name');
 });
 
 /*

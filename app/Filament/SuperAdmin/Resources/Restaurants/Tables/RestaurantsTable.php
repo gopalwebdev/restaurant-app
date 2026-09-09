@@ -3,10 +3,12 @@
 namespace App\Filament\SuperAdmin\Resources\Restaurants\Tables;
 
 use App\Models\Restaurant;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -64,6 +66,16 @@ class RestaurantsTable
                     ->label('Open for business'),
             ])
             ->recordActions([
+                // The admin panel's own tenant menu is off (see
+                // .ai/rules/filament.md), so a restaurant's name is the only
+                // thing shown there — this is how a super admin supporting one
+                // restaurant gets to its panel.
+                Action::make('openAdmin')
+                    ->label('Open admin')
+                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                    ->iconButton()
+                    ->url(fn (Restaurant $record): string => $record->adminSignInUrl())
+                    ->openUrlInNewTab(),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

@@ -23,7 +23,6 @@ class RestaurantSettingFactory extends Factory
             'restaurant_id' => Restaurant::factory(),
             'contact_email' => fake()->unique()->companyEmail(),
             'contact_phone' => fake()->numerify('+91 ##### #####'),
-            'timezone' => 'Asia/Kolkata',
             'currency' => Currency::IndianRupee,
             'accepts_orders' => true,
             'opens_at' => '09:00:00',

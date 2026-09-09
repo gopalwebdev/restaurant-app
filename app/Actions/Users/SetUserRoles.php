@@ -2,6 +2,8 @@
 
 namespace App\Actions\Users;
 
+use App\Actions\Restaurants\EnsureRoleFitsWithinLimit;
+use App\Enums\Role as RoleEnum;
 use App\Models\Role;
 use App\Models\User;
 
@@ -18,12 +20,30 @@ use App\Models\User;
  */
 class SetUserRoles
 {
+    public function __construct(private readonly EnsureRoleFitsWithinLimit $ensureRoleFits) {}
+
     /**
      * @param  list<string>  $roleNames
      */
     public function __invoke(User $user, array $roleNames): void
     {
         $roles = Role::query()->whereIn('name', $roleNames)->get();
+
+        // A restaurant panel refuses to touch the roles of someone who staffs
+        // more than one restaurant, because a role is held per account and
+        // would change what they can do everywhere at once (see
+        // .ai/rules/restaurants.md) — this panel is exactly where that call
+        // is made, so it checks every restaurant the grant would apply to,
+        // not just one.
+        foreach ($user->restaurants()->get() as $restaurant) {
+            foreach ($roles as $role) {
+                $roleEnum = RoleEnum::tryFrom($role->name);
+
+                if ($roleEnum instanceof RoleEnum) {
+                    ($this->ensureRoleFits)($restaurant, $roleEnum, $user);
+                }
+            }
+        }
 
         $user->syncRoles($roles);
     }

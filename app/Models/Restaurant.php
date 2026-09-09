@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AdminPanel;
 use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
+use App\Enums\Role as RoleEnum;
 use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -37,10 +38,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CountryCallingCode|null $secondary_phone_country_code
  * @property string|null $secondary_phone
  * @property bool $is_active
+ * @property int $max_admins
+ * @property int $max_staff
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['slug', 'name', 'address', 'pincode', 'email', 'phone_country_code', 'phone', 'secondary_phone_country_code', 'secondary_phone', 'is_active'])]
+#[Fillable(['slug', 'name', 'address', 'pincode', 'email', 'phone_country_code', 'phone', 'secondary_phone_country_code', 'secondary_phone', 'is_active', 'max_admins', 'max_staff'])]
 class Restaurant extends Model
 {
     /** @use HasFactory<RestaurantFactory> */
@@ -102,6 +105,45 @@ class Restaurant extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * How many accounts may hold this role on this restaurant's roster.
+     *
+     * Null for a role this restaurant does not cap — only Admin and Staff are
+     * bounded for now. A super admin sets both limits per restaurant from
+     * RestaurantForm; config/restaurants.php only supplies what a newly
+     * created restaurant starts with.
+     */
+    public function roleLimit(RoleEnum $role): ?int
+    {
+        return match ($role) {
+            RoleEnum::Admin => $this->max_admins,
+            RoleEnum::Staff => $this->max_staff,
+            RoleEnum::Guest => null,
+        };
+    }
+
+    /**
+     * How many accounts holding this role are on this restaurant's roster
+     * right now.
+     *
+     * Roles are held per account, not per restaurant (see
+     * .ai/rules/restaurants.md), so this counts roster members who happen to
+     * hold the role — someone staffing this restaurant and another still
+     * counts once here, against this restaurant's own limit. Pass the account
+     * a grant is being considered for as $excluding so it never counts
+     * against its own limit.
+     */
+    public function roleHolderCount(RoleEnum $role, ?User $excluding = null): int
+    {
+        return $this->users()
+            ->role($role->value)
+            ->when(
+                $excluding instanceof User && $excluding->exists,
+                fn (Builder $query): Builder => $query->whereKeyNot($excluding->getKey()),
+            )
+            ->count();
     }
 
     /**

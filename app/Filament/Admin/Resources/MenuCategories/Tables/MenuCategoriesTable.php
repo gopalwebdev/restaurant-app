@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MenuCategories\Tables;
 use App\Enums\Locale;
 use App\Filament\Admin\Resources\MenuCategories\Schemas\MenuCategoryForm;
 use App\Filament\Schemas\TranslatedFields;
+use App\Models\Menu;
 use App\Models\MenuCategory;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -63,9 +64,21 @@ class MenuCategoriesTable
                     ->toggleable(),
             ])
             ->groups([
-                Group::make('menu.name')->label(__('panel.categories.menu')),
+                // Grouped on the foreign key rather than menu.name: that
+                // column is translated JSON, and Postgres has no ordering
+                // operator for json — grouping or sorting by it 500s there,
+                // even though SQLite (what the tests run against) tolerates
+                // it. The key, the title and the order all come from the
+                // parent explicitly instead. See .ai/rules/filament.md.
+                Group::make('menu_id')
+                    ->label(__('panel.categories.menu'))
+                    ->getTitleFromRecordUsing(fn (MenuCategory $record): string => $record->menu->name)
+                    ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy(
+                        Menu::query()->select('position')->whereColumn('menus.id', 'menu_categories.menu_id'),
+                        $direction,
+                    )),
             ])
-            ->defaultGroup('menu.name')
+            ->defaultGroup('menu_id')
             ->filters([
                 SelectFilter::make('menu_id')
                     ->label(__('panel.categories.menu'))

@@ -20,7 +20,14 @@ Follow SOLID: one reason to change per class, depend on the abstraction, extend 
 Laravel's own idiom wins over cleverness: named routes, Form Requests, Eloquent relationships, artisan make: for new files, and `vendor/bin/pint` before finishing.
 
 ## India is the only market for now
-Defaults are Indian: CountryCallingCode has one case (+91) and mobile numbers validate as ten digits, restaurant settings default to Asia/Kolkata and INR, and addresses take a pincode. This is a "for now", not a permanent assumption, so keep the shape multi-country: values that vary by country belong in an enum with a case per country rather than hardcoded in a form or a rule. Add the country to the enum rather than branching on it at the call site.
+Defaults are Indian: CountryCallingCode has one case (+91) and mobile numbers validate as ten digits, and addresses take a pincode. This is a "for now", not a permanent assumption, so keep this shape multi-country: values that vary by country belong in an enum with a case per country rather than hardcoded in a form or a rule. Add the country to the enum rather than branching on it at the call site.
+
+Currency and timezone are a harder line than that, by product decision, not just a default: `App\Enums\Currency` has exactly one case (`IndianRupee`) and `restaurant_settings` carries no timezone column at all — the application timezone comes from `APP_TIMEZONE`/`config('app.timezone')` alone (`.ai/rules/config.md`), never a per-restaurant choice. Re-adding either a currency picker or a per-restaurant timezone needs a product decision first, not just an enum case — this project has explicitly decided against them "for now," which is a stronger statement than the multi-country shape above.
+
+## A restaurant caps its own admins and staff
+`restaurants.max_admins` and `restaurants.max_staff` (default from `config('restaurants.php')`, editable per restaurant by a super admin on RestaurantForm) bound how many accounts may hold the Admin or Staff role on that restaurant's roster at once — one admin and five staff out of the box. `Restaurant::roleLimit()` and `Restaurant::roleHolderCount()` answer "how many, and how many allowed"; `App\Actions\Restaurants\EnsureRoleFitsWithinLimit` is the single place every role grant is checked against it, called from `SetRestaurantUserRoles` (tenant panel) and `SetUserRoles` (product team panel) — never bypass either action to write a role directly.
+
+Lowering a limit below the restaurant's current roster is refused at the form field (`RestaurantForm::notBelowCurrentHolders()`), naming how many to remove first, rather than silently locking the extra accounts out of a role they still hold.
 
 ## Say "product team", not "platform staff"
 The people who run the whole product are the **product team** — that is the vocabulary in class names, method names, comments and UI copy: `isProductTeamOnly()`, `productTeamOnlyValues()`, `belongsToProductTeam()`, `enterProductTeamPanel()`, and "Product team" wherever a null tenant is rendered.

@@ -21,7 +21,7 @@
         @vite(['resources/css/app.css', 'resources/js/guest.tsx', "resources/js/pages/guest/{$page['component']}.tsx"])
 
         <x-inertia::head>
-            <title>{{ config('app.name') }}</title>
+            <title>{{ $theme['name'] }}</title>
         </x-inertia::head>
     </head>
     <body class="font-sans antialiased">
