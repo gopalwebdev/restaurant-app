@@ -29,10 +29,12 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  * @property string|null $description
  * @property int $position
  * @property bool $is_active
+ * @property string|null $available_from
+ * @property string|null $available_until
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['name', 'description', 'position', 'is_active'])]
+#[Fillable(['name', 'description', 'position', 'is_active', 'available_from', 'available_until'])]
 class Menu extends Model
 {
     /** @use HasFactory<MenuFactory> */
@@ -79,6 +81,33 @@ class Menu extends Model
     }
 
     /**
+     * Every subdivision on this menu, whichever category it sits under.
+     *
+     * Reached through the categories because that is the only path there is —
+     * a sub-category carries its category and its restaurant, never its menu.
+     * The panel's tree on the menu page reads this.
+     *
+     * @return HasManyThrough<MenuSubCategory, MenuCategory, $this>
+     */
+    public function menuSubCategories(): HasManyThrough
+    {
+        return $this->hasManyThrough(MenuSubCategory::class, MenuCategory::class);
+    }
+
+    /**
+     * The bundles offered on this menu.
+     *
+     * A combo hangs off the menu directly rather than off a category — it is
+     * something the menu leads with, not something in a section. See MenuCombo.
+     *
+     * @return HasMany<MenuCombo, $this>
+     */
+    public function combos(): HasMany
+    {
+        return $this->hasMany(MenuCombo::class);
+    }
+
+    /**
      * The tiles on the home screen that open this menu.
      *
      * @return HasMany<HomeTile, $this>
@@ -104,7 +133,104 @@ class Menu extends Model
     }
 
     /**
+     * Whether this menu is only served between certain hours.
+     *
+     * The pair is all-or-nothing, so asking about one answers for both. A menu
+     * with no window is served whenever the restaurant is open, which is what
+     * most menus do.
+     */
+    public function hasServiceWindow(): bool
+    {
+        return filled($this->available_from) && filled($this->available_until);
+    }
+
+    /**
+     * Whether this menu is being served at a given moment.
+     *
+     * A menu with no window is always being served. One whose window runs
+     * backwards — 22:00 to 02:00, for a late card — wraps past midnight rather
+     * than being empty, which is why this is a comparison of two cases and not
+     * a single between().
+     *
+     * The zone is the application's, from APP_TIMEZONE: a restaurant has no
+     * timezone of its own here, deliberately (.ai/rules/app.md).
+     */
+    public function isBeingServedAt(?CarbonImmutable $moment = null): bool
+    {
+        if (! $this->hasServiceWindow()) {
+            return true;
+        }
+
+        $from = $this->available_from;
+        $until = $this->available_until;
+
+        // hasServiceWindow() has already established both are filled; reading
+        // them into locals is what makes that visible here.
+        if ($from === null || $until === null) {
+            return true;
+        }
+
+        $now = ($moment ?? CarbonImmutable::now())->format('H:i:s');
+        $from = $this->normalisedTime($from);
+        $until = $this->normalisedTime($until);
+
+        return $from <= $until
+            ? $now >= $from && $now < $until
+            : $now >= $from || $now < $until;
+    }
+
+    /**
+     * The start of the service window as a clock reading, or null.
+     *
+     * Postgres hands back "07:00:00" from a time column and SQLite hands back
+     * whatever was written, so the raw value is not one shape. These two are
+     * what crosses the wire, so the guest app is given one format to render
+     * rather than having to cope with both — the same reason prices leave as
+     * integers rather than in whichever way a driver stringified them.
+     */
+    public function servedFrom(): ?string
+    {
+        return $this->hasServiceWindow() && $this->available_from !== null
+            ? $this->clockReading($this->available_from)
+            : null;
+    }
+
+    /**
+     * The end of the service window as a clock reading, or null.
+     */
+    public function servedUntil(): ?string
+    {
+        return $this->hasServiceWindow() && $this->available_until !== null
+            ? $this->clockReading($this->available_until)
+            : null;
+    }
+
+    /**
+     * A stored time as HH:MM, whatever shape the driver handed back.
+     */
+    private function clockReading(string $time): string
+    {
+        return substr($this->normalisedTime($time), 0, 5);
+    }
+
+    /**
+     * A stored time as HH:MM:SS, whatever shape the driver handed back.
+     *
+     * Padded to a fixed width before being compared as strings, which is safe
+     * for a 24-hour clock and avoids parsing a date that isn't one.
+     */
+    private function normalisedTime(string $time): string
+    {
+        return substr($time.':00:00', 0, 8);
+    }
+
+    /**
      * Limit the query to menus a guest should see.
+     *
+     * Deliberately not filtered by the service window: a breakfast menu that
+     * has finished is still shown, marked as served 07:00 to 11:00, because a
+     * guest looking for it at noon should find it rather than conclude the
+     * restaurant has none. isBeingServedAt() is what decides how it reads.
      *
      * @param  Builder<$this>  $query
      */

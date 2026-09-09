@@ -10,4 +10,6 @@ A table shows one column per translated field, not one per language. `TextColumn
 
 Searching and sorting still have to name a language, because the column is a JSON document — keep `TranslatedFields::search()` / `::sort()`, both of which work on the English value the unique indexes are built on.
 
-The panel calls `menu_categories` **categories**, not sections. `lang/*/panel.php` is the only place that wording lives; the model, the table and the routes all say category or menu_category.
+The panel calls `menu_categories` **categories**, not sections, and `menu_sub_categories` **sub-categories**. `lang/*/panel.php` is the only place that wording lives; the model, the table and the routes all say category, sub_category or menu_category.
+
+A price column carries its struck-through "was" price as the column's `description()` rather than taking a column of its own, which would be empty for every row that is not on offer — most of them. The same trick carries a dish's description under its name.

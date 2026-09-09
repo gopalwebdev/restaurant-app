@@ -84,7 +84,7 @@ function HomeRow({ row }: { row: Row }) {
             )}
 
             {row.isScrollable ? (
-                <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <ul className="flex snap-x snap-mandatory [scrollbar-width:none] gap-3 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
                     {row.tiles.map((tile) => (
                         <li
                             key={tile.id}

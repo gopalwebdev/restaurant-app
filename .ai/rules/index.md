@@ -24,6 +24,6 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Filament/Admin/Resources/**/Tables/*.php | .ai/rules/resources-tables.md |
 | app/Actions/Restaurants/** | .ai/rules/restaurants.md |
 | routes/** | .ai/rules/routes.md |
-| app/Filament/**/Tables/*.php, app/Filament/Tables/** | .ai/rules/tables.md |
+| app/Filament/**/Tables/*.php, app/Filament/Tables/**, app/Filament/**/RelationManagers/*.php | .ai/rules/tables.md |
 | app/Filament/SuperAdmin/Resources/Users/** | .ai/rules/users.md |
 | resources/views/** | .ai/rules/views.md |

@@ -3,6 +3,7 @@
 use App\Enums\AdminPanel;
 use App\Enums\Currency;
 use App\Enums\Role;
+use App\Enums\TaxRate;
 use App\Filament\Admin\Pages\Settings;
 use App\Models\Restaurant;
 use App\Models\User;
@@ -141,4 +142,121 @@ it('is open to a super admin supporting a restaurant', function (): void {
     Filament::setTenant($restaurant);
 
     expect(Settings::canAccess())->toBeTrue();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Tax and charges
+|--------------------------------------------------------------------------
+|
+| The GST every price on the menu is read against, plus the two optional
+| charges. Each charge is a switch and an amount rather than an amount alone,
+| so "we do not levy one" is something a restaurant can say.
+|
+*/
+
+it('starts a restaurant on the standalone restaurant slab, tax added at the bill', function (): void {
+    $restaurant = Restaurant::factory()->create();
+
+    // The default in $attributes and TaxRate::default() have to agree; a
+    // property initialiser cannot call the static method, so this is what
+    // keeps the two in step.
+    expect($restaurant->settings->taxRate())->toBe(TaxRate::default())
+        ->and($restaurant->taxRate())->toBe(TaxRate::default())
+        ->and($restaurant->settings->prices_include_tax)->toBeFalse()
+        ->and($restaurant->settings->service_charge_enabled)->toBeFalse()
+        ->and($restaurant->settings->parcel_charge_enabled)->toBeFalse();
+});
+
+it('saves the GST rate and whether prices already include it', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    Livewire::test(Settings::class)
+        ->fillForm([
+            'gstin' => '29ABCDE1234F1Z5',
+            'tax_rate_basis_points' => TaxRate::Eighteen->value,
+            'prices_include_tax' => true,
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $settings = $restaurant->refresh()->settings;
+
+    expect($settings->gstin)->toBe('29ABCDE1234F1Z5')
+        ->and($settings->taxRate())->toBe(TaxRate::Eighteen)
+        ->and($settings->prices_include_tax)->toBeTrue();
+});
+
+it('types a service charge as a percentage and stores it as basis points', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    Livewire::test(Settings::class)
+        ->fillForm([
+            'service_charge_enabled' => true,
+            'service_charge_percentage' => '10',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $settings = $restaurant->refresh()->settings;
+
+    // Basis points, like a tax rate, so the arithmetic behind a bill stays in
+    // integers: 10% of ₹500.00 is exactly ₹50.00.
+    expect($settings->service_charge_basis_points)->toBe(1000)
+        ->and($settings->serviceChargeOn(50000))->toBe(5000);
+});
+
+it('types a parcel charge as money and stores it in minor units', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    Livewire::test(Settings::class)
+        ->fillForm([
+            'parcel_charge_enabled' => true,
+            'parcel_charge' => '20.50',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $settings = $restaurant->refresh()->settings;
+
+    expect($settings->parcel_charge_minor_units)->toBe(2050)
+        ->and($settings->parcel_charge_minor_units)->toBeInt()
+        ->and($settings->parcelCharge())->toBe(2050);
+});
+
+it('charges nothing while a charge is switched off, whatever its amount says', function (): void {
+    // RestaurantFactory already gives every restaurant its one settings row.
+    $restaurant = Restaurant::factory()->create();
+    $settings = $restaurant->settings;
+
+    $settings->update([
+        'service_charge_enabled' => false,
+        'service_charge_basis_points' => 1000,
+        'parcel_charge_enabled' => false,
+        'parcel_charge_minor_units' => 2000,
+    ]);
+
+    // The switch is what decides, not the number beside it — turning a charge
+    // off must not mean losing the rate a restaurant had set.
+    expect($settings->serviceChargeOn(50000))->toBe(0)
+        ->and($settings->parcelCharge())->toBe(0)
+        ->and($settings->service_charge_basis_points)->toBe(1000)
+        ->and($settings->parcel_charge_minor_units)->toBe(2000);
+});
+
+it('round-trips a service charge through the form without drift', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $restaurant->settings->update(['service_charge_enabled' => true, 'service_charge_basis_points' => 250]);
+
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    Livewire::test(Settings::class)
+        ->assertFormSet(['service_charge_percentage' => 2.5])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($restaurant->refresh()->settings->service_charge_basis_points)->toBe(250);
 });

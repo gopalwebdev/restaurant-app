@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Menus\Schemas;
 
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -61,6 +62,29 @@ class MenuForm
                             ->helperText(__('panel.menus.is_active_help')),
                     ])
                     ->columns(2),
+
+                Section::make(__('panel.menus.service_window'))
+                    ->description(__('panel.menus.service_window_help'))
+                    ->icon(Heroicon::OutlinedClock)
+                    ->schema([
+                        // Both or neither: a window with one end is not a
+                        // window, so each requires the other rather than the
+                        // missing half being guessed at.
+                        TimePicker::make('available_from')
+                            ->label(__('panel.menus.available_from'))
+                            ->seconds(false)
+                            ->live(onBlur: true)
+                            ->requiredWith('available_until'),
+
+                        TimePicker::make('available_until')
+                            ->label(__('panel.menus.available_until'))
+                            ->seconds(false)
+                            ->live(onBlur: true)
+                            ->requiredWith('available_from')
+                            ->helperText(__('panel.menus.available_until_help')),
+                    ])
+                    ->columns(2)
+                    ->collapsed(fn (?Menu $record): bool => ! ($record?->hasServiceWindow() ?? false)),
             ]);
     }
 

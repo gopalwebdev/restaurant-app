@@ -2,7 +2,8 @@
 
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\MenuCategories\Pages\ListMenuCategories;
+use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
+use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -29,13 +30,13 @@ beforeEach(function (): void {
 
 it('shows only the language the form is switched to', function (): void {
     $restaurant = Restaurant::factory()->create();
-    Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
     // The schema argument is omitted on purpose: the helpers resolve the
     // mounted action's own schema when it is left off.
-    Livewire::test(ListMenuCategories::class)
-        ->mountAction('create')
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->mountAction(TestAction::make('create')->table())
         ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, Locale::default()->value)
         ->assertSchemaComponentVisible('name.'.Locale::English->value)
         ->assertSchemaComponentHidden('name.'.Locale::Tamil->value);
@@ -43,11 +44,11 @@ it('shows only the language the form is switched to', function (): void {
 
 it('shows the other language once the switcher is moved', function (): void {
     $restaurant = Restaurant::factory()->create();
-    Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
-        ->mountAction('create')
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->mountAction(TestAction::make('create')->table())
         ->set('mountedActions.0.data.'.TranslatedFields::LOCALE_KEY, Locale::Tamil->value)
         ->assertSchemaComponentHidden('name.'.Locale::English->value)
         ->assertSchemaComponentVisible('name.'.Locale::Tamil->value);
@@ -60,9 +61,8 @@ it('keeps the language that is off screen when the form is saved', function (): 
 
     // The whole point of dehydratedWhenHidden(): typing the Tamil and saving
     // while English is off screen must not blank the English.
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $menu->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Starters', Locale::Tamil->value => 'தொடக்கங்கள்'],
             TranslatedFields::LOCALE_KEY => Locale::Tamil->value,
             'is_active' => true,
@@ -84,9 +84,8 @@ it('still insists on English while Tamil is the language on screen', function ()
 
     // The required rule lives on the English input, which is hidden here — so
     // it rides on every language's input and reads English out of the state.
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $menu->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::Tamil->value => 'தொடக்கங்கள்'],
             TranslatedFields::LOCALE_KEY => Locale::Tamil->value,
             'is_active' => true,
@@ -105,9 +104,8 @@ it('still refuses a duplicate English name while Tamil is on screen', function (
 
     // Uniqueness is built on the English name in the database, so a save that
     // passed validation here would fail at the index instead.
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $menu->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Starters', Locale::Tamil->value => 'வேறு'],
             TranslatedFields::LOCALE_KEY => Locale::Tamil->value,
             'is_active' => true,
@@ -126,7 +124,7 @@ it('fills the switcher form with every language when editing', function (): void
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
         ->mountAction(TestAction::make('edit')->table($category))
         ->assertActionDataSet([
             'name' => [Locale::English->value => 'Starters', Locale::Tamil->value => 'தொடக்கங்கள்'],

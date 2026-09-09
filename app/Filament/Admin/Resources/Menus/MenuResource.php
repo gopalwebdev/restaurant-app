@@ -4,7 +4,10 @@ namespace App\Filament\Admin\Resources\Menus;
 
 use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
+use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
+use App\Filament\Admin\Resources\Menus\RelationManagers\CombosRelationManager;
 use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
+use App\Filament\Admin\Resources\Menus\RelationManagers\SubCategoriesRelationManager;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Admin\Resources\Menus\Tables\MenusTable;
 use App\Models\Menu;
@@ -17,9 +20,13 @@ use Filament\Tables\Table;
 /**
  * The menus this restaurant serves: Lunch, Dinner, Drinks.
  *
- * The top of the hierarchy the panel edits — a menu holds sections, a section
- * holds dishes, a dish holds additions — and the thing a home screen tile
- * points at. A restaurant that serves one card all day simply keeps one menu.
+ * The top of the hierarchy the panel edits, and the one page a menu's whole
+ * structure is arranged on: a menu holds sections, a section may be subdivided,
+ * and both are dragged into order here, alongside the featured dishes and the
+ * combos the menu opens with. Dishes themselves are their own page — there are
+ * far more of them, and they are the thing edited daily.
+ *
+ * A restaurant that serves one card all day simply keeps one menu.
  *
  * Scoping is Filament's: the panel has a tenant, so every query here is limited
  * to the restaurant in the subdomain and new rows are stamped with it. Who may
@@ -70,12 +77,21 @@ class MenuResource extends Resource
     }
 
     /**
-     * The dishes this menu leads with hang under its own page.
+     * A menu's whole shape hangs under its own page.
+     *
+     * In reading order rather than in any technical one: the sections a guest
+     * scrolls, the subdivisions inside them, then the two rows the menu opens
+     * with. Categories and sub-categories were a separate navigation item
+     * before this and are not any more — a category only means something
+     * inside a menu.
      */
     public static function getRelations(): array
     {
         return [
+            CategoriesRelationManager::class,
+            SubCategoriesRelationManager::class,
             FeaturedItemsRelationManager::class,
+            CombosRelationManager::class,
         ];
     }
 

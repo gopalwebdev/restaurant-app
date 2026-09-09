@@ -4,20 +4,24 @@ namespace App\Filament\Admin\Resources\MenuItems\Schemas;
 
 use App\Enums\Currency;
 use App\Enums\FoodType;
-use App\Enums\Locale;
+use App\Enums\TaxRate;
+use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
+use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
-use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\Restaurant;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -32,6 +36,8 @@ class MenuItemForm
 
     public static function configure(Schema $schema): Schema
     {
+        $currency = PricingFields::currency();
+
         return $schema
             ->columns(1)
             ->components([
@@ -41,9 +47,13 @@ class MenuItemForm
                     ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedListBullet)
                     ->schema([
-                        // Only this restaurant's sections are offered, and the
-                        // composite foreign key refuses anything else even if
-                        // the submitted id is tampered with.
+                        // Two selects rather than one flat list of every place
+                        // a dish could go: the category is the choice, and the
+                        // sub-category is a narrowing of it that most
+                        // categories do not offer at all. Only this
+                        // restaurant's categories are listed, and the composite
+                        // foreign keys refuse anything else even if the
+                        // submitted ids are tampered with.
                         Select::make('menu_category_id')
                             ->label(__('panel.items.section'))
                             ->options(fn (): array => self::sectionOptions())
@@ -51,16 +61,34 @@ class MenuItemForm
                             ->searchable()
                             ->preload()
                             ->live()
+                            // Changing the category invalidates whatever
+                            // sub-category was chosen — it belonged to the old
+                            // one, and the database would refuse the pair.
+                            ->afterStateUpdated(fn (Set $set): mixed => $set('menu_sub_category_id', null))
                             ->prefixIcon(Heroicon::OutlinedRectangleStack)
                             ->helperText(__('panel.items.section_help')),
+
+                        Select::make('menu_sub_category_id')
+                            ->label(__('panel.sub_categories.label'))
+                            ->options(fn (Get $get): array => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')))
+                            ->searchable()
+                            ->preload()
+                            ->prefixIcon(Heroicon::OutlinedSquares2x2)
+                            // Hidden entirely when the chosen category has no
+                            // subdivisions, which is most of them. An empty
+                            // select is a question with no answers.
+                            ->visible(fn (Get $get): bool => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')) !== [])
+                            ->placeholder(__('panel.items.no_sub_category'))
+                            ->helperText(__('panel.items.sub_category_help')),
 
                         ...self::spanningFull(TranslatedFields::text(
                             'name',
                             __('panel.shared.name'),
                             maxLength: 120,
-                            // Unique within the section rather than the whole
+                            // Unique within the category rather than the whole
                             // restaurant, matching the database index: a lunch
-                            // and a dinner menu may both list a "Paneer Tikka".
+                            // and a dinner menu may both list a "Paneer Tikka",
+                            // and so may two sub-categories of one category.
                             uniqueWithin: fn (Get $get): Builder => MenuItem::query()
                                 ->where('menu_category_id', $get('menu_category_id')),
                             uniqueMessage: __('panel.items.unique'),
@@ -82,24 +110,12 @@ class MenuItemForm
                     ->icon(Heroicon::OutlinedBanknotes)
                     ->schema([
                         // Typed and shown in major units, stored as an integer
-                        // count of minor units. App\Enums\Currency does the
-                        // conversion, and this is the only place it happens for
-                        // this form — so no float ever reaches the database.
-                        TextInput::make('price')
-                            ->label(__('panel.items.price'))
-                            ->required()
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(99999)
-                            ->step(0.01)
-                            ->prefix(fn (): string => self::currency()->symbol())
-                            ->helperText(__('panel.items.price_help')),
-
-                        Toggle::make('is_available')
-                            ->label(__('panel.items.is_available'))
-                            ->default(true)
-                            ->inline(false)
-                            ->helperText(__('panel.items.is_available_help')),
+                        // count of minor units — PricingFields does the
+                        // conversion in one place for this form and the combo
+                        // one, so no float ever reaches the database.
+                        PricingFields::price($currency),
+                        PricingFields::strikePrice($currency),
+                        PricingFields::availability(),
 
                         // Featuring puts a dish in the row above the sections
                         // on the guest's menu screen. The order those are read
@@ -110,13 +126,26 @@ class MenuItemForm
                             ->inline(false)
                             ->helperText(__('panel.items.is_featured_help')),
                     ])
-                    ->columns(3),
+                    ->columns(2),
+
+                Section::make(__('panel.items.tax_section'))
+                    ->description(__('panel.items.tax_section_help'))
+                    ->icon(Heroicon::OutlinedReceiptPercent)
+                    ->schema([
+                        PricingFields::taxRate(PricingFields::restaurantTaxRate()),
+                        PricingFields::hsnCode(),
+                    ])
+                    ->columns(2)
+                    // Almost every dish is taxed at the restaurant's own rate
+                    // and carries no code, so this opens closed and is expanded
+                    // by the dishes that genuinely differ.
+                    ->collapsed(fn (?MenuItem $record): bool => blank($record?->tax_rate_basis_points) && blank($record?->hsn_code)),
 
                 Section::make(__('panel.additions.section'))
                     ->description(__('panel.additions.section_help'))
                     ->icon(Heroicon::OutlinedPlusCircle)
                     ->schema([
-                        self::additions(),
+                        self::additions($currency),
                     ])
                     ->collapsed(fn (?MenuItem $record): bool => $record?->additions()->doesntExist() ?? true),
             ]);
@@ -141,20 +170,39 @@ class MenuItemForm
     }
 
     /**
-     * The extras a dish can be ordered with.
+     * The extras a dish can be ordered with, as a table.
+     *
+     * A table rather than a stack of collapsible cards: every addition is a
+     * name, a price and two small settings, so a row says everything a card
+     * did in a fraction of the height — a dish with eight extras used to be a
+     * page of accordions. Reordering and the per-row delete are unchanged.
      *
      * A repeater bound to the relationship, so additions are written in the
      * same save as the dish they belong to. The rule in .ai/rules/filament.md
      * against `->relationship()` is about Spatie roles and permissions, whose
      * cache is only flushed by syncRoles()/syncPermissions(); this is a plain
      * hasMany with no cache behind it, and the rule does not apply.
+     *
+     * Additions cannot be dragged from one dish to another: they are edited
+     * inside the dish that owns them, and the composite foreign key on
+     * (menu_item_id, tenant_id) is what makes that structural rather than a
+     * convention.
      */
-    private static function additions(): Repeater
+    private static function additions(Currency $currency): Repeater
     {
         return Repeater::make('additions')
             ->relationship()
             ->hiddenLabel()
+            ->table([
+                TableColumn::make(__('panel.additions.label'))->markAsRequired(),
+                TableColumn::make(__('panel.additions.price'))->width('10rem'),
+                TableColumn::make(__('panel.additions.tax_rate'))->width('12rem'),
+                TableColumn::make(__('panel.additions.is_available'))->width('7rem')->alignment(Alignment::Center),
+            ])
             ->schema([
+                // Only the switched-to language is on screen, exactly as
+                // everywhere else — an addition's name is guest-facing text and
+                // is translated like the dish above it.
                 ...TranslatedFields::text('name', __('panel.additions.label'), maxLength: 64),
 
                 TextInput::make('price')
@@ -165,44 +213,64 @@ class MenuItemForm
                     ->maxValue(99999)
                     ->step(0.01)
                     ->default(0)
-                    ->prefix(fn (): string => self::currency()->symbol())
-                    ->helperText(__('panel.additions.price_help')),
+                    ->prefix($currency->symbol()),
+
+                Select::make('tax_rate_basis_points')
+                    ->label(__('panel.additions.tax_rate'))
+                    ->options(TaxRate::options())
+                    ->placeholder(__('panel.items.tax_rate_default', [
+                        'rate' => PricingFields::restaurantTaxRate()->label(),
+                    ]))
+                    ->native(false),
 
                 Toggle::make('is_available')
                     ->label(__('panel.additions.is_available'))
                     ->default(true),
             ])
-            ->columns(2)
             ->orderColumn('position')
             // Most dishes have none, and a blank row waiting to be filled in
             // would make every save fail validation until it was deleted.
             ->defaultItems(0)
             ->addActionLabel(__('panel.additions.add'))
-            ->itemLabel(fn (array $state): ?string => self::additionLabel($state))
-            ->collapsible()
+            ->reorderable()
+            ->columnSpanFull()
             // The repeater edits a major-unit price the same way the dish above
             // does, and each row is converted on its own way in and out.
-            ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::storePrice($data))
-            ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::storePrice($data))
-            ->mutateRelationshipDataBeforeFillUsing(fn (array $data): array => self::fillPrice($data));
+            ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::storeAdditionPrice($data, $currency))
+            ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::storeAdditionPrice($data, $currency))
+            ->mutateRelationshipDataBeforeFillUsing(fn (array $data): array => self::fillAdditionPrice($data, $currency));
     }
 
     /**
-     * The heading shown on a collapsed addition row.
+     * Turn an addition's typed price into the integer that gets stored.
      *
-     * @param  array<string, mixed>  $state
+     * An addition has no strike price — it is a delta on the dish, and
+     * "was +₹40, now +₹30" is not a thing a menu says — so this is its own
+     * small conversion rather than PricingFields::storePrices().
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
      */
-    private static function additionLabel(array $state): ?string
+    private static function storeAdditionPrice(array $data, Currency $currency): array
     {
-        $name = $state['name'] ?? null;
+        $data['price_minor_units'] = $currency->toMinorUnits($data['price'] ?? 0);
 
-        if (! is_array($name)) {
-            return null;
-        }
+        unset($data['price']);
 
-        $label = $name[Locale::default()->value] ?? null;
+        return $data;
+    }
 
-        return is_string($label) && filled($label) ? $label : null;
+    /**
+     * Turn a stored addition price back into the value the form edits.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function fillAdditionPrice(array $data, Currency $currency): array
+    {
+        $data['price'] = $currency->toMajorUnits((int) ($data['price_minor_units'] ?? 0));
+
+        return $data;
     }
 
     /**
@@ -217,34 +285,25 @@ class MenuItemForm
     }
 
     /**
-     * Turn the typed major-unit price into the integer that gets stored.
-     *
-     * Both create and edit go through here, so the rounding happens exactly
-     * once per save and no float is ever handed to the database.
+     * Turn the typed major-unit prices into the integers that get stored.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public static function storePrice(array $data): array
     {
-        $data['price_minor_units'] = self::currency()->toMinorUnits($data['price'] ?? 0);
-
-        unset($data['price']);
-
-        return $data;
+        return PricingFields::storePrices($data, self::currency());
     }
 
     /**
-     * Turn the stored integer back into the value the form edits.
+     * Turn the stored integers back into the values the form edits.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public static function fillPrice(array $data): array
     {
-        $data['price'] = self::currency()->toMajorUnits((int) ($data['price_minor_units'] ?? 0));
-
-        return $data;
+        return PricingFields::fillPrices($data, self::currency());
     }
 
     /**
@@ -252,15 +311,11 @@ class MenuItemForm
      */
     public static function currency(): Currency
     {
-        $tenant = Filament::getTenant();
-
-        return $tenant instanceof Restaurant
-            ? $tenant->currency()
-            : Currency::IndianRupee;
+        return PricingFields::currency();
     }
 
     /**
-     * This restaurant's sections, labelled with the menu they sit on.
+     * This restaurant's categories, labelled with the menu they sit on.
      *
      * Two menus may each have a "Starters", so the menu has to be part of the
      * label or the select offers the same word twice.
@@ -269,17 +324,7 @@ class MenuItemForm
      */
     public static function sectionOptions(): array
     {
-        return MenuCategory::query()
-            ->where('tenant_id', self::tenantKey())
-            ->with('menu')
-            ->inMenuOrder()
-            ->get()
-            // menu_id is not nullable and cascades, so a section always has a
-            // menu — there is nothing to fall back to here.
-            ->mapWithKeys(fn (MenuCategory $category): array => [
-                $category->getKey() => sprintf('%s · %s', $category->menu->name, $category->name),
-            ])
-            ->all();
+        return MenuSubCategoryForm::categoryOptionsForRestaurant(self::tenantKey());
     }
 
     /**

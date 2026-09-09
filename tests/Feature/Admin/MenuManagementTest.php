@@ -1,19 +1,24 @@
 <?php
 
+use App\Actions\Menus\MoveItemToSection;
 use App\Enums\Currency;
 use App\Enums\FoodType;
+use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\MenuCategories\Pages\ListMenuCategories;
+use App\Enums\TaxRate;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
 use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
+use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
 use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
+use App\Filament\Admin\Resources\Menus\RelationManagers\SubCategoriesRelationManager;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
+use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -185,9 +190,8 @@ it('creates a section on the menu it was filed under', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $menu->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Starters', Locale::Tamil->value => 'தொடக்கங்கள்'],
             'is_active' => true,
         ])
@@ -208,9 +212,8 @@ it('refuses a section name the same menu already uses', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $menu->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Starters'],
             'is_active' => true,
         ])
@@ -228,9 +231,8 @@ it('lets a lunch and a dinner menu each have their own Starters', function (): v
 
     // Uniqueness moved from the restaurant to the menu when menus arrived, and
     // this is the case that motivated it.
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $dinner->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $dinner, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Starters'],
             'is_active' => true,
         ])
@@ -252,9 +254,8 @@ it('lets two restaurants both have a section of the same name', function (): voi
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
-        ->callAction('create', [
-            'menu_id' => $menu->getKey(),
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+        ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Starters'],
             'is_active' => true,
         ])
@@ -282,25 +283,30 @@ it('refuses at the database to file a section under another restaurant\'s menu',
     ]))->toThrow(QueryException::class);
 });
 
-it('groups sections by their menu without ordering on the translated json column', function (): void {
-    // menu.name and menu_categories.name are both translated json columns.
-    // Postgres has no ordering operator for json, so a group whose default
-    // ordering selects one 500s there even though SQLite — what this suite
-    // runs against — tolerates it silently. Inspecting the compiled SQL
-    // catches that regardless of which database is running.
+it('groups sub-categories by their category without ordering on the translated json column', function (): void {
+    // menu_categories.name and menu_sub_categories.name are both translated
+    // json columns. Postgres has no ordering operator for json, so a group
+    // whose default ordering selects one 500s there even though SQLite — what
+    // this suite runs against — tolerates it silently. Inspecting the compiled
+    // SQL catches that regardless of which database is running.
+    //
+    // The categories table itself no longer groups at all: it hangs off one
+    // menu's page, so there is nothing left to group by. The trap moved down a
+    // level with the tree.
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
-    MenuCategory::factory()->inMenu($menu)->count(2)->create();
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    MenuSubCategory::factory()->inCategory($category)->count(2)->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    $group = Livewire::test(ListMenuCategories::class)
+    $group = Livewire::test(SubCategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
         ->assertOk()
         ->instance()
         ->getTable()
         ->getDefaultGroup();
 
-    $sql = $group->orderQuery(MenuCategory::query(), 'asc')->toSql();
+    $sql = $group->orderQuery(MenuSubCategory::query(), 'asc')->toSql();
 
     expect($sql)->toContain('position')
         ->and($sql)->not->toContain('name');
@@ -327,7 +333,7 @@ it('stores a typed price as an exact integer count of minor units', function ():
             'menu_category_id' => $category->getKey(),
             'food_type' => FoodType::Vegetarian->value,
             'price' => '249.50',
-            'is_available' => true,
+            'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasNoActionErrors();
 
@@ -355,7 +361,7 @@ it('round-trips a price through the edit form without drift', function (): void 
             'menu_category_id' => $category->getKey(),
             'food_type' => $item->food_type->value,
             'price' => '249.50',
-            'is_available' => true,
+            'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasNoActionErrors();
 
@@ -436,7 +442,7 @@ it('saves a dish\'s additions in the same save as the dish', function (): void {
             'menu_category_id' => $category->getKey(),
             'food_type' => FoodType::Vegetarian->value,
             'price' => '249.50',
-            'is_available' => true,
+            'availability' => ItemAvailability::Available->value,
             'additions' => [
                 [
                     'name' => [Locale::English->value => 'Extra paneer', Locale::Tamil->value => 'கூடுதல் பன்னீர்'],
@@ -485,7 +491,7 @@ it('lets a dish be saved with no additions at all', function (): void {
             'menu_category_id' => $category->getKey(),
             'food_type' => FoodType::Vegetarian->value,
             'price' => '50',
-            'is_available' => true,
+            'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasNoActionErrors();
 
@@ -581,7 +587,7 @@ it('refuses to file a dish under another restaurant\'s section', function (): vo
             'menu_category_id' => $theirCategory->getKey(),
             'food_type' => FoodType::Vegetarian->value,
             'price' => '100',
-            'is_available' => true,
+            'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasActionErrors(['menu_category_id']);
 
@@ -605,7 +611,7 @@ it('refuses at the database to file a dish under another restaurant\'s section',
         'name' => json_encode([Locale::English->value => 'Smuggled'], JSON_THROW_ON_ERROR),
         'price_minor_units' => 1000,
         'food_type' => FoodType::Vegetarian->value,
-        'is_available' => true,
+        'availability' => ItemAvailability::Available->value,
         'created_at' => now(),
         'updated_at' => now(),
     ]))->toThrow(QueryException::class);
@@ -699,7 +705,7 @@ it('takes a dish out of the featured row without taking it off the menu', functi
         ->callAction(TestAction::make('unfeature')->table($item));
 
     expect($item->refresh()->is_featured)->toBeFalse()
-        ->and($item->is_available)->toBeTrue()
+        ->and($item->availability)->toBe(ItemAvailability::Available)
         ->and($item->menu_category_id)->toBe($category->getKey());
 });
 
@@ -726,4 +732,207 @@ it('shows only the featured dishes of this menu', function (): void {
     ])
         ->assertCanSeeTableRecords([$featured])
         ->assertCanNotSeeTableRecords([$plain, $elsewhere]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Offers, availability and refiling
+|--------------------------------------------------------------------------
+|
+| A dish carries a price, optionally a higher one struck through beside it, and
+| a reason it is off the menu when it is.
+|
+*/
+
+it('stores a struck-through price beside the one being charged', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $category = MenuCategory::factory()
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
+        ->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(ListMenuItems::class)
+        ->callAction('create', [
+            'name' => [Locale::English->value => 'Paneer Tikka'],
+            'menu_category_id' => $category->getKey(),
+            'food_type' => FoodType::Vegetarian->value,
+            'price' => '299',
+            'strike_price' => '360',
+            'availability' => ItemAvailability::Available->value,
+        ])
+        ->assertHasNoActionErrors();
+
+    $item = byEnglishName(MenuItem::class, 'Paneer Tikka');
+
+    expect($item->price_minor_units)->toBe(29900)
+        ->and($item->strike_price_minor_units)->toBe(36000)
+        ->and($item->hasStrikePrice())->toBeTrue()
+        ->and($item->discountMinorUnits())->toBe(6100)
+        ->and($item->formattedStrikePrice())->toBe('₹360.00');
+});
+
+it('refuses a struck-through price that is not above what is charged', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $category = MenuCategory::factory()
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
+        ->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(ListMenuItems::class)
+        ->callAction('create', [
+            'name' => [Locale::English->value => 'Paneer Tikka'],
+            'menu_category_id' => $category->getKey(),
+            'food_type' => FoodType::Vegetarian->value,
+            'price' => '299',
+            'strike_price' => '250',
+            'availability' => ItemAvailability::Available->value,
+        ])
+        ->assertHasActionErrors(['strike_price']);
+});
+
+it('leaves a dish that is not on offer with no strike price at all', function (): void {
+    $item = MenuItem::factory()->create();
+
+    // Null is "not on offer". A zero would be a price of nothing, and the
+    // guest app would have to decide whether to believe it.
+    expect($item->strike_price_minor_units)->toBeNull()
+        ->and($item->hasStrikePrice())->toBeFalse()
+        ->and($item->formattedStrikePrice())->toBeNull()
+        ->and($item->discountMinorUnits())->toBe(0);
+});
+
+it('says why a dish is off the menu rather than only that it is', function (): void {
+    $soldOut = MenuItem::factory()->unavailable()->create();
+    $paused = MenuItem::factory()->unavailable(ItemAvailability::TemporarilyUnavailable)->create();
+
+    expect($soldOut->availability)->toBe(ItemAvailability::OutOfStock)
+        ->and($soldOut->isOrderable())->toBeFalse()
+        ->and($paused->availability)->toBe(ItemAvailability::TemporarilyUnavailable)
+        ->and($paused->isOrderable())->toBeFalse()
+        // Both are off the menu for a guest; only the kitchen sees the reason.
+        ->and(MenuItem::query()->orderable()->count())->toBe(0);
+});
+
+it('falls back to the restaurant GST rate on a dish, and overrides it when told', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $restaurant->settings->update(['tax_rate_basis_points' => TaxRate::Five]);
+    $category = MenuCategory::factory()
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
+        ->create();
+
+    $food = MenuItem::factory()->inCategory($category)->create();
+    // A sealed bottle sold alongside the food is taxed as goods, not service.
+    $bottle = MenuItem::factory()->inCategory($category)->taxedAt(TaxRate::Eighteen)->create();
+
+    expect($food->taxRate())->toBe(TaxRate::Five)
+        ->and($bottle->taxRate())->toBe(TaxRate::Eighteen)
+        ->and($bottle->taxRate()->taxOn($bottle->price_minor_units))
+        ->toBe(TaxRate::Eighteen->taxOn($bottle->price_minor_units));
+});
+
+it('taxes an addition at its own rate rather than the dish it sits on', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $restaurant->settings->update(['tax_rate_basis_points' => TaxRate::Five]);
+    $dish = MenuItem::factory()
+        ->inCategory(MenuCategory::factory()->inMenu(
+            Menu::factory()->create(['tenant_id' => $restaurant->getKey()])
+        )->create())
+        ->taxedAt(TaxRate::Twelve)
+        ->create();
+
+    $following = MenuItemAddition::factory()->onItem($dish)->create();
+    $overriding = MenuItemAddition::factory()->onItem($dish)->taxedAt(TaxRate::Eighteen)->create();
+
+    // An addition that overrides is overriding because it differs from the
+    // food, so inheriting the dish's 12% would be inheriting the wrong number.
+    expect($following->taxRate())->toBe(TaxRate::Five)
+        ->and($overriding->taxRate())->toBe(TaxRate::Eighteen);
+});
+
+it('refiles a dish into a sub-category from the dishes page', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $chicken = MenuSubCategory::factory()->inCategory($category)->create();
+    $dish = MenuItem::factory()->inCategory($category)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(ListMenuItems::class)
+        ->callAction(TestAction::make('moveToSection')->table($dish), [
+            'menu_category_id' => $category->getKey(),
+            'menu_sub_category_id' => $chicken->getKey(),
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($dish->refresh()->menu_sub_category_id)->toBe($chicken->getKey())
+        ->and($dish->menu_category_id)->toBe($category->getKey());
+});
+
+it('lifts a dish back out of a sub-category to the category itself', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $chicken = MenuSubCategory::factory()->inCategory($category)->create();
+    $dish = MenuItem::factory()->inSubCategory($chicken)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // Leaving the sub-category empty is how a dish comes back up a level.
+    Livewire::test(ListMenuItems::class)
+        ->callAction(TestAction::make('moveToSection')->table($dish), [
+            'menu_category_id' => $category->getKey(),
+            'menu_sub_category_id' => null,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($dish->refresh()->menu_sub_category_id)->toBeNull()
+        ->and($dish->menu_category_id)->toBe($category->getKey());
+});
+
+it('unfeatures a dish carried to another menu, and keeps one that stays', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $lunch = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $dinner = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    $from = MenuCategory::factory()->inMenu($lunch)->create();
+    $sibling = MenuCategory::factory()->inMenu($lunch)->create();
+    $elsewhere = MenuCategory::factory()->inMenu($dinner)->create();
+
+    $leaving = MenuItem::factory()->inCategory($from)->create(['is_featured' => true, 'featured_position' => 3]);
+    $staying = MenuItem::factory()->inCategory($from)->create(['is_featured' => true, 'featured_position' => 4]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    Livewire::test(ListMenuItems::class)
+        ->callAction(TestAction::make('moveToSection')->table($leaving), ['menu_category_id' => $elsewhere->getKey()])
+        ->assertHasNoActionErrors()
+        ->callAction(TestAction::make('moveToSection')->table($staying), ['menu_category_id' => $sibling->getKey()])
+        ->assertHasNoActionErrors();
+
+    // The featured row belongs to a menu, so leaving one drops the feature —
+    // and a dish that only moved within its own menu keeps its place in it.
+    expect($leaving->refresh()->is_featured)->toBeFalse()
+        ->and($leaving->featured_position)->toBe(0)
+        ->and($staying->refresh()->is_featured)->toBeTrue()
+        ->and($staying->featured_position)->toBe(4);
+});
+
+it('refuses to refile a dish under a name the target category already has', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $from = MenuCategory::factory()->inMenu($menu)->create();
+    $to = MenuCategory::factory()->inMenu($menu)->create();
+
+    $moving = MenuItem::factory()->inCategory($from)->create(['name' => [Locale::English->value => 'Paneer Tikka']]);
+    MenuItem::factory()->inCategory($to)->create(['name' => [Locale::English->value => 'Paneer Tikka']]);
+
+    // Uniqueness is per category and built on the English name, so without the
+    // guard the update would fail at the expression index instead.
+    expect(fn () => app(MoveItemToSection::class)($moving, $to))
+        ->toThrow(LogicException::class, 'already has a dish');
+
+    expect($moving->refresh()->menu_category_id)->toBe($from->getKey());
 });

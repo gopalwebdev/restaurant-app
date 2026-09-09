@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\Locale;
+use App\Enums\TaxRate;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -34,6 +35,7 @@ class MenuItemAdditionFactory extends Factory
                 ->value('tenant_id'),
             'name' => [Locale::English->value => $name],
             'price_minor_units' => fake()->numberBetween(0, 10000),
+            'tax_rate_basis_points' => null,
             'is_available' => true,
             'position' => fake()->numberBetween(0, 10),
         ];
@@ -70,6 +72,16 @@ class MenuItemAdditionFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'price_minor_units' => 0,
+        ]);
+    }
+
+    /**
+     * An addition taxed at a rate of its own rather than the restaurant's.
+     */
+    public function taxedAt(TaxRate $rate): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'tax_rate_basis_points' => $rate,
         ]);
     }
 

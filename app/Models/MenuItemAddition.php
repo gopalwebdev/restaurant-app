@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TaxRate;
 use App\Models\Concerns\HasTranslatedNames;
 use Carbon\CarbonImmutable;
 use Database\Factories\MenuItemAdditionFactory;
@@ -28,12 +29,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $menu_item_id
  * @property string $name
  * @property int $price_minor_units
+ * @property TaxRate|null $tax_rate_basis_points
  * @property bool $is_available
  * @property int $position
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['name', 'price_minor_units', 'is_available', 'position'])]
+#[Fillable(['name', 'price_minor_units', 'tax_rate_basis_points', 'is_available', 'position'])]
 class MenuItemAddition extends Model
 {
     /** @use HasFactory<MenuItemAdditionFactory> */
@@ -110,6 +112,37 @@ class MenuItemAddition extends Model
     }
 
     /**
+     * The GST slab this addition is taxed at.
+     *
+     * Its own rate when it has one, and otherwise the restaurant's default —
+     * the same fallback MenuItem uses, and for the same reason: an addition is
+     * usually taxed exactly like the dish it goes on, and only a genuinely
+     * different line (a sealed bottle taxed as goods) needs saying.
+     *
+     * Not the dish's rate, deliberately. An addition that overrides is
+     * overriding because it differs from the food, so inheriting from the dish
+     * would be inheriting the wrong number.
+     *
+     * Pass $default when rendering a list; every row shares it.
+     */
+    public function taxRate(?TaxRate $default = null): TaxRate
+    {
+        if ($this->tax_rate_basis_points instanceof TaxRate) {
+            return $this->tax_rate_basis_points;
+        }
+
+        if ($default instanceof TaxRate) {
+            return $default;
+        }
+
+        $stored = RestaurantSetting::query()
+            ->where('tenant_id', $this->tenant_id)
+            ->value('tax_rate_basis_points');
+
+        return $stored instanceof TaxRate ? $stored : TaxRate::default();
+    }
+
+    /**
      * Limit the query to additions a guest may actually ask for.
      *
      * @param  Builder<$this>  $query
@@ -136,6 +169,7 @@ class MenuItemAddition extends Model
     {
         return [
             'price_minor_units' => 'integer',
+            'tax_rate_basis_points' => TaxRate::class,
             'is_available' => 'boolean',
             'position' => 'integer',
         ];

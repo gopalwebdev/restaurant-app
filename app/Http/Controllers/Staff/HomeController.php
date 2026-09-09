@@ -36,7 +36,7 @@ class HomeController extends Controller
             ->with(['menuCategories' => fn ($categories) => $categories
                 ->select(['id', 'menu_id', 'name'])
                 ->with(['menuItems' => fn ($items) => $items
-                    ->select(['id', 'menu_category_id', 'name', 'price_minor_units', 'food_type', 'is_available'])
+                    ->select(['id', 'menu_category_id', 'name', 'price_minor_units', 'food_type', 'availability'])
                     ->with(['additions' => fn ($additions) => $additions
                         ->select(['id', 'menu_item_id', 'name', 'price_minor_units', 'is_available'])
                         ->inMenuOrder()])
@@ -76,7 +76,11 @@ class HomeController extends Controller
             'name' => $item->name,
             'priceMinorUnits' => $item->price_minor_units,
             'foodType' => $item->food_type->value,
-            'isAvailable' => $item->is_available,
+            // The staff app still asks one yes-or-no question, so the reason a
+            // dish is off is collapsed here rather than sent on. This surface
+            // is parked (.ai/rules/general.md); when it comes back it should
+            // show the reason, which is what App\Enums\ItemAvailability carries.
+            'isAvailable' => $item->isOrderable(),
             'additions' => $item->additions->map(fn (MenuItemAddition $addition): array => [
                 'id' => $addition->getKey(),
                 'name' => $addition->name,

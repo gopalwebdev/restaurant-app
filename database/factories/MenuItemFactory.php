@@ -3,9 +3,12 @@
 namespace Database\Factories;
 
 use App\Enums\FoodType;
+use App\Enums\ItemAvailability;
 use App\Enums\Locale;
+use App\Enums\TaxRate;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
+use App\Models\MenuSubCategory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -32,8 +35,13 @@ class MenuItemFactory extends Factory
             'name' => [$english => ucfirst(fake()->unique()->word()).' '.fake()->unique()->numberBetween(1, 9999)],
             'description' => [$english => fake()->sentence()],
             'price_minor_units' => fake()->numberBetween(5000, 90000),
+            // Most dishes carry neither: no offer, and the restaurant's own
+            // GST slab. Both are set by a state when a test is about them.
+            'strike_price_minor_units' => null,
+            'tax_rate_basis_points' => null,
+            'hsn_code' => null,
             'food_type' => fake()->randomElement(FoodType::cases()),
-            'is_available' => true,
+            'availability' => ItemAvailability::Available,
             'position' => fake()->numberBetween(0, 20),
         ];
     }
@@ -46,6 +54,42 @@ class MenuItemFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'menu_category_id' => $category->getKey(),
             'tenant_id' => $category->tenant_id,
+        ]);
+    }
+
+    /**
+     * Put this dish in a sub-category, and its category and restaurant with it.
+     *
+     * All three columns together, because menu_items references
+     * menu_sub_categories on the (sub-category, category) pair — setting the
+     * sub-category alone trips the composite key.
+     */
+    public function inSubCategory(MenuSubCategory $subCategory): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'menu_sub_category_id' => $subCategory->getKey(),
+            'menu_category_id' => $subCategory->menu_category_id,
+            'tenant_id' => $subCategory->tenant_id,
+        ]);
+    }
+
+    /**
+     * A dish advertised with a higher price struck through beside it.
+     */
+    public function discounted(?int $strikeMinorUnits = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'strike_price_minor_units' => $strikeMinorUnits ?? $attributes['price_minor_units'] + 5000,
+        ]);
+    }
+
+    /**
+     * A dish taxed at a rate of its own rather than the restaurant's default.
+     */
+    public function taxedAt(TaxRate $rate): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'tax_rate_basis_points' => $rate,
         ]);
     }
 
@@ -77,12 +121,15 @@ class MenuItemFactory extends Factory
     }
 
     /**
-     * Sold out for now.
+     * Off the menu for now, and saying why.
+     *
+     * Defaults to sold out, which is the common reason; pass
+     * ItemAvailability::TemporarilyUnavailable for the other one.
      */
-    public function unavailable(): static
+    public function unavailable(ItemAvailability $reason = ItemAvailability::OutOfStock): static
     {
         return $this->state(fn (array $attributes): array => [
-            'is_available' => false,
+            'availability' => $reason,
         ]);
     }
 }

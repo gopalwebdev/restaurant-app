@@ -66,4 +66,8 @@ The form posts to the host it was rendered on, because a cross-host post loses t
 What is translated is deliberately bounded: the menu and storefront resources, in `lang/{en,ta}/panel.php`. **Roles, permissions, accounts and restaurants stay in English** — that is the product team's vocabulary and code refers to those names. Filament's own chrome falls back to English under Tamil, because the framework ships no `ta` locale.
 
 ## No theming in the panel
-A restaurant chooses no colours and no light/dark default. The Settings page has contact and trading sections and nothing else; `App\Enums\Appearance` has two cases and lives on the phone. Do not add a theme section back without asking.
+A restaurant chooses no colours and no light/dark default. `App\Enums\Appearance` has two cases and lives on the phone. Do not add a theme section back without asking.
+
+The Settings page has four sections — Contact, Trading, Tax and Charges — and no others. Tax holds the GSTIN, the default GST slab every price falls back to, and whether menu prices already include it; Charges holds the service and parcel charges, each as a **switch plus an amount** rather than an amount alone, so a restaurant that levies neither says so rather than setting it to zero. (For the service charge that distinction is the point: the CCPA's 2022 guidelines make it voluntary.)
+
+Both charges are typed the way a person says them — "10" percent, "20" rupees — and stored the way the rest of the application stores their kind: the service charge in basis points like a tax rate, the parcel charge in minor units like every other amount of money. `Settings::readableCharges()` / `::storableCharges()` are the only place that conversion happens, so the rounding is done once.

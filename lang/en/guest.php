@@ -25,8 +25,18 @@ return [
         'title' => 'Menu',
         'empty' => 'This menu is not ready yet. Please ask a member of staff.',
         'featured' => 'Featured',
+        'combos' => 'Combos',
+        'combo_contains' => 'You get',
+        'was' => 'Was :price',
+        'save' => 'Save :amount',
         'additions' => 'Add to this',
         'free' => 'Free',
+        'served_between' => 'Served :from to :until',
+        'not_being_served' => 'Not being served right now',
+        'tax_included' => 'Prices include GST at :rate.',
+        'tax_excluded' => 'Prices exclude GST, charged at :rate.',
+        'service_charge' => 'A service charge of :rate is added to the bill.',
+        'parcel_charge' => 'Takeaway orders are packed for :amount.',
     ],
 
     'document' => [

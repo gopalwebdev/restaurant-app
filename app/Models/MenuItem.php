@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
-use App\Enums\Currency;
 use App\Enums\FoodType;
+use App\Enums\ItemAvailability;
+use App\Enums\TaxRate;
 use App\Models\Concerns\HasTranslatedNames;
+use App\Models\Concerns\IsPricedOnAMenu;
 use Carbon\CarbonImmutable;
 use Database\Factories\MenuItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -20,7 +23,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * The price is an integer count of the currency's minor unit, never a float:
  * ₹249.50 is stored as 24950. App\Enums\Currency converts at the edges, and
  * the currency itself comes from the restaurant's settings, so nothing here
- * assumes rupees.
+ * assumes rupees. `strike_price_minor_units` is the higher price shown struck
+ * through beside it and is null on almost every dish — see IsPricedOnAMenu.
+ *
+ * A dish is always filed under a **category**, and optionally under one of that
+ * category's **sub-categories**. Both columns are kept because the pair is a
+ * composite foreign key into menu_sub_categories (id, menu_category_id), which
+ * is what makes it a database error for a dish to sit in a sub-category
+ * belonging to some other category. Where the dish appears on the menu is the
+ * sub-category when it has one and the category otherwise — `section()` is the
+ * one place that decides.
  *
  * tenant_id is carried directly as well as through the category. That is
  * deliberate — it is the tenant boundary, and a composite foreign key on
@@ -30,11 +42,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property int $tenant_id
  * @property int $menu_category_id
+ * @property int|null $menu_sub_category_id
+ * @property-read MenuCategory $menuCategory
+ * @property-read MenuSubCategory|null $menuSubCategory
  * @property string $name
  * @property string|null $description
  * @property int $price_minor_units
+ * @property int|null $strike_price_minor_units
+ * @property TaxRate|null $tax_rate_basis_points
+ * @property string|null $hsn_code
  * @property FoodType $food_type
- * @property bool $is_available
+ * @property ItemAvailability $availability
  * @property bool $is_featured
  * @property int $featured_position
  * @property int $position
@@ -43,11 +61,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'menu_category_id',
+    'menu_sub_category_id',
     'name',
     'description',
     'price_minor_units',
+    'strike_price_minor_units',
+    'tax_rate_basis_points',
+    'hsn_code',
     'food_type',
-    'is_available',
+    'availability',
     'is_featured',
     'featured_position',
     'position',
@@ -58,6 +80,7 @@ class MenuItem extends Model
     use HasFactory;
 
     use HasTranslatedNames;
+    use IsPricedOnAMenu;
 
     /**
      * @var list<string>
@@ -69,7 +92,7 @@ class MenuItem extends Model
      */
     protected $attributes = [
         'position' => 0,
-        'is_available' => true,
+        'availability' => ItemAvailability::Available->value,
         'is_featured' => false,
         'featured_position' => 0,
     ];
@@ -95,6 +118,16 @@ class MenuItem extends Model
     }
 
     /**
+     * The subdivision of that section, when the category has been subdivided.
+     *
+     * @return BelongsTo<MenuSubCategory, $this>
+     */
+    public function menuSubCategory(): BelongsTo
+    {
+        return $this->belongsTo(MenuSubCategory::class);
+    }
+
+    /**
      * The extras this dish may be ordered with.
      *
      * @return HasMany<MenuItemAddition, $this>
@@ -105,60 +138,74 @@ class MenuItem extends Model
     }
 
     /**
-     * The price as money, in the restaurant's own currency.
+     * The lines of every combo this dish appears in.
      *
-     * Pass the currency when rendering a list. Every dish on a menu shares one,
-     * so resolving it per item is a query per row that answers the same thing.
+     * @return HasMany<MenuComboItem, $this>
      */
-    public function formattedPrice(?Currency $currency = null): string
+    public function comboItems(): HasMany
     {
-        return ($currency ?? $this->currency())->format($this->price_minor_units);
+        return $this->hasMany(MenuComboItem::class);
     }
 
     /**
-     * The currency this item is priced in.
+     * The combos this dish is part of.
      *
-     * Deliberately never reaches through $this->restaurant: that is a lazy load,
-     * which Model::shouldBeStrict() turns into an exception outside production
-     * and which is an N+1 down a list of dishes inside it. Loaded relations are
-     * used when they are there, and otherwise this asks for the one column it
-     * needs.
+     * @return BelongsToMany<MenuCombo, $this>
      */
-    public function currency(): Currency
+    public function combos(): BelongsToMany
     {
-        $restaurant = $this->relationLoaded('restaurant') ? $this->getRelation('restaurant') : null;
+        return $this->belongsToMany(MenuCombo::class, 'menu_combo_items')
+            ->withPivot(['quantity', 'position'])
+            ->withTimestamps();
+    }
 
-        if ($restaurant instanceof Restaurant) {
-            return $restaurant->currency();
-        }
+    /**
+     * Where this dish appears on the menu.
+     *
+     * The sub-category when it has one, the category otherwise — the single
+     * place that rule is stated, so the panel's tree, the guest's menu and the
+     * "move to section" action cannot disagree about where a dish lives.
+     *
+     * Reads loaded relations only; a caller that has not loaded them gets the
+     * category it already holds rather than a lazy load, which
+     * Model::shouldBeStrict() would throw on anyway.
+     */
+    public function section(): MenuCategory|MenuSubCategory
+    {
+        $subCategory = $this->relationLoaded('menuSubCategory')
+            ? $this->getRelation('menuSubCategory')
+            : null;
 
-        // value() on an Eloquent builder applies the model's cast, so this
-        // comes back as the enum already. A restaurant with no settings row
-        // yet has no currency, and falls back to the default.
-        $stored = RestaurantSetting::query()
-            ->where('tenant_id', $this->tenant_id)
-            ->value('currency');
+        return $subCategory instanceof MenuSubCategory ? $subCategory : $this->menuCategory;
+    }
 
-        return $stored instanceof Currency ? $stored : Currency::IndianRupee;
+    /**
+     * Whether a guest may order this right now.
+     */
+    public function isOrderable(): bool
+    {
+        return $this->availability->isOrderable();
     }
 
     /**
      * Limit the query to what a guest may actually order right now.
      *
-     * Both halves matter: an item is orderable only if it is available and its
-     * whole category is showing.
+     * Every level matters: hiding a whole menu has to take its sections, their
+     * subdivisions and all the dishes with it. The sub-category clause is
+     * written as "has none, or has an active one" because the column is
+     * nullable — a plain whereRelation would drop every dish that is not in a
+     * sub-category, which is most of them.
      *
      * @param  Builder<$this>  $query
      */
     public function scopeOrderable(Builder $query): void
     {
-        // The same conditions MenuCategory::scopeActive() and
-        // Menu::scopeActive() apply, stated here against the relations so the
-        // query stays a single statement. All three matter: hiding a whole
-        // menu has to take its sections and their dishes with it.
-        $query->where('is_available', true)
+        $query->whereIn('availability', ItemAvailability::orderableValues())
             ->whereRelation('menuCategory', 'is_active', true)
-            ->whereRelation('menuCategory.menu', 'is_active', true);
+            ->whereRelation('menuCategory.menu', 'is_active', true)
+            ->where(fn (Builder $withinSection): Builder => $withinSection
+                ->whereNull('menu_sub_category_id')
+                ->orWhereRelation('menuSubCategory', 'is_active', true));
     }
 
     /**
@@ -172,6 +219,19 @@ class MenuItem extends Model
     }
 
     /**
+     * Limit the query to the dishes on one menu.
+     *
+     * A dish reaches its menu through its category, so this states that hop
+     * once rather than at each call site.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopeOnMenu(Builder $query, int $menuId): void
+    {
+        $query->whereRelation('menuCategory', 'menu_id', $menuId);
+    }
+
+    /**
      * Limit the query to the dishes one menu leads with.
      *
      * Featuring is a flag on the dish, and a dish reaches its menu through its
@@ -181,8 +241,7 @@ class MenuItem extends Model
      */
     public function scopeFeaturedOnMenu(Builder $query, int $menuId): void
     {
-        $query->where('is_featured', true)
-            ->whereRelation('menuCategory', 'menu_id', $menuId);
+        $query->where('is_featured', true)->onMenu($menuId);
     }
 
     /**
@@ -206,8 +265,10 @@ class MenuItem extends Model
     {
         return [
             'price_minor_units' => 'integer',
+            'strike_price_minor_units' => 'integer',
+            'tax_rate_basis_points' => TaxRate::class,
             'food_type' => FoodType::class,
-            'is_available' => 'boolean',
+            'availability' => ItemAvailability::class,
             'is_featured' => 'boolean',
             'featured_position' => 'integer',
             'position' => 'integer',

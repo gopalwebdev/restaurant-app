@@ -1,24 +1,69 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vite-plus/test';
 
-import Menu from '@/pages/guest/menu';
+import Menu, { type MenuItem } from '@/pages/guest/menu';
 
 const restaurant = { name: 'Spice Garden', slug: 'spice' };
-const menu = { id: 1, name: 'Dinner', description: null };
 const homeUrl = 'http://spice.restaurant-app.test';
+
+const menu = {
+    id: 1,
+    name: 'Dinner',
+    description: null,
+    servedFrom: null,
+    servedUntil: null,
+    isBeingServed: true,
+};
+
+/** The common case: 5% GST added at the bill, and neither charge levied. */
+const charges = {
+    taxRateBasisPoints: 500,
+    pricesIncludeTax: false,
+    serviceChargeBasisPoints: null,
+    parcelChargeMinorUnits: null,
+};
+
+/**
+ * A dish with only what a test cares about spelled out.
+ *
+ * Every field the page needs has a default here, so a test about combos does
+ * not have to describe a price and a diet mark to get one on screen.
+ */
+function dish(overrides: Partial<MenuItem> = {}): MenuItem {
+    return {
+        id: 10,
+        name: 'Paneer Tikka',
+        description: null,
+        priceMinorUnits: 24950,
+        strikePriceMinorUnits: null,
+        foodType: 'vegetarian' as const,
+        additions: [],
+        ...overrides,
+    };
+}
+
+/**
+ * Render the page with everything empty but the parts a test names.
+ */
+function renderMenu(overrides: Partial<Parameters<typeof Menu>[0]> = {}) {
+    return render(
+        <Menu
+            restaurant={restaurant}
+            menu={menu}
+            featured={[]}
+            combos={[]}
+            sections={[]}
+            charges={charges}
+            acceptingOrders
+            homeUrl={homeUrl}
+            {...overrides}
+        />,
+    );
+}
 
 describe('guest menu', () => {
     it('names the menu and says whether the restaurant is taking orders', () => {
-        render(
-            <Menu
-                restaurant={restaurant}
-                menu={menu}
-                featured={[]}
-                sections={[]}
-                acceptingOrders
-                homeUrl={homeUrl}
-            />,
-        );
+        renderMenu();
 
         expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
             'Dinner',
@@ -28,16 +73,7 @@ describe('guest menu', () => {
     });
 
     it('offers a way back to the tiles the guest came in through', () => {
-        render(
-            <Menu
-                restaurant={restaurant}
-                menu={menu}
-                featured={[]}
-                sections={[]}
-                acceptingOrders
-                homeUrl={homeUrl}
-            />,
-        );
+        renderMenu();
 
         expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
             'href',
@@ -46,31 +82,16 @@ describe('guest menu', () => {
     });
 
     it('lists each dish with its price and diet mark', () => {
-        render(
-            <Menu
-                restaurant={restaurant}
-                menu={menu}
-                acceptingOrders
-                homeUrl={homeUrl}
-                featured={[]}
-                sections={[
-                    {
-                        id: 1,
-                        name: 'Starters',
-                        items: [
-                            {
-                                id: 10,
-                                name: 'Paneer Tikka',
-                                description: 'Charred in the tandoor.',
-                                priceMinorUnits: 24950,
-                                foodType: 'vegetarian',
-                                additions: [],
-                            },
-                        ],
-                    },
-                ]}
-            />,
-        );
+        renderMenu({
+            sections: [
+                {
+                    id: 1,
+                    name: 'Starters',
+                    items: [dish({ description: 'Charred in the tandoor.' })],
+                    subSections: [],
+                },
+            ],
+        });
 
         expect(screen.getByText('Starters')).toBeInTheDocument();
         expect(screen.getByText('Paneer Tikka')).toBeInTheDocument();
@@ -83,42 +104,31 @@ describe('guest menu', () => {
     });
 
     it("lists a dish's additions, and names the free ones rather than pricing them", () => {
-        render(
-            <Menu
-                restaurant={restaurant}
-                menu={menu}
-                acceptingOrders
-                homeUrl={homeUrl}
-                featured={[]}
-                sections={[
-                    {
-                        id: 1,
-                        name: 'Starters',
-                        items: [
-                            {
-                                id: 10,
-                                name: 'Paneer Tikka',
-                                description: null,
-                                priceMinorUnits: 24950,
-                                foodType: 'vegetarian',
-                                additions: [
-                                    {
-                                        id: 100,
-                                        name: 'Extra paneer',
-                                        priceMinorUnits: 5000,
-                                    },
-                                    {
-                                        id: 101,
-                                        name: 'Less spicy',
-                                        priceMinorUnits: 0,
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ]}
-            />,
-        );
+        renderMenu({
+            sections: [
+                {
+                    id: 1,
+                    name: 'Starters',
+                    items: [
+                        dish({
+                            additions: [
+                                {
+                                    id: 100,
+                                    name: 'Extra paneer',
+                                    priceMinorUnits: 5000,
+                                },
+                                {
+                                    id: 101,
+                                    name: 'Less spicy',
+                                    priceMinorUnits: 0,
+                                },
+                            ],
+                        }),
+                    ],
+                    subSections: [],
+                },
+            ],
+        });
 
         expect(screen.getByText('Add to this')).toBeInTheDocument();
         expect(screen.getByText(/\+\s*₹?50\.00/)).toBeInTheDocument();
@@ -127,17 +137,176 @@ describe('guest menu', () => {
         expect(screen.queryByText(/₹0\.00/)).not.toBeInTheDocument();
     });
 
+    it('reads a category, then its subdivisions, each under its own heading', () => {
+        renderMenu({
+            sections: [
+                {
+                    id: 1,
+                    name: 'Biryani',
+                    items: [dish({ id: 10, name: 'Plain Biryani' })],
+                    subSections: [
+                        {
+                            id: 5,
+                            name: 'Chicken',
+                            items: [dish({ id: 11, name: 'Chicken Biryani' })],
+                        },
+                        {
+                            id: 6,
+                            name: 'Mutton',
+                            items: [dish({ id: 12, name: 'Mutton Biryani' })],
+                        },
+                    ],
+                },
+            ],
+        });
+
+        expect(screen.getByText('Biryani')).toBeInTheDocument();
+        expect(screen.getByText('Chicken')).toBeInTheDocument();
+        expect(screen.getByText('Mutton')).toBeInTheDocument();
+
+        // The dish filed straight under the category comes before the
+        // subdivisions, which is the order the server sends and the order a
+        // guest reads.
+        const names = screen
+            .getAllByRole('heading', { level: 3 })
+            .map((heading) => heading.textContent);
+
+        expect(names).toEqual(['Plain Biryani', 'Chicken', 'Mutton']);
+
+        // A dish inside a subdivision is a level deeper than one filed
+        // straight under the category, so the nesting survives for anyone
+        // navigating by headings.
+        expect(
+            screen
+                .getAllByRole('heading', { level: 4 })
+                .map((heading) => heading.textContent),
+        ).toEqual(['Chicken Biryani', 'Mutton Biryani']);
+    });
+
+    it('strikes through the old price beside the one being charged', () => {
+        renderMenu({
+            sections: [
+                {
+                    id: 1,
+                    name: 'Starters',
+                    items: [
+                        dish({
+                            priceMinorUnits: 29900,
+                            strikePriceMinorUnits: 36000,
+                        }),
+                    ],
+                    subSections: [],
+                },
+            ],
+        });
+
+        expect(screen.getByText(/299\.00/)).toBeInTheDocument();
+        expect(screen.getByText(/360\.00/)).toHaveClass('line-through');
+    });
+
+    it('shows a combo with what is in it and how many of each', () => {
+        renderMenu({
+            combos: [
+                {
+                    id: 3,
+                    name: 'Family Feast',
+                    description: 'Enough for four.',
+                    priceMinorUnits: 99900,
+                    strikePriceMinorUnits: 120000,
+                    contents: [
+                        {
+                            id: 30,
+                            name: 'Chicken Biryani',
+                            foodType: 'non-vegetarian',
+                            quantity: 2,
+                        },
+                        {
+                            id: 31,
+                            name: 'Raita',
+                            foodType: 'vegetarian',
+                            quantity: 1,
+                        },
+                    ],
+                },
+            ],
+        });
+
+        expect(screen.getByText('Combos')).toBeInTheDocument();
+        expect(screen.getByText('Family Feast')).toBeInTheDocument();
+        expect(screen.getByText('You get')).toBeInTheDocument();
+        // A quantity of one is left unsaid — "1 × Raita" is noise.
+        expect(screen.getByText('2 × Chicken Biryani')).toBeInTheDocument();
+        expect(screen.getByText('Raita')).toBeInTheDocument();
+        expect(screen.getByText(/1,?200\.00/)).toHaveClass('line-through');
+    });
+
+    it('says what the prices do not include before a guest orders', () => {
+        renderMenu({
+            sections: [
+                {
+                    id: 1,
+                    name: 'Starters',
+                    items: [dish()],
+                    subSections: [],
+                },
+            ],
+            charges: {
+                taxRateBasisPoints: 500,
+                pricesIncludeTax: false,
+                serviceChargeBasisPoints: 1000,
+                parcelChargeMinorUnits: 2000,
+            },
+        });
+
+        expect(
+            screen.getByText('Prices exclude GST, charged at 5%.'),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText('A service charge of 10% is added to the bill.'),
+        ).toBeInTheDocument();
+        expect(screen.getByText(/packed for ₹?20\.00/)).toBeInTheDocument();
+    });
+
+    it('leaves out a charge the restaurant does not levy', () => {
+        renderMenu({
+            sections: [
+                { id: 1, name: 'Starters', items: [dish()], subSections: [] },
+            ],
+            charges: {
+                taxRateBasisPoints: 500,
+                pricesIncludeTax: true,
+                serviceChargeBasisPoints: null,
+                parcelChargeMinorUnits: null,
+            },
+        });
+
+        expect(
+            screen.getByText('Prices include GST at 5%.'),
+        ).toBeInTheDocument();
+        expect(screen.queryByText(/service charge/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/packed for/i)).not.toBeInTheDocument();
+    });
+
+    it('says when a timed menu is not being served right now', () => {
+        renderMenu({
+            menu: {
+                ...menu,
+                name: 'Breakfast',
+                // HH:MM, the one shape the server sends whichever driver
+                // stored the time.
+                servedFrom: '07:00',
+                servedUntil: '11:00',
+                isBeingServed: false,
+            },
+        });
+
+        expect(
+            screen.getByText(/Served 07:00 to 11:00.*Not being served/),
+        ).toBeInTheDocument();
+    });
+
     it('says so plainly when there is no menu yet', () => {
-        render(
-            <Menu
-                restaurant={restaurant}
-                menu={menu}
-                featured={[]}
-                sections={[]}
-                acceptingOrders={false}
-                homeUrl={homeUrl}
-            />,
-        );
+        renderMenu({ acceptingOrders: false });
 
         expect(screen.getByText(/not ready yet/i)).toBeInTheDocument();
         expect(screen.getByText('Closed')).toBeInTheDocument();

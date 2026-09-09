@@ -57,6 +57,31 @@ class MenuCategory extends Model
     ];
 
     /**
+     * Take the restaurant from the menu this sits on.
+     *
+     * The same restaurant by definition — the composite foreign key insists on
+     * it — so nothing that creates a category has to remember. Filament's
+     * tenancy stamps the model a *resource* is saving, and categories are no
+     * longer edited through one: they are created by
+     * CategoriesRelationManager on the menu's own page, which writes through
+     * Menu::menuCategories() and so sets only menu_id. Same shape and same
+     * reason as MenuItemAddition::booted() and HomeTile::booted().
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $category): void {
+            if (filled($category->tenant_id) || blank($category->menu_id)) {
+                return;
+            }
+
+            $category->tenant_id = Menu::query()
+                ->withoutGlobalScopes()
+                ->whereKey($category->menu_id)
+                ->value('tenant_id');
+        });
+    }
+
+    /**
      * The restaurant whose menu this belongs to.
      *
      * @return BelongsTo<Restaurant, $this>
@@ -77,13 +102,45 @@ class MenuCategory extends Model
     }
 
     /**
+     * The subdivisions of this category, when it has any.
+     *
+     * Most categories have none. A restaurant subdivides "Biryani" into
+     * Chicken, Mutton and Vegetable only when the category is long enough to
+     * be worth breaking up.
+     *
+     * @return HasMany<MenuSubCategory, $this>
+     */
+    public function subCategories(): HasMany
+    {
+        return $this->hasMany(MenuSubCategory::class);
+    }
+
+    /**
      * The items filed under this category.
+     *
+     * Every dish in the category, including those sitting in one of its
+     * sub-categories — a dish keeps its menu_category_id whether or not it is
+     * subdivided, which is exactly why this relation still answers for the
+     * whole branch.
      *
      * @return HasMany<MenuItem, $this>
      */
     public function menuItems(): HasMany
     {
         return $this->hasMany(MenuItem::class);
+    }
+
+    /**
+     * The items filed straight under this category, not in a sub-category.
+     *
+     * What the guest's menu lists directly beneath the category heading,
+     * above its subdivisions.
+     *
+     * @return HasMany<MenuItem, $this>
+     */
+    public function directMenuItems(): HasMany
+    {
+        return $this->hasMany(MenuItem::class)->whereNull('menu_sub_category_id');
     }
 
     /**

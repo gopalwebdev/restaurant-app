@@ -46,14 +46,26 @@ Staff are React rather than a third Filament panel because they are on phones: `
 
 Keeping guests and staff as the only Inertia surfaces is also what keeps their bundles free of Filament assets. Do not import Filament into either, and do not add a Filament panel for a phone audience.
 
-## The menu is four levels, and a guest lands on tiles rather than on it
-`menus` → `menu_categories` → `menu_items` → `menu_item_additions`. A restaurant that serves one card all day simply keeps one menu; one that serves a different card at lunch has two. Additions are a flat list of extras per dish (name plus a price delta, and zero is a real price — "no onions" costs nothing and is still worth listing). Grouped choices with rules — "pick exactly one size", "up to three toppings" — are a real thing a menu eventually needs and belong in a layer **above** `menu_item_additions`, not inside it.
+## The menu is five levels, and a guest lands on tiles rather than on it
+`menus` → `menu_categories` → `menu_sub_categories` → `menu_items` → `menu_item_additions`. A restaurant that serves one card all day simply keeps one menu; one that serves a different card at lunch has two.
+
+The sub-category level is **optional and shallow on purpose**. A dish is always filed under a category and *may also* sit in one of that category's subdivisions, so a restaurant that never subdivides anything never sees the level at all — `menu_items` keeps a required `menu_category_id` beside a nullable `menu_sub_category_id`. There is deliberately no sub-sub-category: a self-referencing tree brings ordering and cycle problems for a depth no menu has asked for.
+
+Alongside the sections, a menu carries `menu_combos` — bundles sold at one price, each listing existing dishes in `menu_combo_items` with a quantity. A combo hangs off the **menu** rather than a category, because it is something the menu leads with rather than something in a section, and its price is its own: a combo exists precisely because it costs less than the sum of its parts, so nothing derives one from the other.
+
+Additions are a flat list of extras per dish (name plus a price delta, and zero is a real price — "no onions" costs nothing and is still worth listing). Grouped choices with rules — "pick exactly one size", "up to three toppings" — and per-dish variants are a real thing a menu eventually needs and belong in a layer **above** `menu_item_additions`, not inside it. Variants were considered and deliberately left out for now; sizes are modelled as additions until then.
 
 What a guest sees first is `home_rows`, each holding its own `home_tiles`. The **row** owns the layout — `App\Enums\HomeRowLayout` is `Banner` (full-width rectangles), `Carousel` (a swipeable rail of pictures) or `Links` (small circles for Instagram, WhatsApp, a phone number) — and every tile in it is drawn that way, which is why there is no shape column on a tile. The **tile** owns its destination: a menu, an uploaded PDF, or an external link. That is why `/` is the home screen and a menu lives at `/menus/{menu}`.
 
 "Row" and not "section": the panel already calls `menu_categories` sections, and one word for two different things is how a reader ends up on the wrong page.
 
-A menu opens with the dishes the restaurant leads with — `menu_items.is_featured`, ordered by `featured_position` — above its sections. A featured dish still appears under its own section further down, so a guest scrolling finds it where they expect it.
+A menu opens with two rows above its sections: the dishes the restaurant leads with (`menu_items.is_featured`, ordered by `featured_position`) and its combos. A featured dish still appears under its own section further down, so a guest scrolling finds it where they expect it.
+
+Featuring belongs to **one menu**, so a dish that leaves a menu stops being featured — `MoveItemToSection` and `MoveCategoryToMenu` both clear the flag when the move crosses menus, rather than letting a dish appear at the top of a menu nobody chose it for.
+
+Prices carry an optional `strike_price_minor_units` — the higher "was" price shown struck through — which is null on almost every row, because null is how a dish says it is not on offer and a zero would be a price of nothing. It is refused unless it is strictly above what is charged.
+
+Money is not the only tax-relevant thing here: `menu_items` and `menu_item_additions` each carry a nullable GST slab (`tax_rate_basis_points`, cast to `App\Enums\TaxRate`) that falls back to `restaurant_settings.tax_rate_basis_points`, so a restaurant sets 5% once and only genuinely different lines — a sealed bottle taxed as goods rather than as restaurant service — override it. See `.ai/rules/config.md` and the settings page for the global rate, `prices_include_tax`, and the two optional charges.
 
 ## Two languages, English default, and everyone picks their own
 `App\Enums\Locale` has one case per language the app is available in — English and Tamil for now — and is the single source of truth: the cookie middleware validates against it, the toggle is built from it, and every translated column stores one key per case. English is the default, the fallback, and the only language an admin form requires.

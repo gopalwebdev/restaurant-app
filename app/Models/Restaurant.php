@@ -6,6 +6,7 @@ use App\Enums\AdminPanel;
 use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
 use App\Enums\Role as RoleEnum;
+use App\Enums\TaxRate;
 use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -153,11 +154,18 @@ class Restaurant extends Model
      */
     public function roleHolderCount(RoleEnum $role, ?User $excluding = null): int
     {
+        // Read into a local before the closure: `when()`'s condition and its
+        // callback are evaluated separately, so the null check outside does
+        // not reach inside — to a reader or to static analysis.
+        $excludedKey = ($excluding instanceof User && $excluding->exists)
+            ? $excluding->getKey()
+            : null;
+
         return $this->users()
             ->role($role->value)
             ->when(
-                $excluding instanceof User && $excluding->exists,
-                fn (Builder $query): Builder => $query->whereKeyNot($excluding->getKey()),
+                $excludedKey !== null,
+                fn (Builder $query): Builder => $query->whereKeyNot($excludedKey),
             )
             ->count();
     }
@@ -184,6 +192,28 @@ class Restaurant extends Model
             ->value('currency');
 
         return $stored instanceof Currency ? $stored : Currency::IndianRupee;
+    }
+
+    /**
+     * The GST slab this restaurant charges on anything that names no rate.
+     *
+     * Resolved exactly as currency() is, and for the same reason: every dish on
+     * a menu falls back to this one rate, so it is read once for a list rather
+     * than per row, and reaching through $this->settings would be a lazy load.
+     */
+    public function taxRate(): TaxRate
+    {
+        if ($this->relationLoaded('settings')) {
+            $settings = $this->getRelation('settings');
+
+            return $settings instanceof RestaurantSetting ? $settings->taxRate() : TaxRate::default();
+        }
+
+        $stored = RestaurantSetting::query()
+            ->where('tenant_id', $this->getKey())
+            ->value('tax_rate_basis_points');
+
+        return $stored instanceof TaxRate ? $stored : TaxRate::default();
     }
 
     /**

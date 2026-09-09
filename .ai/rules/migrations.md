@@ -29,6 +29,20 @@ DB::statement("CREATE UNIQUE INDEX menus_tenant_id_name_en_unique ON menus (tena
 
 Verified identical on the Postgres of development and the SQLite the test suite runs on. Two ordering rules that follow from it: convert values to JSON text **while the column is still text**, because Postgres will not cast `Starters` to json, and create the index **after** the type change, because changing a column's type rebuilds the table on SQLite and an index built beforehand would not survive it. `translate_menu_names_and_descriptions` does both in that order and its `down()` mirrors them.
 
+## A SQLite table rebuild silently strips an expression index
+SQLite cannot add a foreign key or drop a column with `ALTER TABLE`, so Laravel recreates the whole table and copies the indexes across — reading them from `pragma index_info`, which reports **columns and not expressions**. A unique index on `(menu_category_id, (name ->> 'en'))` therefore comes out the other side as a unique on `menu_category_id` alone, which would let one category hold exactly one dish.
+
+It fails silently, only on SQLite, and SQLite is what the test suite runs on — so the whole suite would start failing in a way that looks nothing like the cause.
+
+Any migration that alters a table carrying an expression index in a way SQLite has to rebuild for — a foreign key, a dropped column, a changed type — must drop and recreate that index from its real definition afterwards, in both `up()` and `down()`. `add_sub_category_to_menu_items_table` and `replace_availability_flag_on_menu_items_table` both do, with the same two statements:
+
+```php
+DB::statement('DROP INDEX IF EXISTS menu_items_menu_category_id_name_en_unique');
+DB::statement("CREATE UNIQUE INDEX menu_items_menu_category_id_name_en_unique ON menu_items (menu_category_id, (name ->> 'en'))");
+```
+
+On Postgres nothing was rebuilt and those are the same index again, which keeps one pair of statements correct on both engines rather than branching on the driver.
+
 ## One migration per table, and walk rows in chunks
 A change that touches two tables is two migrations, each named for the table it touches — `translate_menu_category_names` and `translate_menu_item_names_and_descriptions` are one change split that way. It keeps a rollback surgical and a name honest about what it does.
 

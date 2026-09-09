@@ -30,6 +30,11 @@ class MenuFactory extends Factory
             'description' => null,
             'position' => fake()->numberBetween(0, 20),
             'is_active' => true,
+            // No window by default: most menus are served whenever the
+            // restaurant is open, and servedBetween() is for the ones that are
+            // not.
+            'available_from' => null,
+            'available_until' => null,
         ];
     }
 
@@ -43,6 +48,21 @@ class MenuFactory extends Factory
                 Locale::English->value => $attributes['name'][Locale::English->value],
                 Locale::Tamil->value => 'மெனு '.fake()->unique()->numberBetween(1, 9999),
             ],
+        ]);
+    }
+
+    /**
+     * A menu served only between two times of day.
+     *
+     * Pass them the way they are stored, as HH:MM — "07:00", "11:00" for a
+     * breakfast card. A window running backwards past midnight is allowed and
+     * is read that way; see Menu::isBeingServedAt().
+     */
+    public function servedBetween(string $from, string $until): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'available_from' => $from,
+            'available_until' => $until,
         ]);
     }
 

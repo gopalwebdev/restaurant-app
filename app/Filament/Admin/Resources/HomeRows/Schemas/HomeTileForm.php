@@ -3,7 +3,7 @@
 namespace App\Filament\Admin\Resources\HomeRows\Schemas;
 
 use App\Enums\HomeTileAction;
-use App\Filament\Admin\Resources\MenuCategories\Schemas\MenuCategoryForm;
+use App\Filament\Admin\Resources\Menus\Schemas\MenuCategoryForm;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\HomeTile;
 use App\Models\Restaurant;

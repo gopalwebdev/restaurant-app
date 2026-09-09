@@ -1,11 +1,16 @@
 <?php
 
 use App\Enums\Appearance;
+use App\Enums\ItemAvailability;
 use App\Enums\Locale;
+use App\Enums\TaxRate;
 use App\Models\Menu;
 use App\Models\MenuCategory;
+use App\Models\MenuCombo;
+use App\Models\MenuComboItem;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
+use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Schema;
@@ -256,7 +261,7 @@ it('leaves a sold-out dish out of the featured row', function (): void {
 
     MenuItem::factory()->inCategory($category)->create([
         'is_featured' => true,
-        'is_available' => false,
+        'availability' => ItemAvailability::OutOfStock,
     ]);
     $available = MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
 
@@ -265,5 +270,195 @@ it('leaves a sold-out dish out of the featured row', function (): void {
         ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
             ->has('featured', 1)
             ->where('featured.0.id', $available->getKey()),
+        );
+});
+
+/*
+|--------------------------------------------------------------------------
+| Sub-categories, combos and the small print
+|--------------------------------------------------------------------------
+|
+| The whole menu comes down in one response: categories, their subdivisions,
+| the dishes in each, and the combos the menu leads with.
+|
+*/
+
+it('nests a category\'s subdivisions under it, its own dishes first', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create(['name' => [Locale::English->value => 'Biryani']]);
+
+    $chicken = MenuSubCategory::factory()->inCategory($category)->create([
+        'name' => [Locale::English->value => 'Chicken'],
+        'position' => 0,
+    ]);
+    $mutton = MenuSubCategory::factory()->inCategory($category)->create([
+        'name' => [Locale::English->value => 'Mutton'],
+        'position' => 1,
+    ]);
+
+    $direct = MenuItem::factory()->inCategory($category)->create(['name' => [Locale::English->value => 'Plain Biryani']]);
+    $inChicken = MenuItem::factory()->inSubCategory($chicken)->create();
+    $inMutton = MenuItem::factory()->inSubCategory($mutton)->create();
+
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->has('sections', 1)
+            ->where('sections.0.name', 'Biryani')
+            // The dishes filed straight under the category, and only those.
+            ->has('sections.0.items', 1)
+            ->where('sections.0.items.0.id', $direct->getKey())
+            ->has('sections.0.subSections', 2)
+            ->where('sections.0.subSections.0.name', 'Chicken')
+            ->where('sections.0.subSections.0.items.0.id', $inChicken->getKey())
+            ->where('sections.0.subSections.1.name', 'Mutton')
+            ->where('sections.0.subSections.1.items.0.id', $inMutton->getKey()),
+        );
+});
+
+it('leaves out a hidden sub-category and an empty category entirely', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $hidden = MenuSubCategory::factory()->inCategory($category)->hidden()->create();
+    MenuItem::factory()->inSubCategory($hidden)->create();
+
+    // A category whose only dishes are in a hidden subdivision has nothing
+    // left to read, so it is not sent as an empty heading.
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page->has('sections', 0));
+});
+
+it('sends the combos a menu leads with, in the order they were arranged', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $burger = MenuItem::factory()->inCategory($category)->create(['name' => [Locale::English->value => 'Burger']]);
+
+    $second = MenuCombo::factory()->onMenu($menu)->create([
+        'name' => [Locale::English->value => 'Lunch Box'],
+        'position' => 2,
+    ]);
+    $first = MenuCombo::factory()->onMenu($menu)->discounted()->create([
+        'name' => [Locale::English->value => 'Burger Meal'],
+        'position' => 1,
+    ]);
+    MenuComboItem::factory()->pairing($first, $burger)->quantity(2)->create();
+
+    $soldOut = MenuCombo::factory()->onMenu($menu)->unavailable()->create();
+
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->has('combos', 2)
+            ->where('combos.0.id', $first->getKey())
+            ->where('combos.0.name', 'Burger Meal')
+            ->where('combos.0.strikePriceMinorUnits', $first->strike_price_minor_units)
+            ->has('combos.0.contents', 1)
+            ->where('combos.0.contents.0.name', 'Burger')
+            ->where('combos.0.contents.0.quantity', 2)
+            ->where('combos.1.id', $second->getKey()),
+        )
+        // A combo that cannot be ordered is absent rather than greyed out,
+        // exactly as a sold-out dish is — and there are only two here, so the
+        // count above already says the third was left out.
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('combos.0.id', $first->getKey())
+            ->where('combos.1.id', $second->getKey()));
+
+    expect($soldOut->availability->isOrderable())->toBeFalse();
+});
+
+it('sends a struck-through price only when there is a real offer', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    $onOffer = MenuItem::factory()->inCategory($category)->create([
+        'name' => [Locale::English->value => 'A Discounted'],
+        'price_minor_units' => 29900,
+        'strike_price_minor_units' => 36000,
+        'position' => 0,
+    ]);
+    MenuItem::factory()->inCategory($category)->create([
+        'name' => [Locale::English->value => 'B Plain'],
+        'position' => 1,
+    ]);
+
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('sections.0.items.0.id', $onOffer->getKey())
+            ->where('sections.0.items.0.strikePriceMinorUnits', 36000)
+            // Null rather than the stored value, so the app never has to judge
+            // whether what it was handed is believable.
+            ->where('sections.0.items.1.strikePriceMinorUnits', null),
+        );
+});
+
+it('tells a guest what the prices do not include before they order', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $restaurant->settings->update([
+        'tax_rate_basis_points' => TaxRate::Five,
+        'prices_include_tax' => false,
+        'service_charge_enabled' => true,
+        'service_charge_basis_points' => 1000,
+        'parcel_charge_enabled' => false,
+        'parcel_charge_minor_units' => 2000,
+    ]);
+
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('charges.taxRateBasisPoints', 500)
+            ->where('charges.pricesIncludeTax', false)
+            ->where('charges.serviceChargeBasisPoints', 1000)
+            // A charge that is switched off arrives as null rather than its
+            // amount, so the app has nothing to decide.
+            ->where('charges.parcelChargeMinorUnits', null),
+        );
+});
+
+it('says when a timed menu is being served, and when it is not', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $breakfast = Menu::factory()->servedBetween('07:00', '11:00')->create(['tenant_id' => $restaurant->getKey()]);
+
+    $this->travelTo(now()->setTime(9, 0));
+
+    $this->get(guestMenuUrl($restaurant, $breakfast))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            // HH:MM whichever driver stored it, so the app has one shape.
+            ->where('menu.servedFrom', '07:00')
+            ->where('menu.servedUntil', '11:00')
+            ->where('menu.isBeingServed', true),
+        );
+
+    $this->travelTo(now()->setTime(15, 0));
+
+    // Still served, still readable — a guest looking for the breakfast card at
+    // three should find it rather than conclude the restaurant has none.
+    $this->get(guestMenuUrl($restaurant, $breakfast))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('menu.isBeingServed', false),
+        );
+});
+
+it('sends no service window for a menu that has none', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('menu.servedFrom', null)
+            ->where('menu.servedUntil', null)
+            ->where('menu.isBeingServed', true),
         );
 });

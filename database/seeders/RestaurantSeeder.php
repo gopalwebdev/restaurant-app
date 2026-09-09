@@ -7,14 +7,18 @@ use App\Enums\Currency;
 use App\Enums\FoodType;
 use App\Enums\HomeRowLayout;
 use App\Enums\HomeTileAction;
+use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Enums\Role;
 use App\Models\HomeRow;
 use App\Models\HomeTile;
 use App\Models\Menu;
 use App\Models\MenuCategory;
+use App\Models\MenuCombo;
+use App\Models\MenuComboItem;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
+use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Closure;
@@ -74,6 +78,38 @@ class RestaurantSeeder extends Seeder
      * @var array<string, string>
      */
     public const array DRINKS_MENU_NAME = ['en' => 'Drinks', 'ta' => 'பானங்கள்'];
+
+    /**
+     * The bundles the main menu leads with, beside its featured dishes.
+     *
+     * Priced below what the dishes come to separately, which is the whole
+     * point of a combo — the contents are named so a guest can see what they
+     * are getting, never to be added up.
+     *
+     * @var list<array{
+     *     name: array<string, string>,
+     *     description: array<string, string>,
+     *     price_minor_units: int,
+     *     strike_price_minor_units: int,
+     *     contents: list<array{name: array<string, string>, quantity: int}>
+     * }>
+     */
+    public const array COMBOS = [
+        [
+            'name' => ['en' => 'Biryani Feast', 'ta' => 'பிரியாணி விருந்து'],
+            'description' => [
+                'en' => 'Chicken biryani, a starter and a bread.',
+                'ta' => 'சிக்கன் பிரியாணி, ஒரு தொடக்கம், ஒரு ரொட்டி.',
+            ],
+            'price_minor_units' => 59900,
+            'strike_price_minor_units' => 75900,
+            'contents' => [
+                ['name' => ['en' => 'Hyderabadi Chicken Biryani'], 'quantity' => 1],
+                ['name' => ['en' => 'Chicken 65'], 'quantity' => 1],
+                ['name' => ['en' => 'Butter Naan'], 'quantity' => 2],
+            ],
+        ],
+    ];
 
     /**
      * The starter drinks card.
@@ -143,26 +179,43 @@ class RestaurantSeeder extends Seeder
             ],
         ],
         [
+            // The one subdivided category, so a seeded restaurant shows what
+            // sub-categories are for without every category needing them.
             'name' => ['en' => 'Biryani', 'ta' => 'பிரியாணி'],
             'items' => [
-                [
-                    'name' => ['en' => 'Hyderabadi Chicken Biryani', 'ta' => 'ஹைதராபாதி சிக்கன் பிரியாணி'],
-                    'price_minor_units' => 38000,
-                    'food_type' => FoodType::NonVegetarian,
-                    'additions' => [
-                        ['name' => ['en' => 'Extra raita', 'ta' => 'கூடுதல் ராய்தா'], 'price_minor_units' => 3000],
-                        ['name' => ['en' => 'Boiled egg', 'ta' => 'வேகவைத்த முட்டை'], 'price_minor_units' => 2500],
-                    ],
-                ],
-                [
-                    'name' => ['en' => 'Vegetable Dum Biryani', 'ta' => 'வெஜிடபிள் தம் பிரியாணி'],
-                    'price_minor_units' => 30000,
-                    'food_type' => FoodType::Vegetarian,
-                ],
                 [
                     'name' => ['en' => 'Egg Biryani', 'ta' => 'முட்டை பிரியாணி'],
                     'price_minor_units' => 27500,
                     'food_type' => FoodType::Egg,
+                ],
+            ],
+            'sub_categories' => [
+                [
+                    'name' => ['en' => 'Chicken', 'ta' => 'சிக்கன்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Hyderabadi Chicken Biryani', 'ta' => 'ஹைதராபாதி சிக்கன் பிரியாணி'],
+                            'price_minor_units' => 38000,
+                            // The one dish on offer, so the struck-through
+                            // price has somewhere to show.
+                            'strike_price_minor_units' => 45000,
+                            'food_type' => FoodType::NonVegetarian,
+                            'additions' => [
+                                ['name' => ['en' => 'Extra raita', 'ta' => 'கூடுதல் ராய்தா'], 'price_minor_units' => 3000],
+                                ['name' => ['en' => 'Boiled egg', 'ta' => 'வேகவைத்த முட்டை'], 'price_minor_units' => 2500],
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Vegetable', 'ta' => 'காய்கறி'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Vegetable Dum Biryani', 'ta' => 'வெஜிடபிள் தம் பிரியாணி'],
+                            'price_minor_units' => 30000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
                 ],
             ],
         ],
@@ -281,6 +334,9 @@ class RestaurantSeeder extends Seeder
 
         $this->seedCard($restaurant, $drinks, self::DRINKS);
 
+        // After the card, because a combo names dishes that have to exist.
+        $this->seedCombos($restaurant, $menu);
+
         $this->seedHomeScreen($restaurant, $menu);
     }
 
@@ -300,30 +356,116 @@ class RestaurantSeeder extends Seeder
             );
 
             foreach ($section['items'] as $itemPosition => $item) {
-                $dish = $this->firstOrCreateByEnglishName(
-                    MenuItem::query()->where('menu_category_id', $category->getKey()),
-                    $item['name'],
-                    fn (): MenuItem => new MenuItem([
-                        'price_minor_units' => $item['price_minor_units'],
-                        'food_type' => $item['food_type'],
-                        'is_available' => true,
-                        'position' => $itemPosition,
-                    ]),
+                $this->seedDish($restaurant, $category, $item, $itemPosition);
+            }
+
+            foreach ($section['sub_categories'] ?? [] as $subPosition => $subSection) {
+                $subCategory = $this->firstOrCreateByEnglishName(
+                    MenuSubCategory::query()->where('menu_category_id', $category->getKey()),
+                    $subSection['name'],
+                    fn (): MenuSubCategory => new MenuSubCategory(['position' => $subPosition, 'is_active' => true]),
                     ['tenant_id' => $restaurant->getKey(), 'menu_category_id' => $category->getKey()],
                 );
 
-                foreach ($item['additions'] ?? [] as $additionPosition => $addition) {
-                    $this->firstOrCreateByEnglishName(
-                        MenuItemAddition::query()->where('menu_item_id', $dish->getKey()),
-                        $addition['name'],
-                        fn (): MenuItemAddition => new MenuItemAddition([
-                            'price_minor_units' => $addition['price_minor_units'],
-                            'is_available' => true,
-                            'position' => $additionPosition,
-                        ]),
-                        ['tenant_id' => $restaurant->getKey(), 'menu_item_id' => $dish->getKey()],
-                    );
+                foreach ($subSection['items'] as $itemPosition => $item) {
+                    $this->seedDish($restaurant, $category, $item, $itemPosition, $subCategory);
                 }
+            }
+        }
+    }
+
+    /**
+     * One dish, its offer if it has one, and its additions.
+     *
+     * The sub-category is optional and the category is not, because that is how
+     * a dish is filed: always under a category, and *also* under one of its
+     * subdivisions when the category has been broken up.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function seedDish(
+        Restaurant $restaurant,
+        MenuCategory $category,
+        array $item,
+        int $position,
+        ?MenuSubCategory $subCategory = null,
+    ): void {
+        $dish = $this->firstOrCreateByEnglishName(
+            MenuItem::query()->where('menu_category_id', $category->getKey()),
+            $item['name'],
+            fn (): MenuItem => new MenuItem([
+                'price_minor_units' => $item['price_minor_units'],
+                // Null on almost every dish: not on offer. A zero would be a
+                // price of nothing.
+                'strike_price_minor_units' => $item['strike_price_minor_units'] ?? null,
+                'food_type' => $item['food_type'],
+                'availability' => ItemAvailability::Available,
+                'position' => $position,
+            ]),
+            [
+                'tenant_id' => $restaurant->getKey(),
+                'menu_category_id' => $category->getKey(),
+                'menu_sub_category_id' => $subCategory?->getKey(),
+            ],
+        );
+
+        foreach ($item['additions'] ?? [] as $additionPosition => $addition) {
+            $this->firstOrCreateByEnglishName(
+                MenuItemAddition::query()->where('menu_item_id', $dish->getKey()),
+                $addition['name'],
+                fn (): MenuItemAddition => new MenuItemAddition([
+                    'price_minor_units' => $addition['price_minor_units'],
+                    'is_available' => true,
+                    'position' => $additionPosition,
+                ]),
+                ['tenant_id' => $restaurant->getKey(), 'menu_item_id' => $dish->getKey()],
+            );
+        }
+    }
+
+    /**
+     * The bundles one menu leads with, and what is in each.
+     *
+     * A combo's contents are looked up by the English name of a dish already
+     * seeded onto this menu. A name that finds nothing is skipped rather than
+     * failing the seed: the combo is still a working combo one line shorter,
+     * and a half-seeded database is worse than a slightly smaller one.
+     */
+    private function seedCombos(Restaurant $restaurant, Menu $menu): void
+    {
+        foreach (self::COMBOS as $position => $definition) {
+            $combo = $this->firstOrCreateByEnglishName(
+                MenuCombo::query()->where('menu_id', $menu->getKey()),
+                $definition['name'],
+                fn (): MenuCombo => new MenuCombo([
+                    'description' => $definition['description'],
+                    'price_minor_units' => $definition['price_minor_units'],
+                    'strike_price_minor_units' => $definition['strike_price_minor_units'],
+                    'availability' => ItemAvailability::Available,
+                    'position' => $position,
+                ]),
+                ['tenant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
+            );
+
+            foreach ($definition['contents'] as $contentPosition => $content) {
+                $dish = MenuItem::query()
+                    ->where('tenant_id', $restaurant->getKey())
+                    ->onMenu($menu->getKey())
+                    ->where('name->'.Locale::English->value, $content['name'][Locale::English->value])
+                    ->first();
+
+                if (! $dish instanceof MenuItem) {
+                    continue;
+                }
+
+                MenuComboItem::query()->firstOrCreate(
+                    ['menu_combo_id' => $combo->getKey(), 'menu_item_id' => $dish->getKey()],
+                    [
+                        'tenant_id' => $restaurant->getKey(),
+                        'quantity' => $content['quantity'],
+                        'position' => $contentPosition,
+                    ],
+                );
             }
         }
     }
@@ -365,7 +507,7 @@ class RestaurantSeeder extends Seeder
     /**
      * Find a record by the English half of a translated column, or make it.
      *
-     * @template TModel of Menu|MenuCategory|MenuItem|MenuItemAddition|HomeTile
+     * @template TModel of Menu|MenuCategory|MenuSubCategory|MenuItem|MenuItemAddition|MenuCombo|HomeTile
      *
      * @param  Builder<TModel>  $query  already narrowed to the right parent
      * @param  array<string, string>  $translations  the name in every language

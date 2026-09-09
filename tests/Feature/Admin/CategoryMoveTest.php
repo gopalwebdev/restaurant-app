@@ -2,7 +2,8 @@
 
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\MenuCategories\Pages\ListMenuCategories;
+use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
+use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
@@ -35,7 +36,7 @@ it('moves a category onto another menu, dishes and all', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $lunch, 'pageClass' => EditMenu::class])
         ->callAction(TestAction::make('moveToMenu')->table($category), ['menu_id' => $dinner->getKey()])
         ->assertHasNoActionErrors();
 
@@ -58,7 +59,7 @@ it('refuses a move onto a menu that already has that name', function (): void {
 
     // Uniqueness is per menu and built on the English name, so without this the
     // update would fail at the expression index instead.
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $lunch, 'pageClass' => EditMenu::class])
         ->callAction(TestAction::make('moveToMenu')->table($moving), ['menu_id' => $dinner->getKey()])
         ->assertHasActionErrors(['menu_id']);
 
@@ -76,7 +77,7 @@ it('offers only the menus this category is not already on', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $lunch, 'pageClass' => EditMenu::class])
         ->mountAction(TestAction::make('moveToMenu')->table($category))
         ->assertSchemaComponentExists('menu_id', checkComponentUsing: function ($component) use ($lunch, $dinner, $theirs): bool {
             $offered = array_keys($component->getOptions());
@@ -96,7 +97,7 @@ it('keeps the move away from someone who may only read the menu', function (): v
 
     enterRestaurantPanel($restaurant, RoleEnum::Staff);
 
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
         ->assertActionHidden(TestAction::make('moveToMenu')->table($category));
 });
 
@@ -117,7 +118,7 @@ it('rearranges categories by dragging them', function (): void {
 
     // Filament's own drag and drop hands back the new order of keys; the
     // trigger button only switches the mode it is done in.
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
         ->call('reorderTable', [$second->getKey(), $first->getKey()]);
 
     expect($second->refresh()->position)->toBeLessThan($first->refresh()->position);
@@ -135,7 +136,7 @@ it('keeps rearranging away from someone who may only read the menu', function ()
     // reorderTable() short-circuits on the table not being reorderable, which
     // is the reorder() policy method — see .ai/rules/policies.md. Calling it
     // directly is the check that matters: hiding the button is not a guard.
-    Livewire::test(ListMenuCategories::class)
+    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
         ->call('reorderTable', [$second->getKey(), $first->getKey()]);
 
     expect($first->refresh()->position)->toBe(0)

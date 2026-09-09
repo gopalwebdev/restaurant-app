@@ -12,8 +12,11 @@ use LogicException;
  * restaurant's menus.
  *
  * A restaurant that splits one card into a lunch and a dinner menu wants to
- * carry a whole category across rather than retype it. The dishes come along
- * without being touched: they hang off the category, not off the menu.
+ * carry a whole category across rather than retype it. Its sub-categories and
+ * its dishes come along without being touched: both hang off the category, and
+ * neither carries a menu of its own. That is also why moving a category is the
+ * only way a sub-category ever changes menus — see MoveSubCategoryToCategory,
+ * which is deliberately limited to the categories of one menu.
  *
  * Two guards, both backstops: MenuCategoriesTable states the same rules as
  * validation, so the panel never reaches these. The target menu has to belong
@@ -52,8 +55,19 @@ class MoveCategoryToMenu
             'That menu already has a category with this name.',
         );
 
-        // The dishes under it carry menu_category_id, not menu_id, so they
-        // follow without being rewritten.
+        // The dishes under it, and any sub-categories, carry
+        // menu_category_id rather than menu_id, so they follow without being
+        // rewritten.
         $category->update(['menu_id' => $target->getKey()]);
+
+        // Featuring is per menu — the featured row is "what *this* menu leads
+        // with" — so a dish that has just left a menu cannot still be at the
+        // top of it, and must not silently appear at the top of the one it
+        // arrived on. It stays on the menu under this category; only the
+        // leading-with stops. MoveItemToSection applies the same rule to a
+        // single dish.
+        $category->menuItems()
+            ->where('is_featured', true)
+            ->update(['is_featured' => false, 'featured_position' => 0]);
     }
 }
