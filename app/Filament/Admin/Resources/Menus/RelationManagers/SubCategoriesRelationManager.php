@@ -2,22 +2,15 @@
 
 namespace App\Filament\Admin\Resources\Menus\RelationManagers;
 
-use App\Actions\Menus\MoveSubCategoryToCategory;
-use App\Enums\Locale;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\TranslatedFields;
 use App\Filament\Tables\Reordering;
 use App\Models\Menu;
 use App\Models\MenuCategory;
-use App\Models\MenuSubCategory;
 use BackedEnum;
-use Closure;
-use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
-use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -37,19 +30,21 @@ use LogicException;
  * flat list: the category is the heading, its sub-categories are the rows under
  * it, and dragging reorders them within their own category.
  *
- * The relationship is Menu::menuSubCategories(), a HasManyThrough, because a
- * sub-category reaches its menu through its category and has no menu column of
- * its own. Filament saves a record created against a through-relationship
- * directly rather than via the relation — which is exactly right here, since
- * the form names the category and the composite foreign key does the rest.
+ * The relationship is Menu::subCategories(), a plain hasMany over the rows of
+ * menu_categories that carry a parent. Both levels being one table is what
+ * makes this simple: it was a HasManyThrough over a separate table before, and
+ * that join's ambiguous `id` needed its own reorderTable() override to work
+ * around — gone with the join.
  *
- * Moving one to another category is an action rather than a select on the form,
- * matching how a category moves between menus. It is deliberately limited to
- * the categories of this menu — see MoveSubCategoryToCategory.
+ * There is no "move" action here. A sub-category's parent is the first field on
+ * its own form, and only this menu's top-level categories are offered there —
+ * so re-filing one is an edit, not a second mechanism that has to repeat the
+ * same rules. The form's uniqueness rule is scoped to the chosen parent, so
+ * changing it revalidates the name against where it is going.
  */
 class SubCategoriesRelationManager extends RelationManager
 {
-    protected static string $relationship = 'menuSubCategories';
+    protected static string $relationship = 'subCategories';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedSquares2x2;
 
@@ -61,49 +56,6 @@ class SubCategoriesRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return MenuSubCategoryForm::configure($schema, $this->menu()->getKey());
-    }
-
-    /**
-     * Reorder against the table itself rather than through the relationship.
-     *
-     * Filament reorders by running one UPDATE over `$table->getQuery()`, keyed
-     * on the model's unqualified `id`. That query here is a HasManyThrough, so
-     * it carries a join to menu_categories — and both the `where in (id, ...)`
-     * and the `case when id = ...` it builds become "ambiguous column name: id"
-     * on SQLite and Postgres alike. Dragging a sub-category would 500.
-     *
-     * So the same update is issued against menu_sub_categories on its own, with
-     * the menu named as a plain subquery instead of a join. The reorderable
-     * check stays first and stays exactly what it was: it is the reorder()
-     * policy method, and it is the only thing keeping the drag away from
-     * someone who may only read the menu (.ai/rules/tables.md).
-     *
-     * @param  array<int|string>  $order
-     */
-    public function reorderTable(array $order, int|string|null $draggedRecordKey = null): void
-    {
-        if (! $this->getTable()->isReorderable()) {
-            return;
-        }
-
-        $this->getTable()->callBeforeReordering($order);
-
-        $connection = MenuSubCategory::query()->getModel()->getConnection();
-
-        MenuSubCategory::query()
-            ->whereIn('menu_sub_categories.id', array_values($order))
-            // The tenant boundary the joined query gave for free, restated:
-            // only the sub-categories of this menu's own categories move.
-            ->whereIn('menu_category_id', MenuCategory::query()
-                ->select('id')
-                ->where('menu_id', $this->menu()->getKey()))
-            ->update([
-                'position' => $this->makeTableReorderColumnExpression(
-                    $order,
-                    $connection->getQueryGrammar()->wrap('menu_sub_categories.id'),
-                    $connection,
-                ),
-            ]);
     }
 
     public function table(Table $table): Table
@@ -118,7 +70,7 @@ class SubCategoriesRelationManager extends RelationManager
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'name', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction)),
 
-                TextColumn::make('menuCategory.name')
+                TextColumn::make('parent.name')
                     ->label(__('panel.categories.section'))
                     ->icon(Heroicon::OutlinedRectangleStack)
                     ->badge()
@@ -143,25 +95,35 @@ class SubCategoriesRelationManager extends RelationManager
                 // though SQLite tolerates it. The key, the title and the order
                 // all come from the parent explicitly instead. See
                 // .ai/rules/tables.md.
-                Group::make('menu_category_id')
+                Group::make('parent_id')
                     ->label(__('panel.categories.section'))
-                    ->getTitleFromRecordUsing(fn (MenuSubCategory $record): string => $record->menuCategory->name)
+                    // Every row here has a parent, because the table is scoped
+                    // to the rows that do — but `parent` is nullable on the
+                    // model, so this reads it rather than assuming.
+                    ->getTitleFromRecordUsing(function (MenuCategory $record): string {
+                        $parent = $record->parent;
+
+                        return $parent instanceof MenuCategory ? $parent->name : $record->name;
+                    })
+                    // Ordered by the parent's own position via a correlated
+                    // subquery, aliased because the table appears twice.
                     ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy(
                         MenuCategory::query()
-                            ->select('position')
-                            ->whereColumn('menu_categories.id', 'menu_sub_categories.menu_category_id'),
+                            ->from('menu_categories as parents')
+                            ->select('parents.position')
+                            ->whereColumn('parents.id', 'menu_categories.parent_id'),
                         $direction === 'desc' ? 'desc' : 'asc',
                     )),
             ])
-            ->defaultGroup('menu_category_id')
+            ->defaultGroup('parent_id')
             ->headerActions([
                 CreateAction::make()
                     ->label(__('panel.sub_categories.create'))
                     ->icon(Heroicon::OutlinedPlus)
                     // A sub-category has to go under a category, so there is
                     // nothing useful to do until this menu has one.
-                    ->disabled(fn (): bool => $this->menu()->menuCategories()->doesntExist())
-                    ->tooltip(fn (): ?string => $this->menu()->menuCategories()->exists()
+                    ->disabled(fn (): bool => $this->menu()->categories()->doesntExist())
+                    ->tooltip(fn (): ?string => $this->menu()->categories()->exists()
                         ? null
                         : $this->text('panel.sub_categories.needs_a_category')),
             ])
@@ -169,50 +131,7 @@ class SubCategoriesRelationManager extends RelationManager
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
-                    ->mutateRecordDataUsing(fn (array $data, MenuSubCategory $record): array => MenuSubCategoryForm::fillTranslations($data, $record)),
-
-                Action::make('moveToCategory')
-                    ->label(__('panel.sub_categories.move'))
-                    ->iconButton()
-                    ->icon(Heroicon::OutlinedArrowRightCircle)
-                    ->color('gray')
-                    ->authorize('update')
-                    ->modalHeading(__('panel.sub_categories.move'))
-                    ->modalDescription(__('panel.sub_categories.move_help'))
-                    ->schema([
-                        Select::make('menu_category_id')
-                            ->label(__('panel.sub_categories.move_target'))
-                            ->options(fn (MenuSubCategory $record): array => $this->otherCategories($record))
-                            ->required()
-                            ->native(false)
-                            ->prefixIcon(Heroicon::OutlinedRectangleStack)
-                            // Uniqueness is per category and built on the
-                            // English name, so the clash is caught here rather
-                            // than at the expression index.
-                            ->rule(fn (MenuSubCategory $record): Closure => static function (string $attribute, mixed $value, Closure $fail) use ($record): void {
-                                $taken = MenuSubCategory::query()
-                                    ->where('menu_category_id', $value)
-                                    ->where('name->'.Locale::default()->value, $record->getTranslation('name', Locale::default()->value))
-                                    ->exists();
-
-                                if ($taken) {
-                                    $fail(__('panel.sub_categories.unique'));
-                                }
-                            })
-                            ->helperText(fn (MenuSubCategory $record): ?string => $this->otherCategories($record) === []
-                                ? $this->text('panel.sub_categories.move_none')
-                                : null),
-                    ])
-                    ->action(function (MenuSubCategory $record, array $data): void {
-                        $target = MenuCategory::query()->whereKey($data['menu_category_id'])->firstOrFail();
-
-                        app(MoveSubCategoryToCategory::class)($record, $target);
-
-                        Notification::make()
-                            ->title(__('panel.sub_categories.moved'))
-                            ->success()
-                            ->send();
-                    }),
+                    ->mutateRecordDataUsing(fn (array $data, MenuCategory $record): array => MenuSubCategoryForm::fillTranslations($data, $record)),
 
                 DeleteAction::make()
                     ->iconButton()
@@ -227,7 +146,7 @@ class SubCategoriesRelationManager extends RelationManager
             ->emptyStateIcon(Heroicon::OutlinedSquares2x2)
             // The category each one belongs to is a column and the grouping, so
             // it is loaded once for the page rather than per row.
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('menuCategory'));
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('parent'));
     }
 
     /**
@@ -236,27 +155,11 @@ class SubCategoriesRelationManager extends RelationManager
      * `__()` is typed as string|array|null because a key may hold either, so
      * the call sites with a declared return type check rather than cast.
      */
-    private function text(string $key): ?string
+    private static function text(string $key): ?string
     {
         $text = __($key);
 
         return is_string($text) ? $text : null;
-    }
-
-    /**
-     * The categories of this menu, minus the one it already sits under.
-     *
-     * Only this menu's: a sub-category never changes menus, which is what
-     * MoveSubCategoryToCategory enforces and this offers.
-     *
-     * @return array<int, string>
-     */
-    private function otherCategories(MenuSubCategory $record): array
-    {
-        return array_diff_key(
-            MenuSubCategoryForm::categoryOptions($this->menu()->getKey()),
-            [$record->menu_category_id => null],
-        );
     }
 
     private function menu(): Menu

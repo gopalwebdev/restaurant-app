@@ -6,9 +6,8 @@ use App\Enums\FoodType;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
 use App\Filament\Tables\Reordering;
 use App\Models\Menu;
+use App\Models\MenuCategory;
 use App\Models\MenuItem;
-use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -20,9 +19,10 @@ use Illuminate\Database\Eloquent\Model;
  * The dishes this menu leads with, in the order a guest reads them.
  *
  * Featuring is a flag on the dish rather than a table of its own, so nothing is
- * created or deleted here — a dish is added to the row or taken out of it, and
- * either way it stays on the menu under its own section. That is why this has
- * no create action and no delete: both would mean something else entirely.
+ * created, deleted or featured here — this row exists to be **put in order**,
+ * which is the one thing a dish's own form cannot do. Whether a dish is
+ * featured at all is the `is_featured` toggle on that form; having a second
+ * pair of actions here to set the same flag was two mechanisms for one thing.
  *
  * The relationship is Menu::menuItems(), which reaches dishes through their
  * sections because that is the only path there is; the featured filter is
@@ -37,6 +37,50 @@ class FeaturedItemsRelationManager extends RelationManager
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('panel.items.featured_heading');
+    }
+
+    /**
+     * Reorder against menu_items itself rather than through the relationship.
+     *
+     * Filament reorders by running one UPDATE over `$table->getQuery()`, keyed
+     * on the model's unqualified `id`. This table's query is Menu::menuItems(),
+     * a HasManyThrough, so it carries a join to menu_categories — and both the
+     * `where in (id, ...)` and the `case when id = ...` it builds resolve to
+     * "ambiguous column name: id" on SQLite and Postgres alike. Dragging the
+     * featured row 500s without this.
+     *
+     * So the same update is issued against menu_items on its own, with the menu
+     * named as a plain subquery instead of a join. The reorderable check stays
+     * first and stays exactly what it was: it is the reorder() policy method,
+     * and it is the only thing keeping the drag away from someone who may only
+     * read the menu (.ai/rules/tables.md).
+     *
+     * @param  array<int|string>  $order
+     */
+    public function reorderTable(array $order, int|string|null $draggedRecordKey = null): void
+    {
+        if (! $this->getTable()->isReorderable()) {
+            return;
+        }
+
+        $this->getTable()->callBeforeReordering($order);
+
+        $connection = MenuItem::query()->getModel()->getConnection();
+
+        MenuItem::query()
+            ->whereIn('menu_items.id', array_values($order))
+            // The tenant boundary the joined query gave for free, restated:
+            // only dishes in this menu's own categories move.
+            ->whereIn('menu_category_id', MenuCategory::query()
+                ->select('id')
+                ->where('menu_id', $this->menu()->getKey()))
+            ->update([
+                'featured_position' => $this->makeTableReorderColumnExpression(
+                    $order,
+                    $connection->getQueryGrammar()->wrap('menu_items.id'),
+                    $connection,
+                ),
+            ]);
     }
 
     public function table(Table $table): Table
@@ -66,72 +110,17 @@ class FeaturedItemsRelationManager extends RelationManager
                     ->formatStateUsing(fn (MenuItem $record): string => $record->formattedPrice(MenuItemForm::currency()))
                     ->alignEnd(),
             ])
-            ->headerActions([
-                Action::make('feature')
-                    ->label(__('panel.items.featured_add'))
-                    ->icon(Heroicon::OutlinedStar)
-                    ->schema([
-                        Select::make('menu_item_id')
-                            ->label(__('panel.items.featured_pick'))
-                            ->options(fn (): array => $this->featurableItems())
-                            ->searchable()
-                            ->required(),
-                    ])
-                    ->action(function (array $data): void {
-                        // Scoped to this menu's own dishes, whatever the form
-                        // submits: the options are built from the menu, and so
-                        // is the update that follows.
-                        $this->menu()->menuItems()
-                            ->whereKey($data['menu_item_id'])
-                            ->update([
-                                'is_featured' => true,
-                                'featured_position' => $this->nextFeaturedPosition(),
-                            ]);
-                    }),
-            ])
-            ->recordActions([
-                Action::make('unfeature')
-                    ->label(__('panel.items.featured_remove'))
-                    ->iconButton()
-                    ->icon(Heroicon::OutlinedXMark)
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalDescription(__('panel.items.featured_remove_warning'))
-                    ->action(fn (MenuItem $record) => $record->update(['is_featured' => false])),
-            ])
             ->reorderable('featured_position')
             ->reorderRecordsTriggerAction(Reordering::trigger())
             ->defaultSort('featured_position')
             ->emptyStateHeading(__('panel.items.featured_empty_heading'))
+            // The empty state is the one place that has to say where featuring
+            // happens, because there is no button here to do it with.
             ->emptyStateDescription(__('panel.items.featured_empty_description'))
             ->emptyStateIcon(Heroicon::OutlinedStar)
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->where('is_featured', true)
                 ->with('menuCategory'));
-    }
-
-    /**
-     * The dishes on this menu that are not in the featured row yet.
-     *
-     * @return array<int, string>
-     */
-    private function featurableItems(): array
-    {
-        return $this->menu()->menuItems()
-            ->where('is_featured', false)
-            ->get()
-            ->mapWithKeys(fn (MenuItem $item): array => [$item->getKey() => $item->name])
-            ->all();
-    }
-
-    /**
-     * Put a newly featured dish at the end of the row rather than the front.
-     */
-    private function nextFeaturedPosition(): int
-    {
-        return (int) $this->menu()->menuItems()
-            ->where('is_featured', true)
-            ->max('featured_position') + 1;
     }
 
     private function menu(): Menu

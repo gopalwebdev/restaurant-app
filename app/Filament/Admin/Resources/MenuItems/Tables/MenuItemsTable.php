@@ -2,49 +2,31 @@
 
 namespace App\Filament\Admin\Resources\MenuItems\Tables;
 
-use App\Actions\Menus\MoveItemToSection;
 use App\Enums\FoodType;
 use App\Enums\ItemAvailability;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Admin\Resources\Menus\Schemas\MenuCategoryForm;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
 use App\Filament\Tables\Reordering;
-use App\Models\Menu;
-use App\Models\MenuCategory;
 use App\Models\MenuItem;
-use App\Models\MenuSubCategory;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
-use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 class MenuItemsTable
 {
-    /**
-     * What separates the two halves of a composite group key, and of the
-     * heading built from them.
-     *
-     * A colon cannot appear in an id, so splitting a key is unambiguous.
-     */
-    private const string KEY_SEPARATOR = ':';
-
-    private const string TITLE_SEPARATOR = ' › ';
-
     public static function configure(Table $table): Table
     {
         $currency = PricingFields::currency();
@@ -60,6 +42,22 @@ class MenuItemsTable
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'name', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction))
                     ->description(fn (MenuItem $record): ?string => $record->description),
+
+                TextColumn::make('menuCategory.name')
+                    ->label(__('panel.items.section'))
+                    ->icon(Heroicon::OutlinedRectangleStack)
+                    // The branch, not just the leaf: a subdivision on its own
+                    // says nothing about which section it belongs to.
+                    ->formatStateUsing(fn (MenuItem $record): string => $record->menuCategory->path())
+                    ->badge()
+                    ->color('gray'),
+
+                TextColumn::make('menuCategory.menu.name')
+                    ->label(__('panel.categories.menu'))
+                    ->icon(Heroicon::OutlinedBookOpen)
+                    ->badge()
+                    ->color('gray')
+                    ->toggleable(),
 
                 TextColumn::make('food_type')
                     ->label(__('panel.items.type'))
@@ -117,51 +115,27 @@ class MenuItemsTable
                     ->falseIcon(Heroicon::OutlinedMinusSmall)
                     ->sortable(),
             ])
-            ->groups([
-                // The tree. One group per place a dish can sit — a category, or
-                // one of its sub-categories — so the heading reads
-                // "Biryani › Chicken" and the dishes filed straight under
-                // Biryani get a group of their own above them.
-                //
-                // The key has to be composite because neither column answers on
-                // its own: grouping by menu_sub_category_id alone would sweep
-                // every un-subdivided dish in the restaurant into one null
-                // group, and grouping by menu_category_id alone would flatten
-                // the subdivisions back out. Every piece Filament needs — the
-                // key, the title, the ordering and the way a key is turned back
-                // into a query — is therefore supplied explicitly. The column
-                // name passed to make() is only an identifier here.
-                Group::make('section')
-                    ->label(__('panel.items.section'))
-                    ->getKeyFromRecordUsing(fn (MenuItem $record): string => self::sectionKey(
-                        $record->menu_category_id,
-                        $record->menu_sub_category_id,
-                    ))
-                    ->getTitleFromRecordUsing(fn (MenuItem $record): string => self::sectionTitle($record))
-                    ->scopeQueryByKeyUsing(fn (Builder $query, ?string $key): Builder => self::scopeToSection($query, $key))
-                    ->orderQueryUsing(fn (Builder $query, string $direction): Builder => self::orderBySection($query, $direction)),
-
-                // Grouped on the foreign key rather than the translated name
-                // column: those hold JSON, and Postgres has no ordering
-                // operator for json — grouping or sorting by one 500s there,
-                // even though SQLite (what the tests run against) tolerates it.
-                // See .ai/rules/tables.md.
-                Group::make('menuCategory.menu_id')
-                    ->label(__('panel.categories.menu'))
-                    ->getTitleFromRecordUsing(fn (MenuItem $record): string => $record->menuCategory->menu->name)
-                    ->orderQueryUsing(fn (Builder $query, string $direction): Builder => $query->orderBy(
-                        Menu::query()
-                            ->select('menus.position')
-                            ->join('menu_categories', 'menu_categories.menu_id', '=', 'menus.id')
-                            ->whereColumn('menu_categories.id', 'menu_items.menu_category_id'),
-                        self::direction($direction),
-                    )),
-            ])
-            ->defaultGroup('section')
             ->filters([
+                // A dish reaches its menu through its category, so this filters
+                // on the relationship rather than on a column of its own.
+                SelectFilter::make('menu')
+                    ->label(__('panel.categories.menu'))
+                    ->options(fn (): array => MenuCategoryForm::menuOptions())
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        filled($data['value'] ?? null),
+                        fn (Builder $onMenu): Builder => $onMenu->whereRelation(
+                            'menuCategory',
+                            'menu_id',
+                            $data['value'],
+                        ),
+                    )),
+
                 SelectFilter::make('menu_category_id')
                     ->label(__('panel.items.section'))
-                    ->options(fn (): array => MenuItemForm::sectionOptions()),
+                    // Narrowed to the chosen menu when there is one, so picking
+                    // a menu and then a category reads as one decision rather
+                    // than two lists that repeat each other.
+                    ->options(fn (HasTable $livewire): array => self::sectionOptions($livewire)),
 
                 SelectFilter::make('food_type')
                     ->label(__('panel.items.food_type'))
@@ -188,58 +162,6 @@ class MenuItemsTable
                     ))
                     ->mutateDataUsing(fn (array $data): array => MenuItemForm::storePricing($data)),
 
-                // Refiling a dish is its own action rather than the two selects
-                // on the edit form, so moving twenty dishes into a new
-                // sub-category does not mean opening twenty full forms.
-                Action::make('moveToSection')
-                    ->label(__('panel.items.move'))
-                    ->iconButton()
-                    ->icon(Heroicon::OutlinedArrowRightCircle)
-                    ->color('gray')
-                    ->authorize('update')
-                    ->modalHeading(__('panel.items.move'))
-                    ->fillForm(fn (MenuItem $record): array => [
-                        'menu_category_id' => $record->menu_category_id,
-                        'menu_sub_category_id' => $record->menu_sub_category_id,
-                    ])
-                    ->schema([
-                        Select::make('menu_category_id')
-                            ->label(__('panel.items.section'))
-                            ->options(fn (): array => MenuItemForm::sectionOptions())
-                            ->required()
-                            ->searchable()
-                            ->preload()
-                            ->live()
-                            ->afterStateUpdated(fn (Set $set): mixed => $set('menu_sub_category_id', null))
-                            ->prefixIcon(Heroicon::OutlinedRectangleStack),
-
-                        Select::make('menu_sub_category_id')
-                            ->label(__('panel.sub_categories.label'))
-                            ->options(fn (Get $get): array => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')))
-                            ->searchable()
-                            ->preload()
-                            ->prefixIcon(Heroicon::OutlinedSquares2x2)
-                            ->visible(fn (Get $get): bool => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')) !== [])
-                            ->placeholder(__('panel.items.no_sub_category')),
-                    ])
-                    ->action(function (MenuItem $record, array $data): void {
-                        // firstOrFail() rather than findOrFail(), which is
-                        // typed as returning a model *or* a collection because
-                        // it also accepts an array of keys.
-                        $category = MenuCategory::query()->whereKey($data['menu_category_id'])->firstOrFail();
-
-                        $subCategory = blank($data['menu_sub_category_id'] ?? null)
-                            ? null
-                            : MenuSubCategory::query()->whereKey($data['menu_sub_category_id'])->firstOrFail();
-
-                        app(MoveItemToSection::class)($record, $category, $subCategory);
-
-                        Notification::make()
-                            ->title(__('panel.items.moved'))
-                            ->success()
-                            ->send();
-                    }),
-
                 DeleteAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedTrash)
@@ -250,107 +172,100 @@ class MenuItemsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->reorderable('position')
+            // Dragging is only offered once the table is showing one category,
+            // because Filament turns grouping **off** while reordering
+            // (CanGroupRecords::getTableGrouping() returns null) and sorts by
+            // the reorder column alone. Left ungated, entering drag mode threw
+            // away the tree and produced one flat list of every dish on every
+            // menu — where dropping a dish between two others rewrote a
+            // position that is only ever read within its own category, so the
+            // row sprang back on the next load. There is no grouped drag mode
+            // to switch on; narrowing the table is the whole fix.
+            //
+            // isReorderable() is `column && condition && authorized`, so this
+            // narrows when dragging is offered without touching who may do it —
+            // the reorder() policy check is the separate third term. It also
+            // guards the write: reorderTable() short-circuits on the same call,
+            // so a request that arrives without the filter set does nothing.
+            ->reorderable('position', condition: fn (HasTable $livewire): bool => self::filteredSectionKey($livewire) !== null)
             ->reorderRecordsTriggerAction(Reordering::trigger())
-            ->defaultSort('position')
-            // The category, its menu and the sub-category are all read per row
-            // for the tree headings, so all three are loaded once for the page.
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['menuCategory.menu', 'menuSubCategory']));
+            // Menu, then section, then the order the restaurant dragged the
+            // dishes into. Filament's grouping used to imply this; with the
+            // group gone the query has to say it.
+            ->defaultSort(fn (Builder $query): Builder => self::inMenuOrder($query))
+            // The category, its parent and its menu are all read per row for
+            // the tree headings, so all three are loaded once for the page.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['menuCategory.menu', 'menuCategory.parent']));
     }
 
     /**
-     * Filament's sort direction, narrowed to the two values it ever sends.
+     * The categories the section filter offers.
      *
-     * It arrives as a plain string and is interpolated into raw SQL below, so
-     * this is where it stops being anything else.
+     * Every category in the restaurant, at both levels, unless a menu has been
+     * picked — then only that menu's, because offering the rest would be
+     * offering rows the menu filter has already excluded.
      *
-     * @return 'asc'|'desc'
+     * @return array<int, string>
      */
-    private static function direction(string $direction): string
+    private static function sectionOptions(HasTable $livewire): array
     {
-        return $direction === 'desc' ? 'desc' : 'asc';
+        $menuKey = $livewire->getTableFilterState('menu')['value'] ?? null;
+
+        return filled($menuKey)
+            ? MenuSubCategoryForm::categoryOptionsOnMenu((int) $menuKey)
+            : MenuItemForm::sectionOptions();
     }
 
     /**
-     * The group key for one place on the menu.
+     * Read the list the way a guest reads the menu.
      *
-     * "12:" is the dishes filed straight under category 12, "12:34" the ones in
-     * its sub-category 34.
-     */
-    private static function sectionKey(int $categoryId, ?int $subCategoryId): string
-    {
-        return $categoryId.self::KEY_SEPARATOR.$subCategoryId;
-    }
-
-    /**
-     * The heading over one group: "Biryani", or "Biryani › Chicken".
-     */
-    private static function sectionTitle(MenuItem $record): string
-    {
-        $category = $record->menuCategory->name;
-        $subCategory = $record->menuSubCategory?->name;
-
-        return $subCategory === null
-            ? $category
-            : $category.self::TITLE_SEPARATOR.$subCategory;
-    }
-
-    /**
-     * Narrow a query to one group, from the key above.
+     * Menu, then the section a dish sits under, then a section's own dishes
+     * before its subdivisions', then the order they were dragged into. Grouping
+     * used to imply most of this; with the group gone the query says it.
      *
-     * Filament asks for this when it collapses a group or summarises one, so
-     * the key has to survive the round trip back into SQL. An empty
-     * sub-category half means "filed straight under the category", which is a
-     * null check rather than a comparison — `where(x, null)` matches nothing.
+     * Raw because each rank is a correlated subquery over menu_categories,
+     * which appears twice — once as the dish's own category and once as that
+     * category's parent. Every rank is COALESCEd rather than left null:
+     * Postgres sorts nulls last ascending and SQLite sorts them first, so a
+     * null would put the sections at opposite ends of the list on the two
+     * engines, and the suite runs on SQLite.
      *
      * @param  Builder<MenuItem>  $query
      * @return Builder<MenuItem>
      */
-    private static function scopeToSection(Builder $query, ?string $key): Builder
+    private static function inMenuOrder(Builder $query): Builder
     {
-        if ($key === null) {
-            return $query;
-        }
-
-        [$categoryId, $subCategoryId] = array_pad(explode(self::KEY_SEPARATOR, $key, 2), 2, '');
-
         return $query
-            ->where('menu_category_id', $categoryId)
-            ->when(
-                $subCategoryId === '',
-                fn (Builder $withoutSubCategory): Builder => $withoutSubCategory->whereNull('menu_sub_category_id'),
-                fn (Builder $withSubCategory): Builder => $withSubCategory->where('menu_sub_category_id', $subCategoryId),
-            );
-    }
-
-    /**
-     * Order the groups the way the restaurant arranged the menu.
-     *
-     * Category first, then sub-category, so a category's own dishes head its
-     * branch and its subdivisions follow in their dragged order.
-     *
-     * The sub-category rank is coalesced to -1 rather than left null on
-     * purpose: Postgres sorts nulls last ascending and SQLite sorts them first,
-     * so a null would put the un-subdivided dishes at opposite ends of the
-     * branch on the two engines — and the test suite, which runs on SQLite,
-     * would never see it.
-     *
-     * @param  Builder<MenuItem>  $query
-     * @return Builder<MenuItem>
-     */
-    private static function orderBySection(Builder $query, string $direction): Builder
-    {
-        $direction = self::direction($direction);
-
-        return $query
-            ->orderBy(
-                MenuCategory::query()
-                    ->select('position')
-                    ->whereColumn('menu_categories.id', 'menu_items.menu_category_id'),
-                $direction,
+            ->orderByRaw(
+                '(select menus.position from menus'
+                .' join menu_categories on menu_categories.menu_id = menus.id'
+                .' where menu_categories.id = menu_items.menu_category_id)'
             )
             ->orderByRaw(
-                'coalesce((select position from menu_sub_categories where menu_sub_categories.id = menu_items.menu_sub_category_id), -1) '.$direction,
-            );
+                'coalesce('
+                .'(select parents.position from menu_categories parents'
+                .' join menu_categories own on own.parent_id = parents.id'
+                .' where own.id = menu_items.menu_category_id), '
+                .'(select position from menu_categories where id = menu_items.menu_category_id)'
+                .')'
+            )
+            ->orderByRaw(
+                'coalesce((select case when parent_id is null then -1 else position end'
+                .' from menu_categories where id = menu_items.menu_category_id), -1)'
+            )
+            ->orderBy('position');
+    }
+
+    /**
+     * The category the table is currently narrowed to, if it is narrowed to one.
+     *
+     * Dishes are ordered within their own category, so this is what says whether
+     * dragging can mean anything on screen right now.
+     */
+    private static function filteredSectionKey(HasTable $livewire): ?int
+    {
+        $value = $livewire->getTableFilterState('menu_category_id')['value'] ?? null;
+
+        return filled($value) ? (int) $value : null;
     }
 }

@@ -79,7 +79,7 @@ class MenuCombo extends Model
     /**
      * Take the restaurant from the menu this sits on.
      *
-     * The same reason as MenuSubCategory::booted(): a relation manager writes
+     * The same reason as MenuCategory::booted(): a relation manager writes
      * these rows against a model Filament's tenancy is not stamping.
      */
     protected static function booted(): void

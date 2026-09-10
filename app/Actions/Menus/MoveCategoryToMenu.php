@@ -5,6 +5,8 @@ namespace App\Actions\Menus;
 use App\Enums\Locale;
 use App\Models\Menu;
 use App\Models\MenuCategory;
+use App\Models\MenuItem;
+use Illuminate\Database\Eloquent\Builder;
 use LogicException;
 
 /**
@@ -12,11 +14,12 @@ use LogicException;
  * restaurant's menus.
  *
  * A restaurant that splits one card into a lunch and a dinner menu wants to
- * carry a whole category across rather than retype it. Its sub-categories and
- * its dishes come along without being touched: both hang off the category, and
- * neither carries a menu of its own. That is also why moving a category is the
- * only way a sub-category ever changes menus — see MoveSubCategoryToCategory,
- * which is deliberately limited to the categories of one menu.
+ * carry a whole section across rather than retype it. Its subdivisions follow
+ * by the ON UPDATE CASCADE on the (parent_id, menu_id) key, and the dishes
+ * follow because they hang off a category rather than off a menu.
+ *
+ * This is the only way a subdivision ever changes menus — see
+ * MoveSubCategoryToParent, which is deliberately limited to one menu.
  *
  * Two guards, both backstops: MenuCategoriesTable states the same rules as
  * validation, so the panel never reaches these. The target menu has to belong
@@ -43,9 +46,17 @@ class MoveCategoryToMenu
             'A category may only move to a menu of its own restaurant.',
         );
 
+        throw_if(
+            $category->isSubCategory(),
+            LogicException::class,
+            'A sub-category moves between the categories of its menu, not between menus.',
+        );
+
+        // Uniqueness is per level, so only the target's own sections count.
         $taken = MenuCategory::query()
             ->withoutGlobalScopes()
             ->where('menu_id', $target->getKey())
+            ->whereNull('parent_id')
             ->where('name->'.Locale::default()->value, $category->getTranslation('name', Locale::default()->value))
             ->exists();
 
@@ -55,19 +66,25 @@ class MoveCategoryToMenu
             'That menu already has a category with this name.',
         );
 
-        // The dishes under it, and any sub-categories, carry
-        // menu_category_id rather than menu_id, so they follow without being
-        // rewritten.
+        // The subdivisions under it are carried across by the ON UPDATE
+        // CASCADE on (parent_id, menu_id); the dishes follow because they carry
+        // menu_category_id rather than menu_id.
         $category->update(['menu_id' => $target->getKey()]);
 
         // Featuring is per menu — the featured row is "what *this* menu leads
         // with" — so a dish that has just left a menu cannot still be at the
         // top of it, and must not silently appear at the top of the one it
         // arrived on. It stays on the menu under this category; only the
-        // leading-with stops. MoveItemToSection applies the same rule to a
-        // single dish.
-        $category->menuItems()
+        // leading-with stops. MoveItemToCategory applies the same rule to a
+        // single dish. Every dish in the branch counts, which means the
+        // subdivisions' dishes too — they moved menus just as surely.
+        MenuItem::query()
             ->where('is_featured', true)
+            ->where(fn (Builder $inBranch): Builder => $inBranch
+                ->where('menu_category_id', $category->getKey())
+                ->orWhereIn('menu_category_id', MenuCategory::query()
+                    ->select('id')
+                    ->where('parent_id', $category->getKey())))
             ->update(['is_featured' => false, 'featured_position' => 0]);
     }
 }

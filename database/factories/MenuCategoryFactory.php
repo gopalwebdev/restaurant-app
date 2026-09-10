@@ -33,6 +33,8 @@ class MenuCategoryFactory extends Factory
                 ->create(['tenant_id' => $attributes['tenant_id']])
                 ->getKey(),
             'name' => [Locale::English->value => $name],
+            // Top level unless a state says otherwise: most categories are.
+            'parent_id' => null,
             'position' => fake()->numberBetween(0, 20),
             'is_active' => true,
         ];
@@ -46,6 +48,21 @@ class MenuCategoryFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'menu_id' => $menu->getKey(),
             'tenant_id' => $menu->tenant_id,
+        ]);
+    }
+
+    /**
+     * Make this a subdivision of an existing category, menu and all.
+     *
+     * All three columns together, because a subdivision must sit on the same
+     * menu as its parent — the composite (parent_id, menu_id) key insists on it.
+     */
+    public function under(MenuCategory $parent): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'parent_id' => $parent->getKey(),
+            'menu_id' => $parent->menu_id,
+            'tenant_id' => $parent->tenant_id,
         ]);
     }
 

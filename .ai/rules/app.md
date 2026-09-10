@@ -46,10 +46,12 @@ Staff are React rather than a third Filament panel because they are on phones: `
 
 Keeping guests and staff as the only Inertia surfaces is also what keeps their bundles free of Filament assets. Do not import Filament into either, and do not add a Filament panel for a phone audience.
 
-## The menu is five levels, and a guest lands on tiles rather than on it
-`menus` → `menu_categories` → `menu_sub_categories` → `menu_items` → `menu_item_additions`. A restaurant that serves one card all day simply keeps one menu; one that serves a different card at lunch has two.
+## The menu is four levels, one of which nests once, and a guest lands on tiles
+`menus` → `menu_categories` → `menu_items` → `menu_item_additions`, where `menu_categories` holds **both** levels of section: a row with no `parent_id` is a section of the menu, and one with a parent is a subdivision of that section. A restaurant that serves one card all day simply keeps one menu; one that serves a different card at lunch has two.
 
-The sub-category level is **optional and shallow on purpose**. A dish is always filed under a category and *may also* sit in one of that category's subdivisions, so a restaurant that never subdivides anything never sees the level at all — `menu_items` keeps a required `menu_category_id` beside a nullable `menu_sub_category_id`. There is deliberately no sub-sub-category: a self-referencing tree brings ordering and cycle problems for a depth no menu has asked for.
+Subdividing is optional, and the depth is capped at two. A dish names exactly one category whichever level it sits on, so there is no (category, sub-category) pair to keep consistent — that is the whole reason the two levels share a table. A separate `menu_sub_categories` table was built first and replaced; see `.ai/rules/models.md` for what the merge bought.
+
+There is deliberately no third level. `MenuCategory::booted()` refuses a parent that is itself nested, because no foreign key can express that and arbitrary nesting brings cycle checks and an ordering story nobody has asked for.
 
 Alongside the sections, a menu carries `menu_combos` — bundles sold at one price, each listing existing dishes in `menu_combo_items` with a quantity. A combo hangs off the **menu** rather than a category, because it is something the menu leads with rather than something in a section, and its price is its own: a combo exists precisely because it costs less than the sum of its parts, so nothing derives one from the other.
 
@@ -61,7 +63,9 @@ What a guest sees first is `home_rows`, each holding its own `home_tiles`. The *
 
 A menu opens with two rows above its sections: the dishes the restaurant leads with (`menu_items.is_featured`, ordered by `featured_position`) and its combos. A featured dish still appears under its own section further down, so a guest scrolling finds it where they expect it.
 
-Featuring belongs to **one menu**, so a dish that leaves a menu stops being featured — `MoveItemToSection` and `MoveCategoryToMenu` both clear the flag when the move crosses menus, rather than letting a dish appear at the top of a menu nobody chose it for.
+Every list a guest reads is ordered by `position` within its own parent — sections within a menu, subdivisions within a section, dishes within a category, additions within a dish — and each is dragged into that order in the panel. Nothing is ordered alphabetically, and nothing is ordered across parents.
+
+Featuring belongs to **one menu**, so a dish that leaves a menu stops being featured — `MenuItem::booted()` clears the flag when a dish's category crosses menus, and `MoveCategoryToMenu` clears it for a whole branch, rather than letting a dish appear at the top of a menu nobody chose it for.
 
 Prices carry an optional `compare_at_price_minor_units` — the higher "was" price shown struck through — which is null on almost every row, because null is how a dish says it is not on offer and a zero would be a price of nothing. It is refused unless it is strictly above what is charged. Named for what it is rather than "strike price", which in every other software context means the exercise price of an option.
 

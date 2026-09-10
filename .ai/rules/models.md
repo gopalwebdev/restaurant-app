@@ -34,17 +34,28 @@ The restaurant_user pivot still exists alongside it: tenant_id is the one restau
 The `deleting` hooks deliberately do **not** use those helpers: they call `users()->exists()` / `permissions()->exists()` / `roles()->exists()` directly. A count loaded when a page rendered is right for deciding what to show and wrong for deciding what to destroy.
 
 ## Every level of the menu carries tenant_id, enforced by composite foreign keys
-The menu is five levels — `menus` → `menu_categories` → `menu_sub_categories` → `menu_items` → `menu_item_additions` — plus `menu_combos` and `menu_combo_items` hanging off a menu, and every one of them carries `tenant_id` directly as well as reaching it through its parent. The home screen is two — `home_rows` → `home_tiles` — and does the same, as does a tile for the menu it opens.
+The menu is `menus` → `menu_categories` (both levels of section) → `menu_items` → `menu_item_additions`, plus `menu_combos` and `menu_combo_items` hanging off a menu, and every one of them carries `tenant_id` directly as well as reaching it through its parent. The home screen is two — `home_rows` → `home_tiles` — and does the same, as does a tile for the menu it opens.
 
 That duplication is deliberate and safe: each table has a unique `(id, tenant_id)`, and its child has a **composite** foreign key on `(parent_id, tenant_id)` referencing the pair. Filing a section under another restaurant's menu, a dish under another restaurant's section, or an addition on another restaurant's dish is therefore a database error, not something a forgotten `where()` can let through. Every one of those is pinned by a test in `tests/Feature/Admin/MenuManagementTest.php`.
 
-`menu_items` carries a **second** composite key that is not about tenancy: `(menu_sub_category_id, menu_category_id)` references `menu_sub_categories (id, menu_category_id)`, so a dish can only name a sub-category belonging to the very category it is filed under. A null sub-category means the constraint is not evaluated at all, which is how the majority of dishes — the ones filed straight under a category — pass it.
+## Both levels of section are one table, and that was a deliberate reversal
+`menu_categories.parent_id` is nullable and self-referencing: no parent means a section of the menu, a parent means a subdivision of that section. A `menu_sub_categories` table was built first and replaced by this, and the reasons are worth keeping because the two-table shape looks tidier on paper.
 
-That key is `ON UPDATE CASCADE`, and that is load-bearing rather than decorative: it is what makes moving a sub-category between categories possible at all. A dish stores both halves, so rewriting only the sub-category's own `menu_category_id` would orphan every dish under it, and rewriting the dishes first would do the same in the other direction — there is no order of two statements that is legal at every step. `MoveSubCategoryToCategory` is therefore a single `update()`, and the dishes follow inside it. Do not "fix" that action by adding a second update.
+What the merge bought:
 
-Keep both columns in step when writing rows. The factories exist for exactly this — `MenuCategoryFactory::inMenu()`, `MenuSubCategoryFactory::inCategory()`, `MenuItemFactory::inCategory()` / `::inSubCategory()`, `MenuItemAdditionFactory::onItem()`, `MenuComboFactory::onMenu()`, `MenuComboItemFactory::pairing()`, `HomeTileFactory::inRow()` / `::openingMenu()` — and setting the halves independently trips the key. `MenuItemFactory::inSubCategory()` sets all three columns for that reason.
+- A dish names **one** category, at whichever level. The two-table shape gave `menu_items` a required `menu_category_id` beside a nullable `menu_sub_category_id`, plus a composite key referencing `(id, menu_category_id)` to stop the pair drifting. All of that is simply gone — there is no pair, so there is nothing to police.
+- Moving a subdivision under a different section is one `parent_id` write, and its dishes are untouched because they name the subdivision rather than its parent. Under two tables the dishes carried both halves, so no order of two statements was legal at every step and an `ON UPDATE CASCADE` was needed to make the move possible at all.
+- The sub-categories table in the panel became a plain `hasMany` instead of a `HasManyThrough`, which removed a `reorderTable()` override that existed only to dodge the join's ambiguous `id`.
 
-`MenuCategory`, `MenuSubCategory`, `MenuCombo`, `MenuComboItem`, `MenuItemAddition` and `HomeTile` all derive `tenant_id` from their parent in `booted()`, because Filament's tenancy stamps the model a *resource* is saving but not the rows a repeater or a relation manager writes alongside it. Categories joined that list when they stopped being a resource of their own and moved onto the menu's page.
+What it still guarantees, and how: `(parent_id, menu_id)` is a composite self key referencing `(id, menu_id)`, so a subdivision can never sit under a section on another menu — and being `ON UPDATE CASCADE` is what carries a whole branch across when its section moves menus. `MoveCategoryToMenu` relies on that; do not "fix" it by rewriting the children by hand.
+
+Two levels, no more. `MenuCategory::booted()` refuses a parent that is itself nested and refuses a row as its own parent, because no foreign key can say either.
+
+Uniqueness is per level: the expression index is `(menu_id, COALESCE(parent_id, 0), (name ->> 'en'))`. The COALESCE is load-bearing — a unique index treats NULLs as distinct, so without it every top-level category would escape the constraint entirely.
+
+Keep both columns in step when writing rows. The factories exist for exactly this — `MenuCategoryFactory::inMenu()` / `::under()`, `MenuItemFactory::inCategory()`, `MenuItemAdditionFactory::onItem()`, `MenuComboFactory::onMenu()`, `MenuComboItemFactory::pairing()`, `HomeTileFactory::inRow()` / `::openingMenu()` — and setting the halves independently trips the key. `MenuCategoryFactory::under()` sets `parent_id`, `menu_id` and `tenant_id` together for that reason.
+
+`MenuCategory`, `MenuCombo`, `MenuComboItem`, `MenuItemAddition` and `HomeTile` all derive `tenant_id` from their parent in `booted()`, because Filament's tenancy stamps the model a *resource* is saving but not the rows a repeater or a relation manager writes alongside it. Categories joined that list when they stopped being a resource of their own and moved onto the menu's page.
 
 A booted Filament panel stamps `tenant_id` on **every** model created during the request, so a factory that picks its own restaurant will now trip these keys. Create fixtures before `enterRestaurantPanel()`, or name the parent explicitly.
 

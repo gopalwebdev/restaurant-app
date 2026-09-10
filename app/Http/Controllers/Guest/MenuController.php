@@ -10,7 +10,6 @@ use App\Models\MenuCombo;
 use App\Models\MenuComboItem;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
-use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
 use Inertia\Inertia;
@@ -19,10 +18,12 @@ use Inertia\Response;
 /**
  * One of a restaurant's menus, read at the table.
  *
- * The whole menu comes down together — the categories, their subdivisions, the
+ * The whole menu comes down together — the sections, their subdivisions, the
  * dishes in each and every dish's additions, plus the combos the menu leads
  * with — because that is one screen a guest scrolls, and fetching it in layers
- * would be a round trip per layer for one page. Each query names the columns it
+ * would be a round trip per layer for one page. Both levels of section are rows
+ * of menu_categories, so the subdivisions are simply the `children` of a
+ * top-level one. Each query names the columns it
  * needs, so a long menu does not carry timestamps and foreign keys nobody
  * renders.
  *
@@ -51,33 +52,29 @@ class MenuController extends Controller
 
         $orderable = ItemAvailability::orderableValues();
 
-        $sections = MenuCategory::query()
-            ->select(['id', 'name'])
-            ->where('menu_id', $menu->getKey())
-            ->active()
-            ->with([
-                // The dishes filed straight under the category, above its
-                // subdivisions — a guest reads the general before the specific.
-                'directMenuItems' => fn ($items) => $items
-                    ->select($this->itemColumns())
-                    ->whereIn('availability', $orderable)
-                    ->with(['additions' => fn ($additions) => $additions
-                        ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
-                        ->available()
-                        ->inMenuOrder()])
-                    ->inMenuOrder(),
+        $dishes = fn ($items) => $items
+            ->select($this->itemColumns())
+            ->whereIn('availability', $orderable)
+            ->with(['additions' => fn ($additions) => $additions
+                ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
+                ->available()
+                ->inMenuOrder()])
+            ->inMenuOrder();
 
-                'subCategories' => fn ($subCategories) => $subCategories
-                    ->select(['id', 'menu_category_id', 'name'])
-                    ->active()
-                    ->with(['menuItems' => fn ($items) => $items
-                        ->select($this->itemColumns())
-                        ->whereIn('availability', $orderable)
-                        ->with(['additions' => fn ($additions) => $additions
-                            ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
-                            ->available()
-                            ->inMenuOrder()])
-                        ->inMenuOrder()])
+        $sections = MenuCategory::query()
+            ->select(['id', 'parent_id', 'name'])
+            ->where('menu_id', $menu->getKey())
+            ->topLevel()
+            ->where('is_active', true)
+            ->with([
+                // The dishes filed straight under the section, which are read
+                // above its subdivisions: the general before the specific.
+                'menuItems' => $dishes,
+
+                'children' => fn ($children) => $children
+                    ->select(['id', 'parent_id', 'name'])
+                    ->where('is_active', true)
+                    ->with(['menuItems' => $dishes])
                     ->inMenuOrder(),
             ])
             ->inMenuOrder()
@@ -141,15 +138,15 @@ class MenuController extends Controller
             'sections' => $sections->map(fn (MenuCategory $category): array => [
                 'id' => $category->getKey(),
                 'name' => $category->name,
-                'items' => $category->directMenuItems->map(
+                'items' => $category->menuItems->map(
                     fn (MenuItem $item): array => $this->presentItem($item),
                 )->values()->all(),
-                'subSections' => $category->subCategories
-                    ->filter(fn (MenuSubCategory $subCategory): bool => $subCategory->menuItems->isNotEmpty())
-                    ->map(fn (MenuSubCategory $subCategory): array => [
-                        'id' => $subCategory->getKey(),
-                        'name' => $subCategory->name,
-                        'items' => $subCategory->menuItems->map(
+                'subSections' => $category->children
+                    ->filter(fn (MenuCategory $child): bool => $child->menuItems->isNotEmpty())
+                    ->map(fn (MenuCategory $child): array => [
+                        'id' => $child->getKey(),
+                        'name' => $child->name,
+                        'items' => $child->menuItems->map(
                             fn (MenuItem $item): array => $this->presentItem($item),
                         )->values()->all(),
                     ])->values()->all(),
@@ -163,9 +160,9 @@ class MenuController extends Controller
     /**
      * What every dish on this page is read from.
      *
-     * Both foreign keys are here because Eloquent needs them to attach a dish
-     * to the category or sub-category that loaded it; dropping either would
-     * silently return empty sections.
+     * menu_category_id is here because Eloquent needs it to attach a dish to
+     * the category that loaded it; dropping it would silently return empty
+     * sections.
      *
      * @return list<string>
      */
@@ -174,7 +171,6 @@ class MenuController extends Controller
         return [
             'id',
             'menu_category_id',
-            'menu_sub_category_id',
             'name',
             'description',
             'price_minor_units',
@@ -191,9 +187,9 @@ class MenuController extends Controller
      */
     private function hasAnythingToRead(MenuCategory $category): bool
     {
-        return $category->directMenuItems->isNotEmpty()
-            || $category->subCategories->contains(
-                fn (MenuSubCategory $subCategory): bool => $subCategory->menuItems->isNotEmpty(),
+        return $category->menuItems->isNotEmpty()
+            || $category->children->contains(
+                fn (MenuCategory $child): bool => $child->menuItems->isNotEmpty(),
             );
     }
 

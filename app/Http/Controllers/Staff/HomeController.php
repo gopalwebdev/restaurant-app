@@ -34,7 +34,7 @@ class HomeController extends Controller
             ->select(['id', 'name', 'is_active'])
             ->where('tenant_id', $restaurant->getKey())
             ->with(['menuCategories' => fn ($categories) => $categories
-                ->select(['id', 'menu_id', 'name'])
+                ->select(['id', 'menu_id', 'parent_id', 'name'])
                 ->with(['menuItems' => fn ($items) => $items
                     ->select(['id', 'menu_category_id', 'name', 'price_minor_units', 'food_type', 'availability'])
                     ->with(['additions' => fn ($additions) => $additions

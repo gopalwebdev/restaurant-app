@@ -42,7 +42,7 @@ use LogicException;
  */
 class CategoriesRelationManager extends RelationManager
 {
-    protected static string $relationship = 'menuCategories';
+    protected static string $relationship = 'categories';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedRectangleStack;
 
@@ -70,10 +70,10 @@ class CategoriesRelationManager extends RelationManager
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'name', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction)),
 
-                TextColumn::make('sub_categories_count')
+                TextColumn::make('children_count')
                     ->label(__('panel.sub_categories.plural'))
                     ->icon(Heroicon::OutlinedSquares2x2)
-                    ->counts('subCategories')
+                    ->counts('children')
                     ->sortable(),
 
                 TextColumn::make('menu_items_count')

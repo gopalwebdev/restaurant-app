@@ -7,7 +7,6 @@ use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
-use App\Models\MenuSubCategory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -46,29 +45,14 @@ class MenuItemFactory extends Factory
     }
 
     /**
-     * Put this item on an existing category, and its restaurant with it.
+     * Put this dish under an existing category, at either level, and its
+     * restaurant with it.
      */
     public function inCategory(MenuCategory $category): static
     {
         return $this->state(fn (array $attributes): array => [
             'menu_category_id' => $category->getKey(),
             'tenant_id' => $category->tenant_id,
-        ]);
-    }
-
-    /**
-     * Put this dish in a sub-category, and its category and restaurant with it.
-     *
-     * All three columns together, because menu_items references
-     * menu_sub_categories on the (sub-category, category) pair — setting the
-     * sub-category alone trips the composite key.
-     */
-    public function inSubCategory(MenuSubCategory $subCategory): static
-    {
-        return $this->state(fn (array $attributes): array => [
-            'menu_sub_category_id' => $subCategory->getKey(),
-            'menu_category_id' => $subCategory->menu_category_id,
-            'tenant_id' => $subCategory->tenant_id,
         ]);
     }
 

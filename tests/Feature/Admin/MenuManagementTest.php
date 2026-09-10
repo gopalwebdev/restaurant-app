@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Menus\MoveItemToSection;
 use App\Enums\Currency;
 use App\Enums\FoodType;
 use App\Enums\ItemAvailability;
@@ -18,7 +17,6 @@ use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
-use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -296,7 +294,7 @@ it('groups sub-categories by their category without ordering on the translated j
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    MenuSubCategory::factory()->inCategory($category)->count(2)->create();
+    MenuCategory::factory()->under($category)->count(2)->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
@@ -306,7 +304,7 @@ it('groups sub-categories by their category without ordering on the translated j
         ->getTable()
         ->getDefaultGroup();
 
-    $sql = $group->orderQuery(MenuSubCategory::query(), 'asc')->toSql();
+    $sql = $group->orderQuery(MenuCategory::query(), 'asc')->toSql();
 
     expect($sql)->toContain('position')
         ->and($sql)->not->toContain('name');
@@ -398,27 +396,21 @@ it('formats a price in rupees', function (): void {
     expect($item->formattedPrice())->toBe('₹12.50');
 });
 
-it('groups dishes by their section and by their menu without ordering on json', function (): void {
+it('offers no grouping control on the dishes page', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
-    $category = MenuCategory::factory()->inMenu($menu)->create();
-    MenuItem::factory()->inCategory($category)->count(2)->create();
+    MenuItem::factory()->inCategory(MenuCategory::factory()->inMenu($menu)->create())->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
+    // Grouping was removed rather than fixed: Filament turns it off while
+    // reordering anyway, and a group header only breaks when its title changes
+    // from the previous row — so two sections of the same name on different
+    // menus fragmented into repeated headers. Filters replaced it.
     $table = Livewire::test(ListMenuItems::class)->assertOk()->instance()->getTable();
 
-    $bySection = $table->getDefaultGroup();
-    $sectionSql = $bySection->orderQuery(MenuItem::query(), 'asc')->toSql();
-
-    expect($sectionSql)->toContain('position')
-        ->and($sectionSql)->not->toContain('name');
-
-    $byMenu = $table->getGroup('menuCategory.menu_id');
-    $menuSql = $byMenu->orderQuery(MenuItem::query(), 'asc')->toSql();
-
-    expect($menuSql)->toContain('position')
-        ->and($menuSql)->not->toContain('name');
+    expect($table->getGroups())->toBe([])
+        ->and($table->getDefaultGroup())->toBeNull();
 });
 
 /*
@@ -669,44 +661,83 @@ it('counts an item orderable only when it, its section and its menu are showing'
 |
 */
 
-it('features a dish and puts it at the end of the row', function (): void {
+it('features a dish from its own form', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    $already = MenuItem::factory()->inCategory($category)->create(['is_featured' => true, 'featured_position' => 3]);
-    $next = MenuItem::factory()->inCategory($category)->create();
+    $dish = MenuItem::factory()->inCategory($category)->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // The dish form's Featured toggle is the only place featuring is set. The
+    // menu page's featured row used to carry its own pair of actions for the
+    // same flag; two mechanisms for one thing is what that was.
+    Livewire::test(ListMenuItems::class)
+        ->callAction(TestAction::make('edit')->table($dish), [
+            'menu_category_id' => $category->getKey(),
+            'name' => $dish->getTranslations('name'),
+            'food_type' => $dish->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
+            'is_featured' => true,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($dish->refresh()->is_featured)->toBeTrue();
 
     Livewire::test(FeaturedItemsRelationManager::class, [
         'ownerRecord' => $menu,
         'pageClass' => EditMenu::class,
-    ])
-        ->callAction(TestAction::make('feature')->table(), ['menu_item_id' => $next->getKey()])
-        ->assertHasNoActionErrors();
-
-    expect($next->refresh()->is_featured)->toBeTrue()
-        ->and($next->featured_position)->toBe(4)
-        ->and($already->refresh()->featured_position)->toBe(3);
+    ])->assertCanSeeTableRecords([$dish]);
 });
 
 it('takes a dish out of the featured row without taking it off the menu', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    $item = MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
+    $dish = MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(FeaturedItemsRelationManager::class, [
+    Livewire::test(ListMenuItems::class)
+        ->callAction(TestAction::make('edit')->table($dish), [
+            'menu_category_id' => $category->getKey(),
+            'name' => $dish->getTranslations('name'),
+            'food_type' => $dish->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
+            'is_featured' => false,
+        ])
+        ->assertHasNoActionErrors();
+
+    // Unfeaturing takes a dish out of the row it was led with, and nothing
+    // else: it stays on the menu under its own section.
+    expect($dish->refresh()->is_featured)->toBeFalse()
+        ->and($dish->availability)->toBe(ItemAvailability::Available)
+        ->and($dish->menu_category_id)->toBe($category->getKey());
+});
+
+it('offers no way to feature a dish from the menu page itself', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $dish = MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // The featured row is for putting dishes in order and nothing else, so the
+    // flag has exactly one home.
+    $table = Livewire::test(FeaturedItemsRelationManager::class, [
         'ownerRecord' => $menu,
         'pageClass' => EditMenu::class,
     ])
-        ->callAction(TestAction::make('unfeature')->table($item));
+        ->assertOk()
+        ->instance()
+        ->getTable();
 
-    expect($item->refresh()->is_featured)->toBeFalse()
-        ->and($item->availability)->toBe(ItemAvailability::Available)
-        ->and($item->menu_category_id)->toBe($category->getKey());
+    expect($table->getHeaderActions())->toBe([])
+        ->and($table->getRecordActions())->toBe([])
+        ->and($table->isReorderable())->toBeTrue();
 });
 
 it('shows only the featured dishes of this menu', function (): void {
@@ -881,41 +912,49 @@ it('refiles a dish into a sub-category from the dishes page', function (): void 
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    $chicken = MenuSubCategory::factory()->inCategory($category)->create();
+    $chicken = MenuCategory::factory()->under($category)->create();
     $dish = MenuItem::factory()->inCategory($category)->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
+    // Re-filing is an edit: the dish form's category select offers both levels
+    // of every menu, so there is no second mechanism that has to repeat the
+    // same rules.
     Livewire::test(ListMenuItems::class)
-        ->callAction(TestAction::make('moveToSection')->table($dish), [
-            'menu_category_id' => $category->getKey(),
-            'menu_sub_category_id' => $chicken->getKey(),
+        ->callAction(TestAction::make('edit')->table($dish), [
+            'menu_category_id' => $chicken->getKey(),
+            'name' => $dish->getTranslations('name'),
+            'food_type' => $dish->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasNoActionErrors();
 
-    expect($dish->refresh()->menu_sub_category_id)->toBe($chicken->getKey())
-        ->and($dish->menu_category_id)->toBe($category->getKey());
+    expect($dish->refresh()->menu_category_id)->toBe($chicken->getKey());
 });
 
 it('lifts a dish back out of a sub-category to the category itself', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    $chicken = MenuSubCategory::factory()->inCategory($category)->create();
-    $dish = MenuItem::factory()->inSubCategory($chicken)->create();
+    $chicken = MenuCategory::factory()->under($category)->create();
+    $dish = MenuItem::factory()->inCategory($chicken)->create();
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    // Leaving the sub-category empty is how a dish comes back up a level.
+    // Naming the section is how a dish comes back up a level; there is no
+    // second field to clear.
     Livewire::test(ListMenuItems::class)
-        ->callAction(TestAction::make('moveToSection')->table($dish), [
+        ->callAction(TestAction::make('edit')->table($dish), [
             'menu_category_id' => $category->getKey(),
-            'menu_sub_category_id' => null,
+            'name' => $dish->getTranslations('name'),
+            'food_type' => $dish->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasNoActionErrors();
 
-    expect($dish->refresh()->menu_sub_category_id)->toBeNull()
-        ->and($dish->menu_category_id)->toBe($category->getKey());
+    expect($dish->refresh()->menu_category_id)->toBe($category->getKey());
 });
 
 it('unfeatures a dish carried to another menu, and keeps one that stays', function (): void {
@@ -933,13 +972,28 @@ it('unfeatures a dish carried to another menu, and keeps one that stays', functi
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
     Livewire::test(ListMenuItems::class)
-        ->callAction(TestAction::make('moveToSection')->table($leaving), ['menu_category_id' => $elsewhere->getKey()])
+        ->callAction(TestAction::make('edit')->table($leaving), [
+            'menu_category_id' => $elsewhere->getKey(),
+            'name' => $leaving->getTranslations('name'),
+            'food_type' => $leaving->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
+            'is_featured' => true,
+        ])
         ->assertHasNoActionErrors()
-        ->callAction(TestAction::make('moveToSection')->table($staying), ['menu_category_id' => $sibling->getKey()])
+        ->callAction(TestAction::make('edit')->table($staying), [
+            'menu_category_id' => $sibling->getKey(),
+            'name' => $staying->getTranslations('name'),
+            'food_type' => $staying->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
+            'is_featured' => true,
+        ])
         ->assertHasNoActionErrors();
 
-    // The featured row belongs to a menu, so leaving one drops the feature —
-    // and a dish that only moved within its own menu keeps its place in it.
+    // The rule lives on the model, so it holds however the dish is written —
+    // even when the form has just been told is_featured is true. A dish that
+    // only moved within its own menu keeps its place in the row.
     expect($leaving->refresh()->is_featured)->toBeFalse()
         ->and($leaving->featured_position)->toBe(0)
         ->and($staying->refresh()->is_featured)->toBeTrue()
@@ -955,10 +1009,62 @@ it('refuses to refile a dish under a name the target category already has', func
     $moving = MenuItem::factory()->inCategory($from)->create(['name' => [Locale::English->value => 'Paneer Tikka']]);
     MenuItem::factory()->inCategory($to)->create(['name' => [Locale::English->value => 'Paneer Tikka']]);
 
-    // Uniqueness is per category and built on the English name, so without the
-    // guard the update would fail at the expression index instead.
-    expect(fn () => app(MoveItemToSection::class)($moving, $to))
-        ->toThrow(LogicException::class, 'already has a dish');
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // The form's uniqueness rule is scoped to the category chosen in it, so
+    // changing that select revalidates the name against where the dish is
+    // going — caught here rather than at the expression index.
+    Livewire::test(ListMenuItems::class)
+        ->callAction(TestAction::make('edit')->table($moving), [
+            'menu_category_id' => $to->getKey(),
+            'name' => $moving->getTranslations('name'),
+            'food_type' => $moving->food_type->value,
+            'price' => '100',
+            'availability' => ItemAvailability::Available->value,
+        ])
+        ->assertHasActionErrors(['name.'.Locale::English->value]);
 
     expect($moving->refresh()->menu_category_id)->toBe($from->getKey());
+});
+
+it('rearranges the featured row by dragging it', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    $first = MenuItem::factory()->inCategory($category)->create(['is_featured' => true, 'featured_position' => 1, 'position' => 7]);
+    $second = MenuItem::factory()->inCategory($category)->create(['is_featured' => true, 'featured_position' => 2, 'position' => 7]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // featured_position is its own order, separate from the position that
+    // places a dish inside its section — a dish answers both at once.
+    Livewire::test(FeaturedItemsRelationManager::class, [
+        'ownerRecord' => $menu,
+        'pageClass' => EditMenu::class,
+    ])->call('reorderTable', [$second->getKey(), $first->getKey()]);
+
+    expect($second->refresh()->featured_position)->toBeLessThan($first->refresh()->featured_position)
+        // Dragging the featured row must not disturb where either dish sits
+        // in its own section.
+        ->and($first->position)->toBe($second->position);
+});
+
+it('keeps rearranging the featured row away from someone who may only read the menu', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    $first = MenuItem::factory()->inCategory($category)->create(['is_featured' => true, 'featured_position' => 1]);
+    $second = MenuItem::factory()->inCategory($category)->create(['is_featured' => true, 'featured_position' => 2]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Staff);
+
+    Livewire::test(FeaturedItemsRelationManager::class, [
+        'ownerRecord' => $menu,
+        'pageClass' => EditMenu::class,
+    ])->call('reorderTable', [$second->getKey(), $first->getKey()]);
+
+    expect($first->refresh()->featured_position)->toBe(1)
+        ->and($second->refresh()->featured_position)->toBe(2);
 });

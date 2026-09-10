@@ -10,7 +10,6 @@ use App\Models\MenuCategory;
 use App\Models\MenuCombo;
 use App\Models\MenuComboItem;
 use App\Models\MenuItem;
-use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Livewire\Livewire;
@@ -35,10 +34,10 @@ it('renders every menu page with a full tree on it', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->servedBetween('07:00', '11:00')->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    $sub = MenuSubCategory::factory()->inCategory($category)->create();
+    $sub = MenuCategory::factory()->under($category)->create();
 
     $direct = MenuItem::factory()->inCategory($category)->discounted()->create(['is_featured' => true]);
-    $nested = MenuItem::factory()->inSubCategory($sub)->create();
+    $nested = MenuItem::factory()->inCategory($sub)->create();
 
     $combo = MenuCombo::factory()->onMenu($menu)->discounted()->create();
     MenuComboItem::factory()->pairing($combo, $direct)->quantity(2)->create();

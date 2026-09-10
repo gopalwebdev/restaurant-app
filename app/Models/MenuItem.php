@@ -26,13 +26,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * struck through beside it and is null on almost every dish — see
  * IsPricedOnAMenu.
  *
- * A dish is always filed under a **category**, and optionally under one of that
- * category's **sub-categories**. Both columns are kept because the pair is a
- * composite foreign key into menu_sub_categories (id, menu_category_id), which
- * is what makes it a database error for a dish to sit in a sub-category
- * belonging to some other category. Where the dish appears on the menu is the
- * sub-category when it has one and the category otherwise — `section()` is the
- * one place that decides.
+ * A dish is filed under exactly one category, which may be a section of the
+ * menu or one of that section's subdivisions — MenuCategory holds both in one
+ * table. That is the whole of it: there is no second column and so no pair to
+ * keep consistent.
  *
  * tenant_id is carried directly as well as through the category. That is
  * deliberate — it is the tenant boundary, and a composite foreign key on
@@ -42,9 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property int $tenant_id
  * @property int $menu_category_id
- * @property int|null $menu_sub_category_id
  * @property-read MenuCategory $menuCategory
- * @property-read MenuSubCategory|null $menuSubCategory
  * @property string $name
  * @property string|null $description
  * @property int $price_minor_units
@@ -61,7 +56,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'menu_category_id',
-    'menu_sub_category_id',
     'name',
     'description',
     'price_minor_units',
@@ -98,6 +92,44 @@ class MenuItem extends Model
     ];
 
     /**
+     * A dish that leaves a menu stops being featured on it.
+     *
+     * The featured row is "what *this* menu leads with", so a dish carried to a
+     * category on another menu cannot still be at the top of the one it left —
+     * and must not appear at the top of the one it arrived on without anyone
+     * choosing it there.
+     *
+     * This lives on the model rather than in the form that re-files a dish,
+     * because it has to hold however the dish is written. It used to be in a
+     * MoveItemToCategory action; the action is gone and the rule is not.
+     *
+     * A dish moved *within* its menu keeps its place in the row. Moving a whole
+     * category between menus does not change any dish's menu_category_id, so
+     * this cannot see it — MoveCategoryToMenu unfeatures that branch itself.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function (self $item): void {
+            if (! $item->is_featured || ! $item->isDirty('menu_category_id')) {
+                return;
+            }
+
+            $menus = MenuCategory::query()
+                ->withoutGlobalScopes()
+                ->whereKey([$item->getOriginal('menu_category_id'), $item->menu_category_id])
+                ->pluck('menu_id', 'id');
+
+            $left = $menus[$item->getOriginal('menu_category_id')] ?? null;
+            $arrived = $menus[$item->menu_category_id] ?? null;
+
+            if ($left !== $arrived) {
+                $item->is_featured = false;
+                $item->featured_position = 0;
+            }
+        });
+    }
+
+    /**
      * The restaurant selling this.
      *
      * @return BelongsTo<Restaurant, $this>
@@ -115,16 +147,6 @@ class MenuItem extends Model
     public function menuCategory(): BelongsTo
     {
         return $this->belongsTo(MenuCategory::class);
-    }
-
-    /**
-     * The subdivision of that section, when the category has been subdivided.
-     *
-     * @return BelongsTo<MenuSubCategory, $this>
-     */
-    public function menuSubCategory(): BelongsTo
-    {
-        return $this->belongsTo(MenuSubCategory::class);
     }
 
     /**
@@ -160,26 +182,6 @@ class MenuItem extends Model
     }
 
     /**
-     * Where this dish appears on the menu.
-     *
-     * The sub-category when it has one, the category otherwise — the single
-     * place that rule is stated, so the panel's tree, the guest's menu and the
-     * "move to section" action cannot disagree about where a dish lives.
-     *
-     * Reads loaded relations only; a caller that has not loaded them gets the
-     * category it already holds rather than a lazy load, which
-     * Model::shouldBeStrict() would throw on anyway.
-     */
-    public function section(): MenuCategory|MenuSubCategory
-    {
-        $subCategory = $this->relationLoaded('menuSubCategory')
-            ? $this->getRelation('menuSubCategory')
-            : null;
-
-        return $subCategory instanceof MenuSubCategory ? $subCategory : $this->menuCategory;
-    }
-
-    /**
      * Whether a guest may order this right now.
      */
     public function isOrderable(): bool
@@ -191,10 +193,9 @@ class MenuItem extends Model
      * Limit the query to what a guest may actually order right now.
      *
      * Every level matters: hiding a whole menu has to take its sections, their
-     * subdivisions and all the dishes with it. The sub-category clause is
-     * written as "has none, or has an active one" because the column is
-     * nullable — a plain whereRelation would drop every dish that is not in a
-     * sub-category, which is most of them.
+     * subdivisions and all the dishes with it. The category clause covers both
+     * levels at once, because MenuCategory::scopeActive() already requires a
+     * subdivision's parent to be showing too.
      *
      * @param  Builder<$this>  $query
      */
@@ -203,9 +204,9 @@ class MenuItem extends Model
         $query->whereIn('availability', ItemAvailability::orderableValues())
             ->whereRelation('menuCategory', 'is_active', true)
             ->whereRelation('menuCategory.menu', 'is_active', true)
-            ->where(fn (Builder $withinSection): Builder => $withinSection
-                ->whereNull('menu_sub_category_id')
-                ->orWhereRelation('menuSubCategory', 'is_active', true));
+            ->where(fn (Builder $underAShowingSection): Builder => $underAShowingSection
+                ->whereRelation('menuCategory', 'parent_id', null)
+                ->orWhereRelation('menuCategory.parent', 'is_active', true));
     }
 
     /**

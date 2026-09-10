@@ -71,7 +71,10 @@ class Menu extends Model
     }
 
     /**
-     * The sections of this menu.
+     * Every category on this menu, at both levels.
+     *
+     * Rarely what a caller wants on its own — categories() and subCategories()
+     * below are the two halves anything actually renders.
      *
      * @return HasMany<MenuCategory, $this>
      */
@@ -81,17 +84,23 @@ class Menu extends Model
     }
 
     /**
+     * The sections of this menu: the categories a guest reads down.
+     *
+     * @return HasMany<MenuCategory, $this>
+     */
+    public function categories(): HasMany
+    {
+        return $this->hasMany(MenuCategory::class)->whereNull('parent_id');
+    }
+
+    /**
      * Every subdivision on this menu, whichever category it sits under.
      *
-     * Reached through the categories because that is the only path there is —
-     * a sub-category carries its category and its restaurant, never its menu.
-     * The panel's tree on the menu page reads this.
-     *
-     * @return HasManyThrough<MenuSubCategory, MenuCategory, $this>
+     * @return HasMany<MenuCategory, $this>
      */
-    public function menuSubCategories(): HasManyThrough
+    public function subCategories(): HasMany
     {
-        return $this->hasManyThrough(MenuSubCategory::class, MenuCategory::class);
+        return $this->hasMany(MenuCategory::class)->whereNotNull('parent_id');
     }
 
     /**

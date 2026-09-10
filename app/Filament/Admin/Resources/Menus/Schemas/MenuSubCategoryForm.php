@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\Menus\Schemas;
 
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuCategory;
-use App\Models\MenuSubCategory;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
@@ -16,10 +15,14 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Naming a sub-category and saying which category it subdivides.
  *
- * Unlike MenuCategoryForm this *does* carry its parent select, because the page
- * it lives on is the menu rather than the category — the category is a real
- * choice here, and only the categories of this menu are ever offered. Moving
- * one afterwards is its own action, for the same reason a category's move is.
+ * Both levels are rows of menu_categories, so this form writes the same table
+ * MenuCategoryForm does — it differs only in setting `parent_id`, which is what
+ * makes a row a subdivision.
+ *
+ * Unlike MenuCategoryForm it *does* carry a parent select, because the page it
+ * lives on is the menu rather than the category. Only this menu's top-level
+ * categories are offered. Moving one afterwards is its own action, for the same
+ * reason a category's move is.
  */
 class MenuSubCategoryForm
 {
@@ -43,7 +46,7 @@ class MenuSubCategoryForm
                         // Only this menu's categories, and the composite
                         // foreign key refuses anything else even if the
                         // submitted id is tampered with.
-                        Select::make('menu_category_id')
+                        Select::make('parent_id')
                             ->label(__('panel.categories.section'))
                             ->options(fn (): array => self::categoryOptions($menuId))
                             ->default(fn (): ?int => self::onlyCategoryKey($menuId))
@@ -60,8 +63,8 @@ class MenuSubCategoryForm
                             // Unique within the category, matching the
                             // expression index: two categories of one menu may
                             // each have a "Chicken".
-                            uniqueWithin: fn (Get $get): Builder => MenuSubCategory::query()
-                                ->where('menu_category_id', $get('menu_category_id')),
+                            uniqueWithin: fn (Get $get): Builder => MenuCategory::query()
+                                ->where('parent_id', $get('parent_id')),
                             uniqueMessage: __('panel.sub_categories.unique'),
                         ),
                     ])
@@ -84,7 +87,7 @@ class MenuSubCategoryForm
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public static function fillTranslations(array $data, MenuSubCategory $record): array
+    public static function fillTranslations(array $data, MenuCategory $record): array
     {
         return $record->fillTranslationsInto($data, ...self::TRANSLATED);
     }
@@ -100,11 +103,36 @@ class MenuSubCategoryForm
             return [];
         }
 
+        // Top level only: a menu is two levels deep, so a subdivision can only
+        // ever be filed under a section.
         return MenuCategory::query()
             ->where('menu_id', $menuId)
+            ->topLevel()
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (MenuCategory $category): array => [$category->getKey() => $category->name])
+            ->all();
+    }
+
+    /**
+     * Every category on one menu, at both levels, labelled by its branch.
+     *
+     * For the dishes filter once a menu has been picked: "Biryani" and
+     * "Biryani › Chicken" are both places a dish can sit, and the menu is
+     * already named by the filter beside it.
+     *
+     * @return array<int, string>
+     */
+    public static function categoryOptionsOnMenu(int $menuId): array
+    {
+        return MenuCategory::query()
+            ->where('menu_id', $menuId)
+            ->with('parent')
+            ->inMenuOrder()
+            ->get()
+            ->mapWithKeys(fn (MenuCategory $category): array => [
+                $category->getKey() => $category->path(),
+            ])
             ->all();
     }
 
@@ -119,15 +147,18 @@ class MenuSubCategoryForm
      */
     public static function categoryOptionsForRestaurant(?int $tenantId): array
     {
+        // Both levels, because a dish may be filed at either — labelled with
+        // the menu and, for a subdivision, the section it sits under, so
+        // "Lunch · Biryani › Chicken" reads as one place.
         return MenuCategory::query()
             ->where('tenant_id', $tenantId)
-            ->with('menu')
+            ->with(['menu', 'parent'])
             ->inMenuOrder()
             ->get()
             // menu_id is not nullable and cascades, so a category always has a
             // menu — there is nothing to fall back to here.
             ->mapWithKeys(fn (MenuCategory $category): array => [
-                $category->getKey() => sprintf('%s · %s', $category->menu->name, $category->name),
+                $category->getKey() => sprintf('%s · %s', $category->menu->name, $category->path()),
             ])
             ->all();
     }
@@ -138,22 +169,6 @@ class MenuSubCategoryForm
      *
      * @return array<int, string>
      */
-    public static function subCategoryOptions(mixed $categoryId): array
-    {
-        if (blank($categoryId)) {
-            return [];
-        }
-
-        return MenuSubCategory::query()
-            ->where('menu_category_id', $categoryId)
-            ->inMenuOrder()
-            ->get()
-            ->mapWithKeys(fn (MenuSubCategory $subCategory): array => [
-                $subCategory->getKey() => $subCategory->name,
-            ])
-            ->all();
-    }
-
     /**
      * The category to preselect when the menu has only one to choose.
      */

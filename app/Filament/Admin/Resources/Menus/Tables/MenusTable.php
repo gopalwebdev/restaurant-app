@@ -32,10 +32,13 @@ class MenusTable
                     ->searchable(query: fn (Builder $query, string $search): Builder => TranslatedFields::search($query, 'name', $search))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction)),
 
-                TextColumn::make('menu_categories_count')
+                TextColumn::make('categories_count')
                     ->label(__('panel.menus.sections_count'))
                     ->icon(Heroicon::OutlinedRectangleStack)
-                    ->counts('menuCategories')
+                    // The sections, not their subdivisions: both are rows of
+                    // menu_categories, and only one of them is what a guest
+                    // scrolls past.
+                    ->counts('categories')
                     ->sortable(),
 
                 IconColumn::make('is_active')

@@ -18,7 +18,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Icons\Heroicon;
@@ -45,37 +44,18 @@ class MenuItemForm
                 Section::make(__('panel.items.dish'))
                     ->icon(Heroicon::OutlinedListBullet)
                     ->schema([
-                        // Two selects rather than one flat list of every place
-                        // a dish could go: the category is the choice, and the
-                        // sub-category is a narrowing of it that most
-                        // categories do not offer at all. Only this
-                        // restaurant's categories are listed, and the composite
-                        // foreign keys refuse anything else even if the
-                        // submitted ids are tampered with.
+                        // One select, because a dish is filed under exactly one
+                        // category — a section or one of its subdivisions, both
+                        // offered here as "Lunch · Biryani › Chicken". Only this
+                        // restaurant's are listed, and the composite foreign key
+                        // refuses anything else even if the id is tampered with.
                         Select::make('menu_category_id')
                             ->label(__('panel.items.section'))
                             ->options(fn (): array => self::sectionOptions())
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->live()
-                            // Changing the category invalidates whatever
-                            // sub-category was chosen — it belonged to the old
-                            // one, and the database would refuse the pair.
-                            ->afterStateUpdated(fn (Set $set): mixed => $set('menu_sub_category_id', null))
                             ->prefixIcon(Heroicon::OutlinedRectangleStack),
-
-                        Select::make('menu_sub_category_id')
-                            ->label(__('panel.sub_categories.label'))
-                            ->options(fn (Get $get): array => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')))
-                            ->searchable()
-                            ->preload()
-                            ->prefixIcon(Heroicon::OutlinedSquares2x2)
-                            // Hidden entirely when the chosen category has no
-                            // subdivisions, which is most of them. An empty
-                            // select is a question with no answers.
-                            ->visible(fn (Get $get): bool => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')) !== [])
-                            ->placeholder(__('panel.items.no_sub_category')),
 
                         ...self::spanningFull(TranslatedFields::text(
                             'name',

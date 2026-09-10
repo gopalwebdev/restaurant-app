@@ -9,7 +9,6 @@ use App\Models\MenuCombo;
 use App\Models\MenuComboItem;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
-use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Schema;
@@ -287,18 +286,18 @@ it('nests a category\'s subdivisions under it, its own dishes first', function (
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     $category = MenuCategory::factory()->inMenu($menu)->create(['name' => [Locale::English->value => 'Biryani']]);
 
-    $chicken = MenuSubCategory::factory()->inCategory($category)->create([
+    $chicken = MenuCategory::factory()->under($category)->create([
         'name' => [Locale::English->value => 'Chicken'],
         'position' => 0,
     ]);
-    $mutton = MenuSubCategory::factory()->inCategory($category)->create([
+    $mutton = MenuCategory::factory()->under($category)->create([
         'name' => [Locale::English->value => 'Mutton'],
         'position' => 1,
     ]);
 
     $direct = MenuItem::factory()->inCategory($category)->create(['name' => [Locale::English->value => 'Plain Biryani']]);
-    $inChicken = MenuItem::factory()->inSubCategory($chicken)->create();
-    $inMutton = MenuItem::factory()->inSubCategory($mutton)->create();
+    $inChicken = MenuItem::factory()->inCategory($chicken)->create();
+    $inMutton = MenuItem::factory()->inCategory($mutton)->create();
 
     $this->get(guestMenuUrl($restaurant, $menu))
         ->assertOk()
@@ -321,8 +320,8 @@ it('leaves out a hidden sub-category and an empty category entirely', function (
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     $category = MenuCategory::factory()->inMenu($menu)->create();
-    $hidden = MenuSubCategory::factory()->inCategory($category)->hidden()->create();
-    MenuItem::factory()->inSubCategory($hidden)->create();
+    $hidden = MenuCategory::factory()->under($category)->hidden()->create();
+    MenuItem::factory()->inCategory($hidden)->create();
 
     // A category whose only dishes are in a hidden subdivision has nothing
     // left to read, so it is not sent as an empty heading.
@@ -459,5 +458,84 @@ it('sends no service window for a menu that has none', function (): void {
             ->where('menu.servedFrom', null)
             ->where('menu.servedUntil', null)
             ->where('menu.isBeingServed', true),
+        );
+});
+
+it('sends the menu in the order the restaurant dragged it into', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    // Positions deliberately run against creation order and against
+    // alphabetical, so only the dragged order can produce the result.
+    $second = MenuCategory::factory()->inMenu($menu)->create([
+        'name' => [Locale::English->value => 'A Second'],
+        'position' => 1,
+    ]);
+    $first = MenuCategory::factory()->inMenu($menu)->create([
+        'name' => [Locale::English->value => 'Z First'],
+        'position' => 0,
+    ]);
+
+    $subSecond = MenuCategory::factory()->under($first)->create([
+        'name' => [Locale::English->value => 'A Sub Second'],
+        'position' => 1,
+    ]);
+    $subFirst = MenuCategory::factory()->under($first)->create([
+        'name' => [Locale::English->value => 'Z Sub First'],
+        'position' => 0,
+    ]);
+
+    $dishSecond = MenuItem::factory()->inCategory($first)->create([
+        'name' => [Locale::English->value => 'A Dish Second'],
+        'position' => 1,
+    ]);
+    $dishFirst = MenuItem::factory()->inCategory($first)->create([
+        'name' => [Locale::English->value => 'Z Dish First'],
+        'position' => 0,
+    ]);
+
+    MenuItem::factory()->inCategory($subFirst)->create();
+    MenuItem::factory()->inCategory($subSecond)->create();
+    // A section with nothing in it is left out as an empty heading, so the
+    // second one needs a dish to be in the payload at all.
+    MenuItem::factory()->inCategory($second)->create();
+
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            // Sections in their dragged order.
+            ->where('sections.0.name', 'Z First')
+            ->where('sections.1.name', 'A Second')
+            // A section's own dishes in theirs.
+            ->where('sections.0.items.0.id', $dishFirst->getKey())
+            ->where('sections.0.items.1.id', $dishSecond->getKey())
+            // And its subdivisions in theirs.
+            ->where('sections.0.subSections.0.name', 'Z Sub First')
+            ->where('sections.0.subSections.1.name', 'A Sub Second'),
+        );
+});
+
+it('sends a dish\'s additions in the order they were dragged into', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    $dish = MenuItem::factory()->inCategory($category)->create();
+
+    $second = MenuItemAddition::factory()->onItem($dish)->create([
+        'name' => [Locale::English->value => 'A Second'],
+        'position' => 1,
+    ]);
+    $first = MenuItemAddition::factory()->onItem($dish)->create([
+        'name' => [Locale::English->value => 'Z First'],
+        'position' => 0,
+    ]);
+
+    // Additions are dragged inside the dish that owns them, and a guest reads
+    // them in that order — the same rule as every other list on the menu.
+    $this->get(guestMenuUrl($restaurant, $menu))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('sections.0.items.0.additions.0.id', $first->getKey())
+            ->where('sections.0.items.0.additions.1.id', $second->getKey()),
         );
 });

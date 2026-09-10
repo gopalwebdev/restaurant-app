@@ -142,11 +142,11 @@ class MenuComboForm
 
         return MenuItem::query()
             ->onMenu($menuId)
-            ->with(['menuCategory', 'menuSubCategory'])
+            ->with(['menuCategory.parent'])
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (MenuItem $item): array => [
-                $item->getKey() => sprintf('%s · %s', $item->section()->name, $item->name),
+                $item->getKey() => sprintf('%s · %s', $item->menuCategory->path(), $item->name),
             ])
             ->all();
     }

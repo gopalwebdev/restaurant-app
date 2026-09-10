@@ -18,7 +18,6 @@ use App\Models\MenuCombo;
 use App\Models\MenuComboItem;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
-use App\Models\MenuSubCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Closure;
@@ -80,6 +79,88 @@ class RestaurantSeeder extends Seeder
     public const array DRINKS_MENU_NAME = ['en' => 'Drinks', 'ta' => 'பானங்கள்'];
 
     /**
+     * A third menu, served only between two times of day.
+     *
+     * It exists to make the two things that need somewhere to go actually
+     * testable: a menu with a service window, and a third card to move a
+     * category onto.
+     *
+     * @var array<string, string>
+     */
+    public const array BREAKFAST_MENU_NAME = ['en' => 'Breakfast', 'ta' => 'காலை உணவு'];
+
+    /**
+     * What the breakfast card is served between, as HH:MM.
+     */
+    public const string BREAKFAST_FROM = '07:00';
+
+    public const string BREAKFAST_UNTIL = '11:00';
+
+    /**
+     * The breakfast card: short, and one of its categories is subdivided.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public const array BREAKFAST = [
+        [
+            'name' => ['en' => 'Tiffin', 'ta' => 'டிபன்'],
+            'sub_categories' => [
+                [
+                    'name' => ['en' => 'Dosa', 'ta' => 'தோசை'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Masala Dosa', 'ta' => 'மசாலா தோசை'],
+                            'price_minor_units' => 11000,
+                            'food_type' => FoodType::Vegetarian,
+                            'is_featured' => true,
+                            'featured_position' => 1,
+                            'additions' => [
+                                ['name' => ['en' => 'Extra chutney', 'ta' => 'கூடுதல் சட்னி'], 'price_minor_units' => 1500],
+                                ['name' => ['en' => 'Extra sambar', 'ta' => 'கூடுதல் சாம்பார்'], 'price_minor_units' => 1500],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Ghee Roast', 'ta' => 'நெய் ரோஸ்ட்'],
+                            'price_minor_units' => 13000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Idli and Vada', 'ta' => 'இட்லி மற்றும் வடை'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Idli Plate', 'ta' => 'இட்லி பிளேட்'],
+                            'price_minor_units' => 8000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                        [
+                            'name' => ['en' => 'Medu Vada', 'ta' => 'மெது வடை'],
+                            'price_minor_units' => 7000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Egg Dishes', 'ta' => 'முட்டை உணவுகள்'],
+            'items' => [
+                [
+                    'name' => ['en' => 'Egg Bhurji', 'ta' => 'முட்டை பூர்ஜி'],
+                    'price_minor_units' => 12000,
+                    'food_type' => FoodType::Egg,
+                ],
+                [
+                    'name' => ['en' => 'Omelette', 'ta' => 'ஆம்லெட்'],
+                    'price_minor_units' => 9000,
+                    'food_type' => FoodType::Egg,
+                ],
+            ],
+        ],
+    ];
+
+    /**
      * The bundles the main menu leads with, beside its featured dishes.
      *
      * Priced below what the dishes come to separately, which is the whole
@@ -98,8 +179,8 @@ class RestaurantSeeder extends Seeder
         [
             'name' => ['en' => 'Biryani Feast', 'ta' => 'பிரியாணி விருந்து'],
             'description' => [
-                'en' => 'Chicken biryani, a starter and a bread.',
-                'ta' => 'சிக்கன் பிரியாணி, ஒரு தொடக்கம், ஒரு ரொட்டி.',
+                'en' => 'Chicken biryani, a starter and two breads.',
+                'ta' => 'சிக்கன் பிரியாணி, ஒரு தொடக்கம், இரண்டு ரொட்டிகள்.',
             ],
             'price_minor_units' => 59900,
             'compare_at_price_minor_units' => 75900,
@@ -109,78 +190,236 @@ class RestaurantSeeder extends Seeder
                 ['name' => ['en' => 'Butter Naan'], 'quantity' => 2],
             ],
         ],
+        [
+            'name' => ['en' => 'Veg Thali', 'ta' => 'சைவ தாலி'],
+            'description' => [
+                'en' => 'Paneer butter masala, dal, two breads and a sweet.',
+                'ta' => 'பன்னீர் பட்டர் மசாலா, தால், இரண்டு ரொட்டிகள், ஒரு இனிப்பு.',
+            ],
+            'price_minor_units' => 44900,
+            'compare_at_price_minor_units' => 58800,
+            'contents' => [
+                ['name' => ['en' => 'Paneer Butter Masala'], 'quantity' => 1],
+                ['name' => ['en' => 'Dal Tadka'], 'quantity' => 1],
+                ['name' => ['en' => 'Tandoori Roti'], 'quantity' => 2],
+                ['name' => ['en' => 'Gulab Jamun'], 'quantity' => 1],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Family Pack', 'ta' => 'குடும்பப் பொதி'],
+            'description' => [
+                'en' => 'Enough biryani, curry and bread for four.',
+                'ta' => 'நான்கு பேருக்கு போதுமான பிரியாணி, கிரேவி, ரொட்டி.',
+            ],
+            'price_minor_units' => 129900,
+            'compare_at_price_minor_units' => 159600,
+            'contents' => [
+                ['name' => ['en' => 'Mutton Dum Biryani'], 'quantity' => 2],
+                ['name' => ['en' => 'Butter Chicken'], 'quantity' => 1],
+                ['name' => ['en' => 'Butter Naan'], 'quantity' => 4],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Lunch Box', 'ta' => 'மதிய உணவுப் பெட்டி'],
+            'description' => [
+                'en' => 'One veg biryani and a soup, packed to go.',
+                'ta' => 'ஒரு சைவ பிரியாணி, ஒரு சூப் — பார்சலாக.',
+            ],
+            'price_minor_units' => 39900,
+            'compare_at_price_minor_units' => 44900,
+            'contents' => [
+                ['name' => ['en' => 'Vegetable Dum Biryani'], 'quantity' => 1],
+                ['name' => ['en' => 'Sweet Corn Soup'], 'quantity' => 1],
+            ],
+        ],
     ];
 
-    /**
-     * The starter drinks card.
-     *
-     * @var list<array{
-     *     name: array<string, string>,
-     *     items: list<array{name: array<string, string>, price_minor_units: int, food_type: FoodType}>
-     * }>
-     */
     public const array DRINKS = [
         [
-            'name' => ['en' => 'Hot drinks', 'ta' => 'சூடான பானங்கள்'],
-            'items' => [
-                ['name' => ['en' => 'Filter Coffee', 'ta' => 'பில்டர் காபி'], 'price_minor_units' => 4000, 'food_type' => FoodType::Vegetarian],
-                ['name' => ['en' => 'Masala Chai', 'ta' => 'மசாலா டீ'], 'price_minor_units' => 3500, 'food_type' => FoodType::Vegetarian],
-            ],
-        ],
-        [
-            'name' => ['en' => 'Cold drinks', 'ta' => 'குளிர் பானங்கள்'],
-            'items' => [
-                ['name' => ['en' => 'Fresh Lime Soda', 'ta' => 'எலுமிச்சை சோடா'], 'price_minor_units' => 6000, 'food_type' => FoodType::Vegetarian],
-                ['name' => ['en' => 'Mango Lassi', 'ta' => 'மாம்பழ லஸ்ஸி'], 'price_minor_units' => 9000, 'food_type' => FoodType::Vegetarian],
-            ],
-        ],
-    ];
-
-    /**
-     * The starter menu every seeded restaurant gets.
-     *
-     * Every name is a map of locale to text, exactly as the columns store it.
-     * Additions are the extras a dish can be ordered with, priced in the minor
-     * unit like everything else, and zero is a real price.
-     *
-     * @var list<array{
-     *     name: array<string, string>,
-     *     items: list<array{
-     *         name: array<string, string>,
-     *         price_minor_units: int,
-     *         food_type: FoodType,
-     *         additions?: list<array{name: array<string, string>, price_minor_units: int}>
-     *     }>
-     * }>
-     */
-    public const array MENU = [
-        [
-            'name' => ['en' => 'Starters', 'ta' => 'தொடக்கங்கள்'],
+            'name' => ['en' => 'Hot', 'ta' => 'சூடானவை'],
             'items' => [
                 [
-                    'name' => ['en' => 'Paneer Tikka', 'ta' => 'பன்னீர் டிக்கா'],
-                    'price_minor_units' => 24950,
+                    'name' => ['en' => 'Filter Coffee', 'ta' => 'ஃபில்டர் காபி'],
+                    'price_minor_units' => 5000,
                     'food_type' => FoodType::Vegetarian,
+                    'is_featured' => true,
+                    'featured_position' => 1,
                     'additions' => [
-                        ['name' => ['en' => 'Extra paneer', 'ta' => 'கூடுதல் பன்னீர்'], 'price_minor_units' => 5000],
-                        ['name' => ['en' => 'Less spicy', 'ta' => 'குறைந்த காரம்'], 'price_minor_units' => 0],
+                        ['name' => ['en' => 'Less sugar', 'ta' => 'குறைந்த சர்க்கரை'], 'price_minor_units' => 0],
+                        ['name' => ['en' => 'Extra strong', 'ta' => 'கூடுதல் கடுமையான'], 'price_minor_units' => 1000],
                     ],
                 ],
                 [
-                    'name' => ['en' => 'Gobi Manchurian', 'ta' => 'கோபி மஞ்சூரியன்'],
-                    'price_minor_units' => 21000,
+                    'name' => ['en' => 'Masala Chai', 'ta' => 'மசாலா டீ'],
+                    'price_minor_units' => 4000,
                     'food_type' => FoodType::Vegetarian,
                 ],
                 [
-                    'name' => ['en' => 'Chicken 65', 'ta' => 'சிக்கன் 65'],
-                    'price_minor_units' => 29900,
+                    'name' => ['en' => 'Badam Milk', 'ta' => 'பாதாம் பால்'],
+                    'price_minor_units' => 7000,
+                    'food_type' => FoodType::Vegetarian,
+                ],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Cold', 'ta' => 'குளிர்பானங்கள்'],
+            'sub_categories' => [
+                [
+                    'name' => ['en' => 'Juices', 'ta' => 'பழச்சாறுகள்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Fresh Lime Soda', 'ta' => 'ஃபிரெஷ் லைம் சோடா'],
+                            'price_minor_units' => 8000,
+                            'food_type' => FoodType::Vegetarian,
+                            'additions' => [
+                                ['name' => ['en' => 'Sweet', 'ta' => 'இனிப்பு'], 'price_minor_units' => 0],
+                                ['name' => ['en' => 'Salted', 'ta' => 'உப்பு'], 'price_minor_units' => 0],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Watermelon Juice', 'ta' => 'தர்பூசணி ஜூஸ்'],
+                            'price_minor_units' => 9000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Shakes', 'ta' => 'ஷேக்குகள்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Mango Lassi', 'ta' => 'மாம்பழ லஸ்ஸி'],
+                            'price_minor_units' => 11000,
+                            'compare_at_price_minor_units' => 13000,
+                            'food_type' => FoodType::Vegetarian,
+                            'is_featured' => true,
+                            'featured_position' => 2,
+                        ],
+                        [
+                            'name' => ['en' => 'Cold Coffee', 'ta' => 'கோல்ட் காபி'],
+                            'price_minor_units' => 12000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Bottled', 'ta' => 'பாட்டில்'],
+                    'items' => [
+                        [
+                            // Sealed goods rather than restaurant service, and
+                            // an aerated drink at that — 40% under GST 2.0.
+                            'name' => ['en' => 'Cola', 'ta' => 'கோலா'],
+                            'price_minor_units' => 6000,
+                            'food_type' => FoodType::Vegetarian,
+                            'tax_rate_basis_points' => 4000,
+                        ],
+                        [
+                            'name' => ['en' => 'Mineral Water', 'ta' => 'மினரல் வாட்டர்'],
+                            'price_minor_units' => 2000,
+                            'food_type' => FoodType::Vegetarian,
+                            'tax_rate_basis_points' => 1800,
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    public const array MENU = [
+        [
+            'name' => ['en' => 'Starters', 'ta' => 'தொடக்கங்கள்'],
+            'sub_categories' => [
+                [
+                    'name' => ['en' => 'Vegetarian', 'ta' => 'சைவம்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Paneer Tikka', 'ta' => 'பன்னீர் டிக்கா'],
+                            'price_minor_units' => 24950,
+                            'food_type' => FoodType::Vegetarian,
+                            'is_featured' => true,
+                            'featured_position' => 1,
+                            'additions' => [
+                                ['name' => ['en' => 'Extra paneer', 'ta' => 'கூடுதல் பன்னீர்'], 'price_minor_units' => 5000],
+                                ['name' => ['en' => 'Less spicy', 'ta' => 'குறைந்த காரம்'], 'price_minor_units' => 0],
+                                ['name' => ['en' => 'Extra mint chutney', 'ta' => 'கூடுதல் புதினா சட்னி'], 'price_minor_units' => 2000],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Gobi Manchurian', 'ta' => 'கோபி மஞ்சூரியன்'],
+                            'price_minor_units' => 21000,
+                            'food_type' => FoodType::Vegetarian,
+                            'additions' => [
+                                ['name' => ['en' => 'Make it dry', 'ta' => 'உலர்ந்ததாக'], 'price_minor_units' => 0],
+                                ['name' => ['en' => 'Extra gravy', 'ta' => 'கூடுதல் கிரேவி'], 'price_minor_units' => 3000],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Mushroom 65', 'ta' => 'காளான் 65'],
+                            'price_minor_units' => 23000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Non-vegetarian', 'ta' => 'அசைவம்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Chicken 65', 'ta' => 'சிக்கன் 65'],
+                            'price_minor_units' => 29900,
+                            'compare_at_price_minor_units' => 34900,
+                            'food_type' => FoodType::NonVegetarian,
+                            'is_featured' => true,
+                            'featured_position' => 2,
+                            'additions' => [
+                                ['name' => ['en' => 'Boneless', 'ta' => 'எலும்பு இல்லாமல்'], 'price_minor_units' => 4000],
+                                ['name' => ['en' => 'Extra curry leaves', 'ta' => 'கூடுதல் கறிவேப்பிலை'], 'price_minor_units' => 0],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Apollo Fish', 'ta' => 'அப்பல்லோ மீன்'],
+                            'price_minor_units' => 34900,
+                            'food_type' => FoodType::NonVegetarian,
+                        ],
+                        [
+                            'name' => ['en' => 'Prawn Koliwada', 'ta' => 'இறால் கோலிவாடா'],
+                            'price_minor_units' => 39900,
+                            'food_type' => FoodType::NonVegetarian,
+                            'availability' => ItemAvailability::OutOfStock,
+                        ],
+                        [
+                            'name' => ['en' => 'Egg Pepper Fry', 'ta' => 'முட்டை மிளகு வறுவல்'],
+                            'price_minor_units' => 19900,
+                            'food_type' => FoodType::Egg,
+                        ],
+                    ],
+                ],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Soups', 'ta' => 'சூப்புகள்'],
+            'items' => [
+                [
+                    'name' => ['en' => 'Sweet Corn Soup', 'ta' => 'ஸ்வீட் கார்ன் சூப்'],
+                    'price_minor_units' => 14900,
+                    'food_type' => FoodType::Vegetarian,
+                ],
+                [
+                    'name' => ['en' => 'Hot and Sour Soup', 'ta' => 'ஹாட் அண்ட் சார் சூப்'],
+                    'price_minor_units' => 15900,
+                    'food_type' => FoodType::Vegetarian,
+                    'additions' => [
+                        ['name' => ['en' => 'Add chicken', 'ta' => 'சிக்கன் சேர்க்க'], 'price_minor_units' => 5000],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Mutton Paya Soup', 'ta' => 'மட்டன் பாயா சூப்'],
+                    'price_minor_units' => 21900,
                     'food_type' => FoodType::NonVegetarian,
                 ],
             ],
         ],
         [
-            // The one subdivided category, so a seeded restaurant shows what
-            // sub-categories are for without every category needing them.
+            // The category that shows what subdivisions are for: three of them,
+            // each with dishes, plus one dish filed straight under the section.
             'name' => ['en' => 'Biryani', 'ta' => 'பிரியாணி'],
             'items' => [
                 [
@@ -196,14 +435,40 @@ class RestaurantSeeder extends Seeder
                         [
                             'name' => ['en' => 'Hyderabadi Chicken Biryani', 'ta' => 'ஹைதராபாதி சிக்கன் பிரியாணி'],
                             'price_minor_units' => 38000,
-                            // The one dish on offer, so the struck-through
-                            // price has somewhere to show.
                             'compare_at_price_minor_units' => 45000,
                             'food_type' => FoodType::NonVegetarian,
+                            'is_featured' => true,
+                            'featured_position' => 3,
                             'additions' => [
                                 ['name' => ['en' => 'Extra raita', 'ta' => 'கூடுதல் ராய்தா'], 'price_minor_units' => 3000],
                                 ['name' => ['en' => 'Boiled egg', 'ta' => 'வேகவைத்த முட்டை'], 'price_minor_units' => 2500],
+                                ['name' => ['en' => 'Extra gravy', 'ta' => 'கூடுதல் கிரேவி'], 'price_minor_units' => 3500],
+                                ['name' => ['en' => 'No raita', 'ta' => 'ராய்தா வேண்டாம்'], 'price_minor_units' => 0],
                             ],
+                        ],
+                        [
+                            'name' => ['en' => 'Chicken 65 Biryani', 'ta' => 'சிக்கன் 65 பிரியாணி'],
+                            'price_minor_units' => 41000,
+                            'food_type' => FoodType::NonVegetarian,
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Mutton', 'ta' => 'மட்டன்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Mutton Dum Biryani', 'ta' => 'மட்டன் தம் பிரியாணி'],
+                            'price_minor_units' => 46000,
+                            'food_type' => FoodType::NonVegetarian,
+                            'additions' => [
+                                ['name' => ['en' => 'Extra mutton', 'ta' => 'கூடுதல் மட்டன்'], 'price_minor_units' => 12000],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Mutton Keema Biryani', 'ta' => 'மட்டன் கீமா பிரியாணி'],
+                            'price_minor_units' => 44000,
+                            'food_type' => FoodType::NonVegetarian,
+                            'availability' => ItemAvailability::TemporarilyUnavailable,
                         ],
                     ],
                 ],
@@ -214,6 +479,56 @@ class RestaurantSeeder extends Seeder
                             'name' => ['en' => 'Vegetable Dum Biryani', 'ta' => 'வெஜிடபிள் தம் பிரியாணி'],
                             'price_minor_units' => 30000,
                             'food_type' => FoodType::Vegetarian,
+                        ],
+                        [
+                            'name' => ['en' => 'Paneer Biryani', 'ta' => 'பன்னீர் பிரியாணி'],
+                            'price_minor_units' => 33000,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+            ],
+        ],
+        [
+            'name' => ['en' => 'Curries', 'ta' => 'கிரேவிகள்'],
+            'sub_categories' => [
+                [
+                    'name' => ['en' => 'Vegetarian', 'ta' => 'சைவம்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Paneer Butter Masala', 'ta' => 'பன்னீர் பட்டர் மசாலா'],
+                            'price_minor_units' => 28900,
+                            'food_type' => FoodType::Vegetarian,
+                            'additions' => [
+                                ['name' => ['en' => 'Extra butter', 'ta' => 'கூடுதல் வெண்ணெய்'], 'price_minor_units' => 2000],
+                            ],
+                        ],
+                        [
+                            'name' => ['en' => 'Dal Tadka', 'ta' => 'தால் தட்கா'],
+                            'price_minor_units' => 21900,
+                            'food_type' => FoodType::Vegetarian,
+                        ],
+                    ],
+                ],
+                [
+                    'name' => ['en' => 'Non-vegetarian', 'ta' => 'அசைவம்'],
+                    'items' => [
+                        [
+                            'name' => ['en' => 'Butter Chicken', 'ta' => 'பட்டர் சிக்கன்'],
+                            'price_minor_units' => 36900,
+                            'food_type' => FoodType::NonVegetarian,
+                            'is_featured' => true,
+                            'featured_position' => 4,
+                        ],
+                        [
+                            'name' => ['en' => 'Chettinad Chicken', 'ta' => 'செட்டிநாடு சிக்கன்'],
+                            'price_minor_units' => 35900,
+                            'food_type' => FoodType::NonVegetarian,
+                        ],
+                        [
+                            'name' => ['en' => 'Mutton Rogan Josh', 'ta' => 'மட்டன் ரோகன் ஜோஷ்'],
+                            'price_minor_units' => 44900,
+                            'food_type' => FoodType::NonVegetarian,
                         ],
                     ],
                 ],
@@ -228,11 +543,22 @@ class RestaurantSeeder extends Seeder
                     'food_type' => FoodType::Vegetarian,
                     'additions' => [
                         ['name' => ['en' => 'Extra butter', 'ta' => 'கூடுதல் வெண்ணெய்'], 'price_minor_units' => 2000],
+                        ['name' => ['en' => 'Add garlic', 'ta' => 'பூண்டு சேர்க்க'], 'price_minor_units' => 2500],
                     ],
                 ],
                 [
                     'name' => ['en' => 'Tandoori Roti', 'ta' => 'தந்தூரி ரொட்டி'],
                     'price_minor_units' => 5000,
+                    'food_type' => FoodType::Vegetarian,
+                ],
+                [
+                    'name' => ['en' => 'Laccha Paratha', 'ta' => 'லச்சா பராத்தா'],
+                    'price_minor_units' => 7000,
+                    'food_type' => FoodType::Vegetarian,
+                ],
+                [
+                    'name' => ['en' => 'Kerala Parotta', 'ta' => 'கேரள பரோட்டா'],
+                    'price_minor_units' => 4500,
                     'food_type' => FoodType::Vegetarian,
                 ],
             ],
@@ -249,11 +575,30 @@ class RestaurantSeeder extends Seeder
                     'name' => ['en' => 'Rasmalai', 'ta' => 'ரஸ்மலாய்'],
                     'price_minor_units' => 14000,
                     'food_type' => FoodType::Vegetarian,
+                    'is_featured' => true,
+                    'featured_position' => 5,
+                ],
+                [
+                    'name' => ['en' => 'Double Ka Meetha', 'ta' => 'டபுள் கா மீதா'],
+                    'price_minor_units' => 13000,
+                    'food_type' => FoodType::Vegetarian,
+                ],
+                [
+                    // Sold as a sealed tub rather than as restaurant service,
+                    // so it carries a rate of its own — 18%, not the 5% the
+                    // rest of the card follows.
+                    'name' => ['en' => 'Ice Cream Tub', 'ta' => 'ஐஸ்கிரீம் டப்'],
+                    'price_minor_units' => 18000,
+                    'food_type' => FoodType::Vegetarian,
+                    'tax_rate_basis_points' => 1800,
                 ],
             ],
         ],
     ];
 
+    /**
+     * Seed every restaurant, its people, and the menus they serve.
+     */
     public function run(): void
     {
         foreach (self::RESTAURANTS as $definition) {
@@ -334,7 +679,21 @@ class RestaurantSeeder extends Seeder
 
         $this->seedCard($restaurant, $drinks, self::DRINKS);
 
-        // After the card, because a combo names dishes that have to exist.
+        $breakfast = $this->firstOrCreateByEnglishName(
+            Menu::query()->where('tenant_id', $restaurant->getKey()),
+            self::BREAKFAST_MENU_NAME,
+            fn (): Menu => new Menu([
+                'position' => 2,
+                'is_active' => true,
+                'available_from' => self::BREAKFAST_FROM,
+                'available_until' => self::BREAKFAST_UNTIL,
+            ]),
+            ['tenant_id' => $restaurant->getKey()],
+        );
+
+        $this->seedCard($restaurant, $breakfast, self::BREAKFAST);
+
+        // After the cards, because a combo names dishes that have to exist.
         $this->seedCombos($restaurant, $menu);
 
         $this->seedHomeScreen($restaurant, $menu);
@@ -348,38 +707,64 @@ class RestaurantSeeder extends Seeder
     private function seedCard(Restaurant $restaurant, Menu $menu, array $card): void
     {
         foreach ($card as $position => $section) {
-            $category = $this->firstOrCreateByEnglishName(
-                MenuCategory::query()->where('menu_id', $menu->getKey()),
-                $section['name'],
-                fn (): MenuCategory => new MenuCategory(['position' => $position, 'is_active' => true]),
-                ['tenant_id' => $restaurant->getKey(), 'menu_id' => $menu->getKey()],
-            );
+            $category = $this->seedCategory($restaurant, $menu, $section['name'], $position);
 
-            foreach ($section['items'] as $itemPosition => $item) {
+            foreach ($section['items'] ?? [] as $itemPosition => $item) {
                 $this->seedDish($restaurant, $category, $item, $itemPosition);
             }
 
+            // Subdivisions are rows of the same table with a parent, so they
+            // are seeded by the same call — only `parent` differs.
             foreach ($section['sub_categories'] ?? [] as $subPosition => $subSection) {
-                $subCategory = $this->firstOrCreateByEnglishName(
-                    MenuSubCategory::query()->where('menu_category_id', $category->getKey()),
-                    $subSection['name'],
-                    fn (): MenuSubCategory => new MenuSubCategory(['position' => $subPosition, 'is_active' => true]),
-                    ['tenant_id' => $restaurant->getKey(), 'menu_category_id' => $category->getKey()],
-                );
+                $subCategory = $this->seedCategory($restaurant, $menu, $subSection['name'], $subPosition, $category);
 
                 foreach ($subSection['items'] as $itemPosition => $item) {
-                    $this->seedDish($restaurant, $category, $item, $itemPosition, $subCategory);
+                    $this->seedDish($restaurant, $subCategory, $item, $itemPosition);
                 }
             }
         }
     }
 
     /**
+     * One category, at either level of the menu.
+     *
+     * Uniqueness is per level, so an existing row is looked for among its own
+     * siblings — the top-level categories of the menu, or the children of one.
+     *
+     * @param  array<string, string>  $name
+     */
+    private function seedCategory(
+        Restaurant $restaurant,
+        Menu $menu,
+        array $name,
+        int $position,
+        ?MenuCategory $parent = null,
+    ): MenuCategory {
+        $siblings = MenuCategory::query()
+            ->where('menu_id', $menu->getKey())
+            ->when(
+                $parent instanceof MenuCategory,
+                fn ($query) => $query->where('parent_id', $parent?->getKey()),
+                fn ($query) => $query->whereNull('parent_id'),
+            );
+
+        return $this->firstOrCreateByEnglishName(
+            $siblings,
+            $name,
+            fn (): MenuCategory => new MenuCategory(['position' => $position, 'is_active' => true]),
+            [
+                'tenant_id' => $restaurant->getKey(),
+                'menu_id' => $menu->getKey(),
+                'parent_id' => $parent?->getKey(),
+            ],
+        );
+    }
+
+    /**
      * One dish, its offer if it has one, and its additions.
      *
-     * The sub-category is optional and the category is not, because that is how
-     * a dish is filed: always under a category, and *also* under one of its
-     * subdivisions when the category has been broken up.
+     * The category may be a section or one of its subdivisions; a dish is filed
+     * under exactly one either way.
      *
      * @param  array<string, mixed>  $item
      */
@@ -388,7 +773,6 @@ class RestaurantSeeder extends Seeder
         MenuCategory $category,
         array $item,
         int $position,
-        ?MenuSubCategory $subCategory = null,
     ): void {
         $dish = $this->firstOrCreateByEnglishName(
             MenuItem::query()->where('menu_category_id', $category->getKey()),
@@ -399,13 +783,15 @@ class RestaurantSeeder extends Seeder
                 // price of nothing.
                 'compare_at_price_minor_units' => $item['compare_at_price_minor_units'] ?? null,
                 'food_type' => $item['food_type'],
-                'availability' => ItemAvailability::Available,
+                'availability' => $item['availability'] ?? ItemAvailability::Available,
+                'is_featured' => $item['is_featured'] ?? false,
+                'featured_position' => $item['featured_position'] ?? 0,
+                'tax_rate_basis_points' => $item['tax_rate_basis_points'] ?? null,
                 'position' => $position,
             ]),
             [
                 'tenant_id' => $restaurant->getKey(),
                 'menu_category_id' => $category->getKey(),
-                'menu_sub_category_id' => $subCategory?->getKey(),
             ],
         );
 
@@ -507,7 +893,7 @@ class RestaurantSeeder extends Seeder
     /**
      * Find a record by the English half of a translated column, or make it.
      *
-     * @template TModel of Menu|MenuCategory|MenuSubCategory|MenuItem|MenuItemAddition|MenuCombo|HomeTile
+     * @template TModel of Menu|MenuCategory|MenuItem|MenuItemAddition|MenuCombo|HomeTile
      *
      * @param  Builder<TModel>  $query  already narrowed to the right parent
      * @param  array<string, string>  $translations  the name in every language
