@@ -50,13 +50,19 @@ final class TranslatedFields
      * select: with a handful of languages the whole choice should be readable
      * without opening anything, and switching should be one tap.
      *
-     * English is selected whatever the form was opened with, and `default()` is
-     * not enough to promise that: a default only applies to a form that is
-     * *filled with nothing*. Every edit form — and every modal handed data,
-     * which includes "New sub-category" and its prefilled parent — skips it, so
-     * this control came up with neither language lit and the form's own rules
-     * had to guess what was on screen. `formatStateUsing()` runs on the way in
-     * whatever the state is, which is why the answer lives there.
+     * It opens on the language the **panel is being worked in** — the choice in
+     * the top bar — rather than always on English: someone who has switched the
+     * panel to Tamil is there to read and write Tamil, and a form that opened on
+     * English every time made them move this control on every record. English
+     * is what an unset or unknown language means, so a panel nobody has switched
+     * still opens every form on English.
+     *
+     * `formatStateUsing()` and not `default()` alone, because a default only
+     * applies to a form that is *filled with nothing*. Every edit form — and
+     * every modal handed data, which includes "New sub-category" and its
+     * prefilled parent — skips it, so this control came up with neither
+     * language lit and the form's own rules had to guess what was on screen.
+     * Formatting runs on the way in whatever the state is.
      */
     public static function localeSwitcher(): ToggleButtons
     {
@@ -71,9 +77,9 @@ final class TranslatedFields
                 },
                 [],
             ))
-            ->default(Locale::default()->value)
-            ->formatStateUsing(static fn (mixed $state): string => Locale::fromRequestValue(
-                is_string($state) ? $state : null,
+            ->default(static fn (): string => self::workingLocale()->value)
+            ->formatStateUsing(static fn (mixed $state): string => (
+                (is_string($state) ? Locale::tryFrom($state) : null) ?? self::workingLocale()
             )->value)
             ->live()
             ->inline()
@@ -230,49 +236,110 @@ final class TranslatedFields
     }
 
     /**
-     * Search a translated column by its fallback-language value.
+     * Search a translated column in the language the panel is showing it in.
+     *
+     * A table's name column renders in the panel's language, so a search that
+     * only looked at English found nothing for the Tamil a Tamil panel is
+     * displaying. English is searched too: a record nobody has translated yet
+     * is displayed in English, and it has to be findable by what is on screen.
      *
      * A translated column holds a JSON document, so a plain `like` would be
-     * matching braces and locale keys as well as words.
+     * matching braces and locale keys as well as words — which is also why the
+     * language has to be named at all.
      *
      * @param  Builder<covariant Model>  $query
      * @return Builder<covariant Model>
      */
     public static function search(Builder $query, string $column, string $search): Builder
     {
-        return $query->where($column.'->'.Locale::default()->value, 'like', '%'.$search.'%');
+        return $query->where(function (Builder $query) use ($column, $search): void {
+            foreach (self::searchableAttributes($query->qualifyColumn($column)) as $path) {
+                $query->orWhere($path, 'like', '%'.$search.'%');
+            }
+        });
     }
 
     /**
-     * Sort a translated column by its fallback-language value.
+     * Sort a translated column by the value the panel is actually displaying.
+     *
+     * That is the panel's language where there is one and English where there
+     * is not, so the order matches the column rather than a language that is
+     * not on screen. `coalesce` rather than two sort keys, because an
+     * untranslated row sorted on a null would land first on SQLite and last on
+     * Postgres (`.ai/rules/tables.md`) instead of among its neighbours.
      *
      * Filament hands the direction through as a plain string; only the two
      * values are ever sent, and this is where that is made explicit.
      *
+     * The SQL is built from nothing but the column a table names and the
+     * locales' own values, so it stays a literal string: `->>` reads a JSON key
+     * identically on Postgres and on SQLite (3.38 and later), where the
+     * grammar's own wrapping would differ per driver and could only be spliced
+     * in at runtime.
+     *
      * @param  Builder<covariant Model>  $query
+     * @param  literal-string  $column
      * @return Builder<covariant Model>
      */
     public static function sort(Builder $query, string $column, string $direction): Builder
     {
-        return $query->orderBy(
-            $column.'->'.Locale::default()->value,
-            $direction === 'desc' ? 'desc' : 'asc',
-        );
+        $working = self::workingLocale();
+        $english = Locale::default();
+
+        // SQLite refuses coalesce() with a single argument.
+        $displayed = $working === $english
+            ? $column." ->> '".$english->value."'"
+            : 'coalesce('.$column." ->> '".$working->value."', ".$column." ->> '".$english->value."')";
+
+        return $query->orderByRaw($displayed.' '.($direction === 'desc' ? 'desc' : 'asc'));
+    }
+
+    /**
+     * The JSON paths a search on a translated column looks in.
+     *
+     * The panel's language first, then English once — for a table's search and
+     * for a resource's global search in the top bar alike, which otherwise
+     * matches the raw JSON text: a Tamil search misses, because the document
+     * stores Tamil as escape sequences, and a search for "en" matches every row.
+     *
+     * @return list<string>
+     */
+    public static function searchableAttributes(string $column): array
+    {
+        $working = self::workingLocale();
+
+        $locales = $working === Locale::default() ? [$working] : [$working, Locale::default()];
+
+        return array_map(static fn (Locale $locale): string => $column.'->'.$locale->value, $locales);
     }
 
     /**
      * Which language the form is currently showing.
      *
      * Falls back rather than trusting the state: the switcher is a form field
-     * like any other and can arrive as anything.
+     * like any other and can arrive as anything. The fallback is the language
+     * the panel is being worked in, so a form whose switcher has not been set
+     * yet agrees with the one that has.
      */
     private static function editingLocale(Get $get): Locale
     {
         $value = $get(self::LOCALE_KEY);
 
-        return is_string($value)
-            ? (Locale::tryFrom($value) ?? Locale::default())
-            : Locale::default();
+        return (is_string($value) ? Locale::tryFrom($value) : null) ?? self::workingLocale();
+    }
+
+    /**
+     * The language this panel is being worked in.
+     *
+     * `App\Http\Middleware\SetLocale` puts the top bar's choice on the
+     * application for the request, Livewire's own included — it is appended to
+     * the `web` group, which Livewire's update route runs too, so a modal
+     * mounted by an AJAX request opens in the same language as the page behind
+     * it. Anything unrecognised is English.
+     */
+    private static function workingLocale(): Locale
+    {
+        return Locale::fromRequestValue(app()->getLocale());
     }
 
     /**

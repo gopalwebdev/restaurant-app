@@ -2,6 +2,9 @@
 
 use App\Enums\Locale;
 use App\Enums\Role;
+use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Admin\Resources\Menus\MenuResource;
+use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
 use App\Http\Middleware\SetLocale;
 use App\Models\HomeTile;
 use App\Models\Menu;
@@ -11,7 +14,9 @@ use App\Models\MenuItemAddition;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Facades\App;
 use Inertia\Testing\AssertableInertia;
+use Livewire\Livewire;
 
 beforeEach(function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -237,6 +242,79 @@ it('shows the panel\'s own labels in English and the restaurant\'s words in the 
         ->assertOk()
         ->assertSee(__('panel.menus.create'))
         ->assertSee('இரவு உணவு');
+});
+
+it('opens a form in the language the panel was switched to, through the real request', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    // Cookie, then SetLocale, then the form: the path a browser takes.
+    $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
+        ->get(MenuResource::getUrl('edit', ['record' => $menu, 'tenant' => $restaurant]))
+        ->assertOk()
+        ->assertSee('_locale&quot;:&quot;'.Locale::Tamil->value.'&quot;', escape: false);
+});
+
+it('searches a table in the language it is showing, and in English', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $category = MenuCategory::factory()
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
+        ->create();
+    $paneer = MenuItem::factory()->inCategory($category)->create(['name' => ['en' => 'Paneer Tikka', 'ta' => 'பன்னீர் டிக்கா']]);
+    $coffee = MenuItem::factory()->inCategory($category)->create(['name' => ['en' => 'Filter Coffee']]);
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    App::setLocale(Locale::Tamil->value);
+
+    // The column reads Tamil, so a search for the Tamil has to find it...
+    Livewire::test(ListMenuItems::class)
+        ->searchTable('பன்னீர்')
+        ->assertCanSeeTableRecords([$paneer])
+        ->assertCanNotSeeTableRecords([$coffee]);
+
+    // ...and an untranslated dish is on screen in English, so that works too.
+    Livewire::test(ListMenuItems::class)
+        ->searchTable('Coffee')
+        ->assertCanSeeTableRecords([$coffee])
+        ->assertCanNotSeeTableRecords([$paneer]);
+});
+
+it('sorts a table by the name it is showing', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $alpha = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Alpha', 'ta' => 'ஜ']]);
+    $beta = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Beta', 'ta' => 'அ']]);
+    $charlie = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Charlie']]);
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    Livewire::test(ListMenus::class)
+        ->sortTable('name')
+        ->assertCanSeeTableRecords([$alpha, $beta, $charlie], inOrder: true);
+
+    App::setLocale(Locale::Tamil->value);
+
+    // In Tamil the order is the Tamil one, with the untranslated menu placed
+    // by the English it is displayed in rather than by a null.
+    Livewire::test(ListMenus::class)
+        ->sortTable('name')
+        ->assertCanSeeTableRecords([$charlie, $beta, $alpha], inOrder: true);
+});
+
+it('finds records from the top bar in the language the panel is showing', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $dinner = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Dinner', 'ta' => 'இரவு உணவு']]);
+    Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Lunch']]);
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    App::setLocale(Locale::Tamil->value);
+
+    $titles = fn (string $search): array => MenuResource::getGlobalSearchResults($search)
+        ->map(fn ($result): string => (string) $result->title)
+        ->all();
+
+    expect($titles('இரவு'))->toBe([$dinner->getTranslation('name', 'ta')])
+        // It used to match the raw document, where every menu has an "en" key.
+        ->and($titles('en'))->toBe([]);
 });
 
 it('leaves roles and permissions in English', function (): void {

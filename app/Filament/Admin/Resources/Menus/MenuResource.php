@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
 use App\Filament\Admin\Resources\Menus\Pages\ManageMenuFeaturedItems;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Admin\Resources\Menus\Tables\MenusTable;
+use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
 use BackedEnum;
 use Filament\Navigation\NavigationItem;
@@ -66,6 +67,19 @@ class MenuResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('panel.menus.plural');
+    }
+
+    /**
+     * The top bar's search looks in the language the panel is showing.
+     *
+     * Left to the title attribute, it matched `name` as raw JSON text — Tamil
+     * never matched and "en" matched every menu.
+     *
+     * @return list<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return TranslatedFields::searchableAttributes('name');
     }
 
     public static function form(Schema $schema): Schema

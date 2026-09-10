@@ -28,7 +28,7 @@ Linking *into* that page with a filter already set — which every category row 
 ## A table Filament cannot reorder for you needs its own reorderTable()
 Filament reorders by running one UPDATE over `$table->getQuery()`, keyed on the model's **unqualified** `id`. Two tables here are outside what that can express, and both override `reorderTable()` — keeping the `isReorderable()` check first and unchanged, because that call is the `reorder()` policy method and the only thing keeping the drag away from someone who may only read the menu.
 
-`ArrangeMenu` has no Eloquent query at all: its table is custom data (`->records()`), and a drag there can move a rail, a category, a subdivision or a dish. It hands the dropped order to `App\Actions\Menus\ApplyMenuArrangement`, which renumbers each list on the menu, then calls `resetTable()` — custom data does not refresh itself after an action.
+`ArrangeMenu` has no Eloquent query at all: its table is custom data (`->records()`), and a drag there can move a rail, a category, a subdivision or a dish. It hands the dropped order to `App\Actions\Menus\ApplyMenuArrangement`, which renumbers each list on the menu, then calls `resetTable()` — custom data does not refresh itself after an action. Its actions are covered the same way from one place, `ArrangeMenu::afterActionCalled()`, rather than by each action remembering to.
 
 `ManageMenuFeaturedItems` hits the join problem below.
 

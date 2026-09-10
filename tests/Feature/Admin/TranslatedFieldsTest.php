@@ -10,6 +10,7 @@ use App\Models\MenuCategory;
 use App\Models\Restaurant;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Support\Facades\App;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
@@ -66,6 +67,32 @@ it('opens on English on a form that was filled, not just a blank one', function 
     Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
         ->mountAction(TestAction::make('createSubCategory')->table('category-'.$category->getKey()))
         ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, $english);
+});
+
+it('opens on the language the panel is being worked in', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // What SetLocale does with the top bar's choice. Someone who switched the
+    // panel to Tamil is there to write Tamil, so every form — a page's or a
+    // modal's, blank or filled — starts there instead of on English.
+    App::setLocale(Locale::Tamil->value);
+
+    Livewire::test(EditMenu::class, ['record' => $menu->getKey()])
+        ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, Locale::Tamil->value)
+        ->assertSchemaComponentVisible('name.'.Locale::Tamil->value)
+        ->assertSchemaComponentHidden('name.'.Locale::English->value);
+
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->mountAction(TestAction::make('createCategory')->table())
+        ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, Locale::Tamil->value);
+
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->mountAction(TestAction::make('rename')->table('category-'.$category->getKey()))
+        ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, Locale::Tamil->value);
 });
 
 it('falls back to English when the form is handed a language it does not have', function (): void {

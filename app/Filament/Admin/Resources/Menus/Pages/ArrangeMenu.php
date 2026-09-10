@@ -128,6 +128,26 @@ class ArrangeMenu extends Page implements HasTable
     }
 
     /**
+     * Redraw the rows once an action has written, from what is now saved.
+     *
+     * Filament reads every row of a custom data table to find the one a row
+     * action is about, and keeps what it read for the rest of the request. The
+     * action then renamed or deleted that row, and the page was redrawn from
+     * the copy taken before — the old name stayed on screen and a deleted
+     * category stayed in the list until someone reloaded. An Eloquent table
+     * re-queries on its own; this one has nothing to re-query, so it is told.
+     *
+     * Only runs after an action has succeeded: a form that fails validation
+     * throws before Filament gets here.
+     */
+    protected function afterActionCalled(Action $action): void
+    {
+        parent::afterActionCalled($action);
+
+        $this->flushCachedTableRecords();
+    }
+
+    /**
      * Reading the shape of a menu is menu.view; changing it is menu.manage.
      *
      * Deliberately `canView` rather than the `canEdit` the other tabs use.

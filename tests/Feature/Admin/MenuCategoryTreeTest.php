@@ -130,6 +130,31 @@ it('opens its modals the way the browser asks for them', function (): void {
     expect($page->get('mountedActions'))->toHaveCount(1);
 });
 
+it('redraws the arrangement from what was saved once an action has run', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $renamed = MenuCategory::factory()->inMenu($menu)->create(['name' => [Locale::English->value => 'Starters']]);
+    $deleted = MenuCategory::factory()->inMenu($menu)->create(['name' => [Locale::English->value => 'Doomed']]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // Filament reads every row to find the one a row action is about and keeps
+    // that copy for the request, so the page used to be redrawn from rows taken
+    // *before* the write: the old name stayed and a deleted category stayed.
+    $page = arrangementOf($menu)
+        ->callAction(TestAction::make('rename')->table(categoryRow($renamed)), [
+            'name' => [Locale::English->value => 'Appetisers'],
+            'is_active' => true,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($page->html())->toContain('Appetisers')->not->toContain('Starters');
+
+    $page->callAction(TestAction::make('delete')->table(categoryRow($deleted)));
+
+    expect($page->html())->not->toContain('Doomed');
+});
+
 it('adds a category to the end of the menu rather than the top', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);

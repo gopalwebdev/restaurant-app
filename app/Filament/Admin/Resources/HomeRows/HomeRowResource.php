@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\HomeRows\Pages\ListHomeRows;
 use App\Filament\Admin\Resources\HomeRows\RelationManagers\TilesRelationManager;
 use App\Filament\Admin\Resources\HomeRows\Schemas\HomeRowForm;
 use App\Filament\Admin\Resources\HomeRows\Tables\HomeRowsTable;
+use App\Filament\Schemas\TranslatedFields;
 use App\Models\HomeRow;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -53,6 +54,19 @@ class HomeRowResource extends Resource
     public static function getModelLabel(): string
     {
         return __('panel.rows.label');
+    }
+
+    /**
+     * The top bar's search looks in the language the panel is showing.
+     *
+     * Left to the title attribute, it matched `title` as raw JSON text — Tamil
+     * never matched and "en" matched every row with a title.
+     *
+     * @return list<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return TranslatedFields::searchableAttributes('title');
     }
 
     public static function getPluralModelLabel(): string

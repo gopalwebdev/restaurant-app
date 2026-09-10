@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MenuItems;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
 use App\Filament\Admin\Resources\MenuItems\Tables\MenuItemsTable;
+use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuItem;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -53,6 +54,19 @@ class MenuItemResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('panel.items.plural');
+    }
+
+    /**
+     * The top bar's search looks in the language the panel is showing.
+     *
+     * Left to the title attribute, it matched `name` as raw JSON text — Tamil
+     * never matched and "en" matched every dish.
+     *
+     * @return list<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return TranslatedFields::searchableAttributes('name');
     }
 
     public static function form(Schema $schema): Schema
