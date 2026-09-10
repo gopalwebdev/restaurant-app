@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Users\Tables;
+namespace App\Filament\Restaurant\Resources\Users\Tables;
 
 use App\Actions\Restaurants\RemoveUserFromRestaurant;
 use App\Models\Restaurant;

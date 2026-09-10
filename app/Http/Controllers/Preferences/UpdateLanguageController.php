@@ -30,7 +30,7 @@ class UpdateLanguageController extends Controller
             name: SetLocale::COOKIE,
             value: $request->locale()->value,
             minutes: self::REMEMBER_MINUTES,
-            // Unencrypted so the phone apps can read their own current
+            // Unencrypted so the guest app can read its own current
             // language; see bootstrap/app.php, where it is excepted alongside
             // the appearance cookie for the same reason.
             httpOnly: false,

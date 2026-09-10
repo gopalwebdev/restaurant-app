@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'app/Filament/SuperAdmin/Resources/Restaurants/**'
+  - 'app/Filament/Platform/Resources/Restaurants/**'
 ---
 
 # Resources Restaurants

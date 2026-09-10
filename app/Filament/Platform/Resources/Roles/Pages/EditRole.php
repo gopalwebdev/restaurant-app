@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Roles\Pages;
+namespace App\Filament\Platform\Resources\Roles\Pages;
 
 use App\Actions\Roles\SetRolePermissions;
-use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
-use App\Filament\SuperAdmin\Resources\Roles\Schemas\RoleForm;
+use App\Filament\Platform\Resources\Roles\RoleResource;
+use App\Filament\Platform\Resources\Roles\Schemas\RoleForm;
 use App\Models\Role;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;

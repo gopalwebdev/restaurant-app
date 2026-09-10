@@ -45,16 +45,16 @@ Lowering a limit below the restaurant's current roster is refused at the form fi
 ## Say "product team", not "platform staff"
 The people who run the whole product are the **product team** — that is the vocabulary in class names, method names, comments and UI copy: `isProductTeamOnly()`, `productTeamOnlyValues()`, `belongsToProductTeam()`, `enterProductTeamPanel()`, and "Product team" wherever a null tenant is rendered.
 
-"Platform" is still correct for the *software*, and is deliberately kept: "accounts are platform-wide", "every restaurant on the platform", and the super-admin panel's brand name "Restaurant Platform". The distinction is people versus product — do not rename those back.
+"Platform" is still correct for the *software*, and is deliberately kept: "accounts are platform-wide", "every restaurant on the platform", and the platform panel's brand name "Restaurant Platform". The distinction is people versus product — do not rename those back.
 
 ## Three surfaces: two Filament panels and the guest app
 Settled architecture, one surface per audience:
 
-1. **Product team** — Filament, root domain `/admin`. Restaurants, roles, permissions, accounts.
-2. **Restaurant admin** — Filament, tenant subdomain `/admin`. Menu, settings, reports, receipt printing.
+1. **Product team** — Filament platform panel, root domain, `/dashboard` (entered at `/login`). Restaurants, roles, permissions, accounts.
+2. **Restaurant** — Filament restaurant panel, tenant subdomain, `/dashboard` (entered at `/login`), for a restaurant's admins and staff alike. Menu, settings, reports, receipt printing.
 3. **Guest** — React + Inertia, phone-first, installable as a PWA; arrives by QR and lands on a home screen the restaurant arranges out of rows of tiles (`home_rows` → `home_tiles`), walking from there into a menu, a PDF, or off to a link.
 
-Both panels are served at `/admin` and told apart by host — `.ai/rules/filament.md` explains why that depends on provider order. The product team panel used to live at `/super-admin`; its Filament id, and so its route names (`filament.super-admin.*`), did not change.
+Both panels live under `/dashboard` and are told apart by host, and `/login` on either host is the way in — `.ai/rules/filament.md` explains why that depends on provider order. They were once `/super-admin` and `/admin`, in folders named for roles; they are named for whose they are now, because a restaurant's panel serves its staff as much as its admins.
 
 A staff app (React, phone-first) existed and was removed on the project owner's instruction. When staff get a surface again it is React rather than a third panel, for the reason it was before: they are on phones, and `.ai/rules/filament.md` reserves panels for laptop-and-larger. The guest app does not work offline — there is no offline requirement, and Inertia needs the server for every page.
 

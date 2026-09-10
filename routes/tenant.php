@@ -4,6 +4,7 @@ use App\Http\Controllers\Guest\HomeController;
 use App\Http\Controllers\Guest\MenuController;
 use App\Http\Controllers\Guest\ProgressiveWebAppController;
 use App\Http\Controllers\Guest\TileController;
+use App\Http\Controllers\PanelSignInController;
 use App\Http\Controllers\Preferences\UpdateLanguageController;
 use App\Http\Middleware\HandleGuestAppRequests;
 use Illuminate\Support\Facades\Route;
@@ -61,6 +62,13 @@ Route::domain('{restaurant}.'.config('app.domain'))->group(function (): void {
         Route::get('manifest.webmanifest', [ProgressiveWebAppController::class, 'manifest'])->name('manifest');
         Route::get('service-worker.js', [ProgressiveWebAppController::class, 'serviceWorker'])->name('service-worker');
     });
+
+    /*
+     * The way into this restaurant's panel, for its admins and staff alike. The
+     * panel lives under /dashboard; this sends someone to its sign-in page, or
+     * to the dashboard when they are already signed in.
+     */
+    Route::get('login', [PanelSignInController::class, 'restaurant'])->name('restaurant.login');
 
     /*
      * Switching language, from the guest app and from the restaurant's panel.

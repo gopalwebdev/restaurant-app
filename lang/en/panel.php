@@ -5,7 +5,7 @@
 | Admin Panel
 |--------------------------------------------------------------------------
 |
-| The parts of the restaurant admin panel that follow the language chosen in
+| The parts of the restaurant panel that follow the language chosen in
 | its top bar. Deliberately only the menu and storefront surfaces: those are
 | what a restaurant works in daily, and what a Tamil-speaking manager needs to
 | read. Roles, permissions and accounts stay in English — they are the product

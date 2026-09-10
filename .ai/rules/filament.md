@@ -5,14 +5,18 @@ paths:
 
 # Filament
 
-## Each panel owns its own Filament namespace; both are served at /admin
-Two panels, kept apart on purpose:
-- super-admin — root domain, /admin, classes under app/Filament/SuperAdmin/
-- admin — restaurant subdomain, /admin, classes under app/Filament/Admin/
+## Each panel owns its own Filament namespace; both live under /dashboard, entered at /login
+Two panels, named for whose they are rather than for a role:
+- **platform** — the product team; root domain; classes under app/Filament/Platform/, `PlatformPanelProvider`
+- **restaurant** — one restaurant's admins **and** staff; its subdomain; classes under app/Filament/Restaurant/, `RestaurantPanelProvider`
 
-They share the path and are told apart by host, which holds for one non-obvious reason. The restaurant panel's sign-in route — and its logout, and its `/admin` tenant redirect — carries **no domain**, because nobody has a tenant before signing in, so it answers on the root domain too. `SuperAdminPanelProvider` is therefore registered **before** `AdminPanelProvider` in `bootstrap/providers.php`, so the product team panel's root-domain routes are matched first. Swap the order and the root domain's `/admin/login` becomes a tenant-less restaurant sign-in. `PanelRoutingTest` pins it. A link to a restaurant's sign-in is built with its subdomain (`Restaurant::adminSignInUrl()`), never with `route('filament.admin.auth.login')`, which has no host of its own.
+They were `super-admin` at `/super-admin` and `admin` at `/admin`, with folders to match, and were renamed because a restaurant's panel is used by its staff as much as its admins — a role in a URL, a folder or a route name was wrong for half its users. Do not name a panel, a path or a folder after a role again.
 
-App\Enums\AdminPanel is the single source of truth for the Filament panel id (`super-admin`, `admin` — route names are built from it, and were kept when the product team moved off `/super-admin`) and for the path; the providers and User::canAccessPanel() all read it. Never hardcode 'admin'/'super-admin' or a panel path anywhere else.
+URLs, on either host: `/login` is the way in (`platform.login` on the root domain, `restaurant.login` on a subdomain, both `PanelSignInController`), which sends someone signed out to the panel's own sign-in page at `/dashboard/login` and someone signed in straight to `/dashboard`. Every panel page lives under `/dashboard`. Filament keeps a panel's sign-in page under the panel's path, so `/login` is a redirect rather than the page itself: rendering the page at `/login` would need an empty panel path and a hand-prefixed slug on every page, and Filament's own `/` redirect would collide with the guest app's home. The unprefixed paths belong to the guest app (`/`, `/menus/{menu}`) and the welcome page (`/`).
+
+The two panels share `/dashboard` and are told apart by host, which holds for one non-obvious reason: the restaurant panel's sign-in route — and its logout, and its tenant redirect — carries **no domain**, because nobody has a tenant before signing in, so it answers on the root domain too. `PlatformPanelProvider` is therefore registered **before** `RestaurantPanelProvider` in `bootstrap/providers.php`, so the platform panel's root-domain routes are matched first; swap the order and the root domain's `/dashboard/login` becomes a tenant-less restaurant sign-in. `PanelRoutingTest` pins it. A link to a restaurant's panel is `Restaurant::signInUrl()`, never `route('filament.restaurant.auth.login')`, which has no host of its own.
+
+App\Enums\FilamentPanel is the single source of truth for the Filament panel id (`platform`, `restaurant` — route names are built from it) and for the path; the providers and User::canAccessPanel() all read it. Never hardcode a panel id or a panel path anywhere else.
 
 Never put a page, resource or widget where both panels discover it. Shared behaviour goes in an abstract base under app/Filament/Auth/ (see OtpLogin) and each panel registers its own thin subclass.
 

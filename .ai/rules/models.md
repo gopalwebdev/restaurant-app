@@ -9,7 +9,7 @@ paths:
 # Models
 
 ## Product team ownership is the is_super_admin column, not a role
-`users.is_super_admin` is the single source of truth for the product team. `User::isSuperAdmin()` reads it, `canAccessPanel()` gates the super-admin panel on it, and `AppServiceProvider::configureAuthorization()` uses `Gate::before` to grant a super admin every permission without holding any role.
+`users.is_super_admin` is the single source of truth for the product team. `User::isSuperAdmin()` reads it, `canAccessPanel()` gates the platform panel on it, and `AppServiceProvider::configureAuthorization()` uses `Gate::before` to grant a super admin every permission without holding any role.
 
 There is deliberately no `Role::SuperAdmin`. Spatie roles describe what someone does inside one restaurant (Admin, Manager, Staff, Customer); product team ownership is global and orthogonal. Do not reintroduce a super-admin role — two sources of truth for this will drift.
 
@@ -36,7 +36,7 @@ The `deleting` hooks deliberately do **not** use those helpers: they call `users
 ## Every level of the menu carries tenant_id, enforced by composite foreign keys
 The menu is `menus` → `menu_categories` (both levels of section) → `menu_items` → `menu_item_additions`, plus `menu_combos` and `menu_combo_items` hanging off a menu, and every one of them carries `tenant_id` directly as well as reaching it through its parent. The home screen is two — `home_rows` → `home_tiles` — and does the same, as does a tile for the menu it opens.
 
-That duplication is deliberate and safe: each table has a unique `(id, tenant_id)`, and its child has a **composite** foreign key on `(parent_id, tenant_id)` referencing the pair. Filing a section under another restaurant's menu, a dish under another restaurant's section, or an addition on another restaurant's dish is therefore a database error, not something a forgotten `where()` can let through. Every one of those is pinned by a test in `tests/Feature/Admin/MenuManagementTest.php`.
+That duplication is deliberate and safe: each table has a unique `(id, tenant_id)`, and its child has a **composite** foreign key on `(parent_id, tenant_id)` referencing the pair. Filing a section under another restaurant's menu, a dish under another restaurant's section, or an addition on another restaurant's dish is therefore a database error, not something a forgotten `where()` can let through. Every one of those is pinned by a test in `tests/Feature/Restaurant/MenuManagementTest.php`.
 
 ## Both levels of section are one table, and that was a deliberate reversal
 `menu_categories.parent_id` is nullable and self-referencing: no parent means a section of the menu, a parent means a subdivision of that section. A `menu_sub_categories` table was built first and replaced by this, and the reasons are worth keeping because the two-table shape looks tidier on paper.

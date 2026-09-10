@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Users;
+namespace App\Filament\Restaurant\Resources\Users;
 
-use App\Filament\Admin\Resources\Users\Pages\CreateUser;
-use App\Filament\Admin\Resources\Users\Pages\EditUser;
-use App\Filament\Admin\Resources\Users\Pages\ListUsers;
-use App\Filament\Admin\Resources\Users\Schemas\UserForm;
-use App\Filament\Admin\Resources\Users\Tables\UsersTable;
+use App\Filament\Restaurant\Resources\Users\Pages\CreateUser;
+use App\Filament\Restaurant\Resources\Users\Pages\EditUser;
+use App\Filament\Restaurant\Resources\Users\Pages\ListUsers;
+use App\Filament\Restaurant\Resources\Users\Schemas\UserForm;
+use App\Filament\Restaurant\Resources\Users\Tables\UsersTable;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;

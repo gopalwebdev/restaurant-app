@@ -13,7 +13,7 @@ SendOneTimePassword sends `SignInCodeNotification`, a `ShouldQueue` notification
 Only a bcrypt hash of the code is stored. Issuing a new code retires any outstanding one for that user, and each code tolerates `otp.max_attempts` wrong guesses before it burns.
 
 ## The panel says when an address has no account — deliberately
-`requestCode()` refuses an address with no usable account, with a validation error, before any code is issued. This is a knowing trade: it tells an attacker which addresses are real, and it is accepted because these are two small internal admin panels where the UX of "there is no account for that email address" beats silence.
+`requestCode()` refuses an address with no usable account, with a validation error, before any code is issued. This is a knowing trade: it tells an attacker which addresses are real, and it is accepted because these are two small internal panels where the UX of "there is no account for that email address" beats silence.
 
 Do not "fix" this back to a uniform response without asking. If this ever fronts public sign-up, revisit it.
 

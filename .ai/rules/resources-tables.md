@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'app/Filament/Admin/Resources/**/Tables/*.php'
+  - 'app/Filament/Restaurant/Resources/**/Tables/*.php'
 ---
 
 # Resources Tables

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Roles\Tables;
+namespace App\Filament\Platform\Resources\Roles\Tables;
 
 use App\Enums\Role as RoleEnum;
-use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
+use App\Filament\Platform\Resources\Roles\RoleResource;
 use App\Models\Role;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;

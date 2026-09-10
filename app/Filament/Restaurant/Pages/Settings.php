@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Pages;
+namespace App\Filament\Restaurant\Pages;
 
 use App\Enums\Permission;
 use App\Filament\Schemas\PricingFields;
@@ -35,7 +35,7 @@ use LogicException;
  */
 class Settings extends Page
 {
-    protected string $view = 'filament.admin.pages.settings';
+    protected string $view = 'filament.restaurant.pages.settings';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 

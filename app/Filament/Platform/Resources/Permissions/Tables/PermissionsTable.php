@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Permissions\Tables;
+namespace App\Filament\Platform\Resources\Permissions\Tables;
 
 use App\Enums\PermissionGroup;
-use App\Filament\SuperAdmin\Resources\Permissions\PermissionResource;
+use App\Filament\Platform\Resources\Permissions\PermissionResource;
 use App\Models\Permission;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;

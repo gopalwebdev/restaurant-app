@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Roles;
+namespace App\Filament\Platform\Resources\Roles;
 
-use App\Filament\SuperAdmin\Resources\Roles\Pages\CreateRole;
-use App\Filament\SuperAdmin\Resources\Roles\Pages\EditRole;
-use App\Filament\SuperAdmin\Resources\Roles\Pages\ListRoles;
-use App\Filament\SuperAdmin\Resources\Roles\Pages\ViewRole;
-use App\Filament\SuperAdmin\Resources\Roles\Schemas\RoleForm;
-use App\Filament\SuperAdmin\Resources\Roles\Schemas\RoleInfolist;
-use App\Filament\SuperAdmin\Resources\Roles\Tables\RolesTable;
+use App\Filament\Platform\Resources\Roles\Pages\CreateRole;
+use App\Filament\Platform\Resources\Roles\Pages\EditRole;
+use App\Filament\Platform\Resources\Roles\Pages\ListRoles;
+use App\Filament\Platform\Resources\Roles\Pages\ViewRole;
+use App\Filament\Platform\Resources\Roles\Schemas\RoleForm;
+use App\Filament\Platform\Resources\Roles\Schemas\RoleInfolist;
+use App\Filament\Platform\Resources\Roles\Tables\RolesTable;
 use App\Models\Role;
 use BackedEnum;
 use Filament\Resources\Resource;

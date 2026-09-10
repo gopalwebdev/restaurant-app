@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Users\Schemas;
+namespace App\Filament\Platform\Resources\Users\Schemas;
 
 use App\Models\Restaurant;
 use App\Models\Role;

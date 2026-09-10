@@ -626,7 +626,7 @@ class RestaurantSeeder extends Seeder
 
             // The admin belongs to this restaurant, not the product team: a
             // null tenant_id would file them under "Product team" in the
-            // super-admin panel, which they are not.
+            // platform panel, which they are not.
             $admin = User::query()->firstOrCreate(
                 ['email' => $definition['admin_email']],
                 ['name' => $definition['admin_name'], 'tenant_id' => $restaurant->getKey(), 'email_verified_at' => now()],

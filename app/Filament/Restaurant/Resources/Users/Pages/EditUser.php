@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Users\Pages;
+namespace App\Filament\Restaurant\Resources\Users\Pages;
 
 use App\Actions\Restaurants\SetRestaurantUserRoles;
-use App\Filament\Admin\Resources\Users\UserResource;
+use App\Filament\Restaurant\Resources\Users\UserResource;
 use App\Models\User;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;

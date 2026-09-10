@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus;
+namespace App\Filament\Restaurant\Resources\Menus;
 
-use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
-use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
-use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
-use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
-use App\Filament\Admin\Resources\Menus\Pages\ManageMenuFeaturedItems;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
-use App\Filament\Admin\Resources\Menus\Tables\MenusTable;
+use App\Filament\Restaurant\Resources\Menus\Pages\ArrangeMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\EditMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\ListMenus;
+use App\Filament\Restaurant\Resources\Menus\Pages\ManageMenuCombos;
+use App\Filament\Restaurant\Resources\Menus\Pages\ManageMenuFeaturedItems;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuForm;
+use App\Filament\Restaurant\Resources\Menus\Tables\MenusTable;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
 use BackedEnum;

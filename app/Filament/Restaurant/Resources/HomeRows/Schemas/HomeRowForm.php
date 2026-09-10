@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Resources\HomeRows\Schemas;
+namespace App\Filament\Restaurant\Resources\HomeRows\Schemas;
 
 use App\Enums\HomeRowLayout;
 use App\Filament\Schemas\TranslatedFields;

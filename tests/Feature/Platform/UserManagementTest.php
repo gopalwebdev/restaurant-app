@@ -2,10 +2,10 @@
 
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
-use App\Filament\SuperAdmin\Resources\Users\Pages\CreateUser;
-use App\Filament\SuperAdmin\Resources\Users\Pages\EditUser;
-use App\Filament\SuperAdmin\Resources\Users\Pages\ListUsers;
-use App\Filament\SuperAdmin\Resources\Users\UserResource;
+use App\Filament\Platform\Resources\Users\Pages\CreateUser;
+use App\Filament\Platform\Resources\Users\Pages\EditUser;
+use App\Filament\Platform\Resources\Users\Pages\ListUsers;
+use App\Filament\Platform\Resources\Users\UserResource;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Notifications\AccountCreatedNotification;
@@ -55,7 +55,7 @@ it('serves the accounts page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/users')
+        ->get('http://restaurant-app.test/dashboard/users')
         ->assertOk();
 });
 
@@ -65,9 +65,9 @@ it('serves the create, view and edit pages to the product team', function (): vo
 
     $this->actingAs($platform);
 
-    $this->get('http://restaurant-app.test/admin/users/create')->assertOk();
-    $this->get("http://restaurant-app.test/admin/users/{$other->getKey()}")->assertOk();
-    $this->get("http://restaurant-app.test/admin/users/{$other->getKey()}/edit")->assertOk();
+    $this->get('http://restaurant-app.test/dashboard/users/create')->assertOk();
+    $this->get("http://restaurant-app.test/dashboard/users/{$other->getKey()}")->assertOk();
+    $this->get("http://restaurant-app.test/dashboard/users/{$other->getKey()}/edit")->assertOk();
 });
 
 it('keeps a restaurant admin off the accounts page', function (): void {
@@ -76,7 +76,7 @@ it('keeps a restaurant admin off the accounts page', function (): void {
     $user->assignRole(RoleEnum::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/users')
+        ->get('http://restaurant-app.test/dashboard/users')
         ->assertForbidden();
 });
 
@@ -201,7 +201,7 @@ it('does not treat an account without a tenant as the product team', function ()
         ->and($stranded->can(PermissionEnum::UserManage->value))->toBeFalse();
 
     $this->actingAs($stranded)
-        ->get('http://restaurant-app.test/admin/users')
+        ->get('http://restaurant-app.test/dashboard/users')
         ->assertForbidden();
 });
 

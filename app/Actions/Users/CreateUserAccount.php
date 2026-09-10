@@ -2,11 +2,9 @@
 
 namespace App\Actions\Users;
 
-use App\Enums\AdminPanel;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Notifications\AccountCreatedNotification;
-use Filament\Facades\Filament;
 
 /**
  * Open an account from the product team panel.
@@ -59,16 +57,15 @@ class CreateUserAccount
     }
 
     /**
-     * Where this account signs in: their restaurant's subdomain, or the
-     * product team panel when they belong to no restaurant.
+     * Where this account signs in: /login on their restaurant's subdomain, or
+     * on the root domain when they belong to the product team.
      */
     private function signInUrlFor(?Restaurant $restaurant): string
     {
         if ($restaurant instanceof Restaurant) {
-            return $restaurant->adminSignInUrl();
+            return $restaurant->signInUrl();
         }
 
-        return Filament::getPanel(AdminPanel::SuperAdmin->value)->getLoginUrl()
-            ?? url(AdminPanel::SuperAdmin->path());
+        return route('platform.login');
     }
 }

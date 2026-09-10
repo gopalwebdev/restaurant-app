@@ -2,8 +2,8 @@
 
 namespace App\Providers\Filament;
 
-use App\Enums\AdminPanel;
-use App\Filament\Admin\Auth\Login;
+use App\Enums\FilamentPanel;
+use App\Filament\Restaurant\Auth\Login;
 use App\Http\Middleware\SetLocale;
 use App\Models\Restaurant;
 use Filament\Facades\Filament;
@@ -26,24 +26,25 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The per-restaurant admin panel, served at t1.restaurant-app.com/admin.
+ * A restaurant's own panel, for its admins and staff alike, served at
+ * t1.restaurant-app.com/dashboard and entered through t1.restaurant-app.com/login.
  *
  * The subdomain identifies the tenant, so every resource registered here is
  * automatically scoped to the restaurant in the URL.
  */
-class AdminPanelProvider extends PanelProvider
+class RestaurantPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
         return $panel
-            ->id(AdminPanel::Admin->value)
-            ->path(AdminPanel::Admin->path())
+            ->id(FilamentPanel::Restaurant->value)
+            ->path(FilamentPanel::Restaurant->path())
             ->tenant(Restaurant::class, slugAttribute: 'slug')
             ->tenantDomain('{tenant:slug}.'.config('app.domain'))
             ->login(Login::class)
             ->brandName(fn (): string => $this->brandName())
             ->brandLogo(fn (): View => view('filament.brand', [
-                'panel' => AdminPanel::Admin,
+                'panel' => FilamentPanel::Restaurant,
                 'name' => $this->brandName(),
             ]))
             ->brandLogoHeight('2rem')
@@ -57,12 +58,12 @@ class AdminPanelProvider extends PanelProvider
             // the Restaurants table in their own panel instead. See
             // .ai/rules/filament.md.
             ->tenantMenu(false)
-            ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')
-            ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\Filament\Admin\Pages')
+            ->discoverResources(in: app_path('Filament/Restaurant/Resources'), for: 'App\Filament\Restaurant\Resources')
+            ->discoverPages(in: app_path('Filament/Restaurant/Pages'), for: 'App\Filament\Restaurant\Pages')
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
+            ->discoverWidgets(in: app_path('Filament/Restaurant/Widgets'), for: 'App\Filament\Restaurant\Widgets')
             ->widgets([
                 AccountWidget::class,
             ])
@@ -123,6 +124,6 @@ class AdminPanelProvider extends PanelProvider
     {
         $tenant = Filament::getTenant();
 
-        return $tenant instanceof Restaurant ? $tenant->name : AdminPanel::Admin->brandName();
+        return $tenant instanceof Restaurant ? $tenant->name : FilamentPanel::Restaurant->brandName();
     }
 }

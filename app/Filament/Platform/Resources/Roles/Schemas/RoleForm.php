@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Roles\Schemas;
+namespace App\Filament\Platform\Resources\Roles\Schemas;
 
 use App\Enums\PermissionGroup;
 use App\Models\Permission;

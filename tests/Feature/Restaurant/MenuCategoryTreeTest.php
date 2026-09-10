@@ -3,9 +3,9 @@
 use App\Actions\Menus\MoveCategoryToMenu;
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
-use App\Filament\Admin\Resources\Menus\MenuResource;
-use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
+use App\Filament\Restaurant\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\Menus\Pages\ArrangeMenu;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;

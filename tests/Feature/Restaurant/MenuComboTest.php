@@ -3,8 +3,8 @@
 use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuComboForm;
+use App\Filament\Restaurant\Resources\Menus\Pages\ManageMenuCombos;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuComboForm;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuCombo;

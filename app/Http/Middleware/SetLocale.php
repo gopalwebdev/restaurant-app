@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
 class SetLocale
 {
     /**
-     * The cookie both this middleware and the phone apps read.
+     * The cookie both this middleware and the guest app read.
      */
     public const string COOKIE = 'locale';
 

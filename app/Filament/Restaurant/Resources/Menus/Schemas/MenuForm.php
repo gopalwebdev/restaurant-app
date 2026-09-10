@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\Schemas;
+namespace App\Filament\Restaurant\Resources\Menus\Schemas;
 
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use App\Enums\Role;
 use App\Models\Restaurant;
 use App\Models\User;
@@ -80,7 +80,7 @@ function enterRestaurantPanel(Restaurant $restaurant, Role $role): User
     $user->restaurants()->attach($restaurant);
 
     test()->actingAs($user);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::setCurrentPanel(FilamentPanel::Restaurant->value);
 
     // Booting is what registers the tenancy global scopes, which a request
     // gets from Filament's middleware. Without it a Livewire test would see
@@ -99,7 +99,7 @@ function enterProductTeamPanel(): User
     $user = User::factory()->superAdmin()->create();
 
     test()->actingAs($user);
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     Filament::bootCurrentPanel();
 
     return $user;

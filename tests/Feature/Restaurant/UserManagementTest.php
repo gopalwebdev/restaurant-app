@@ -1,12 +1,12 @@
 <?php
 
 use App\Actions\Restaurants\SetRestaurantUserRoles;
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\Users\Pages\CreateUser;
-use App\Filament\Admin\Resources\Users\Pages\EditUser;
-use App\Filament\Admin\Resources\Users\Pages\ListUsers;
+use App\Filament\Restaurant\Resources\Users\Pages\CreateUser;
+use App\Filament\Restaurant\Resources\Users\Pages\EditUser;
+use App\Filament\Restaurant\Resources\Users\Pages\ListUsers;
 use App\Models\Restaurant;
 use App\Models\Role;
 use App\Models\User;
@@ -54,7 +54,7 @@ it('keeps staff off the users page', function (): void {
     $user->assignRole(RoleEnum::Staff->value);
 
     $this->actingAs($user)
-        ->get('http://t1.restaurant-app.test/admin/users')
+        ->get('http://t1.restaurant-app.test/dashboard/users')
         ->assertForbidden();
 });
 
@@ -65,7 +65,7 @@ it('serves the users page to a restaurant admin', function (): void {
     $user->assignRole(RoleEnum::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://t1.restaurant-app.test/admin/users')
+        ->get('http://t1.restaurant-app.test/dashboard/users')
         ->assertOk();
 });
 
@@ -107,7 +107,7 @@ it('answers not found for a user of another restaurant', function (): void {
 
     // Not 403: a restaurant must not learn that an account exists elsewhere.
     $this->actingAs($admin)
-        ->get("http://t1.restaurant-app.test/admin/users/{$stranger->getKey()}/edit")
+        ->get("http://t1.restaurant-app.test/dashboard/users/{$stranger->getKey()}/edit")
         ->assertNotFound();
 });
 
@@ -402,7 +402,7 @@ it('leaves someone removed from their last restaurant with no panel to enter', f
     Livewire::test(ListUsers::class)
         ->callTableAction('removeFromRestaurant', $member);
 
-    expect($member->refresh()->canAccessPanel(filament()->getPanel(AdminPanel::Admin->value)))->toBeFalse();
+    expect($member->refresh()->canAccessPanel(filament()->getPanel(FilamentPanel::Restaurant->value)))->toBeFalse();
 });
 
 it('never lets someone remove themselves', function (): void {

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Restaurants\RelationManagers;
+namespace App\Filament\Platform\Resources\Restaurants\RelationManagers;
 
-use App\Filament\SuperAdmin\Resources\Users\UserResource;
+use App\Filament\Platform\Resources\Users\UserResource;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;

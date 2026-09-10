@@ -2,9 +2,9 @@
 
 use App\Enums\Locale;
 use App\Enums\Role;
-use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
-use App\Filament\Admin\Resources\Menus\MenuResource;
-use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
+use App\Filament\Restaurant\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\Menus\Pages\ListMenus;
 use App\Http\Middleware\SetLocale;
 use App\Models\HomeTile;
 use App\Models\Menu;
@@ -170,7 +170,7 @@ it('translates the tiles on the home screen too', function (): void {
 
 /*
 |--------------------------------------------------------------------------
-| The admin panel follows the same choice
+| The restaurant panel follows the same choice
 |--------------------------------------------------------------------------
 */
 
@@ -180,7 +180,7 @@ it('offers a language switcher in the restaurant panel', function (): void {
 
     // Posted to the panel's own host: the tenant panel is on a subdomain and a
     // form posting across hosts would lose the session.
-    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/admin')
+    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/dashboard')
         ->assertOk()
         ->assertSee(route('preferences.language.update', ['restaurant' => $restaurant->slug]), escape: false)
         ->assertSee(Locale::Tamil->label());
@@ -192,7 +192,7 @@ it('shows the panel switcher on English until a language is chosen', function ()
 
     // A picker showing nothing selected is worse than one showing the language
     // in use, so the current locale is normalised rather than compared raw.
-    $html = (string) $this->get('http://'.$restaurant->slug.'.restaurant-app.test/admin')
+    $html = (string) $this->get('http://'.$restaurant->slug.'.restaurant-app.test/dashboard')
         ->assertOk()
         ->getContent();
 
@@ -205,7 +205,7 @@ it('shows the panel switcher on English until a language is chosen', function ()
 it('offers a language switcher in the product team panel', function (): void {
     $this->actingAs(User::factory()->superAdmin()->create());
 
-    $this->get('http://restaurant-app.test/admin')
+    $this->get('http://restaurant-app.test/dashboard')
         ->assertOk()
         ->assertSee(route('panel.language.update'), escape: false)
         ->assertSee(Locale::Tamil->label());
@@ -223,7 +223,7 @@ it('shows the panel\'s own labels in English and the restaurant\'s words in the 
     // labels are written once, in English, and only what a restaurant typed
     // is translated — and that lives in the database.
     $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
-        ->get('http://'.$restaurant->slug.'.restaurant-app.test/admin/menus')
+        ->get('http://'.$restaurant->slug.'.restaurant-app.test/dashboard/menus')
         ->assertOk()
         ->assertSee(__('panel.menus.create'))
         ->assertSee('இரவு உணவு');
@@ -310,7 +310,7 @@ it('leaves roles and permissions in English', function (): void {
     $this->actingAs(User::factory()->superAdmin()->create());
 
     $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
-        ->get('http://restaurant-app.test/admin/roles')
+        ->get('http://restaurant-app.test/dashboard/roles')
         ->assertOk()
         ->assertSee('admin');
 });

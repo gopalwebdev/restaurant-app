@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Permissions\Pages;
+namespace App\Filament\Platform\Resources\Permissions\Pages;
 
-use App\Filament\SuperAdmin\Resources\Permissions\PermissionResource;
+use App\Filament\Platform\Resources\Permissions\PermissionResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Icons\Heroicon;

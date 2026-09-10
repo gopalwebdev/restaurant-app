@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\AdminPanel;
 use App\Enums\Role;
 use App\Models\Restaurant;
 use App\Models\User;
@@ -53,7 +52,7 @@ class ListAccountsCommand extends Command
             $rows[] = [
                 'Super admin',
                 $user->email,
-                config('app.domain').'/'.AdminPanel::SuperAdmin->path(),
+                route('platform.login'),
             ];
         }
 
@@ -78,14 +77,12 @@ class ListAccountsCommand extends Command
         $rows = [];
 
         foreach ($restaurants as $restaurant) {
-            $host = $restaurant->slug.'.'.config('app.domain');
-
             foreach ($restaurant->users as $user) {
                 if ($user->hasRole(Role::Admin->value)) {
                     $rows[] = [
                         $restaurant->name.' admin',
                         $user->email,
-                        $host.'/'.AdminPanel::Admin->path(),
+                        $restaurant->signInUrl(),
                     ];
                 }
             }

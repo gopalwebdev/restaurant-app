@@ -51,7 +51,7 @@ enum Locale: string
     }
 
     /**
-     * The short form shown on the toggle in the phone apps.
+     * The short form shown on the toggle in the guest app.
      */
     public function shortLabel(): string
     {
@@ -70,7 +70,7 @@ enum Locale: string
     }
 
     /**
-     * The language's name in English, for the admin panel.
+     * The language's name in English, for the restaurant panel.
      *
      * The panels are worked in English by the restaurant's own staff, so a
      * field asking for the Tamil name is clearer labelled "Name (Tamil)" than

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\AdminPanel;
 use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
 use App\Enums\Role as RoleEnum;
@@ -20,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * A single restaurant, which is also the tenant boundary.
  *
  * The slug doubles as the subdomain, so `t1` is served at
- * t1.restaurant-app.com and administered at t1.restaurant-app.com/admin.
+ * t1.restaurant-app.com and administered at t1.restaurant-app.com/dashboard.
  *
  * The address and contact details are the platform's record of the business,
  * entered by a super admin when the restaurant is onboarded. What guests see
@@ -223,22 +222,14 @@ class Restaurant extends Model
     }
 
     /**
-     * Where this restaurant's staff sign in.
+     * Where this restaurant's admins and staff sign in: /login on its subdomain.
      *
-     * The panel's own login route carries no domain — signing in happens before
-     * a tenant is known, so it answers on any host — which means the subdomain
-     * has to be put on here, from the slug that defines it. The path comes from
-     * AdminPanel so it cannot drift from the panel it opens.
+     * That address sends someone signed out to the panel's sign-in page and
+     * someone signed in to /dashboard — see PanelSignInController.
      */
-    public function adminSignInUrl(): string
+    public function signInUrl(): string
     {
-        return sprintf(
-            '%s://%s.%s/%s/login',
-            str_starts_with((string) config('app.url'), 'https') ? 'https' : 'http',
-            $this->slug,
-            config('app.domain'),
-            AdminPanel::Admin->path(),
-        );
+        return route('restaurant.login', ['restaurant' => $this->slug]);
     }
 
     /**

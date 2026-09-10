@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PanelSignInController;
 use App\Http\Controllers\Preferences\UpdateLanguageController;
 use Illuminate\Support\Facades\Route;
 
@@ -7,6 +8,13 @@ use Illuminate\Support\Facades\Route;
 require __DIR__.'/tenant.php';
 
 Route::inertia('/', 'welcome')->name('home');
+
+/*
+ * The way into the product team's panel. The panel itself lives under
+ * /dashboard; this sends someone to its sign-in page, or to the dashboard when
+ * they are already signed in. See PanelSignInController.
+ */
+Route::get('login', [PanelSignInController::class, 'platform'])->name('platform.login');
 
 /*
  * Switching language from the product team's panel, which is the one surface

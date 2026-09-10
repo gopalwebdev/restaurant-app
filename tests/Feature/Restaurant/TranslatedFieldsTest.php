@@ -2,8 +2,8 @@
 
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
-use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\ArrangeMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\EditMenu;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
 use App\Models\MenuCategory;

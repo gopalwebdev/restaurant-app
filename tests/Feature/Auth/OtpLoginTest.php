@@ -1,10 +1,10 @@
 <?php
 
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use App\Enums\Role;
-use App\Filament\Admin\Auth\Login as AdminLogin;
 use App\Filament\Auth\OtpLogin;
-use App\Filament\SuperAdmin\Auth\Login as SuperAdminLogin;
+use App\Filament\Platform\Auth\Login as PlatformLogin;
+use App\Filament\Restaurant\Auth\Login as RestaurantLogin;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -17,7 +17,7 @@ beforeEach(function (): void {
 });
 
 /**
- * A member of the product team, who may use the super admin panel.
+ * A member of the product team, who may use the platform panel.
  */
 function superAdmin(): User
 {
@@ -43,14 +43,14 @@ function restaurantAdmin(Restaurant $restaurant): User
  */
 dataset('sign-in pages', [
     'product team panel' => [fn (): array => [
-        SuperAdminLogin::class,
-        tap(superAdmin(), fn (): mixed => Filament::setCurrentPanel(AdminPanel::SuperAdmin->value)),
+        PlatformLogin::class,
+        tap(superAdmin(), fn (): mixed => Filament::setCurrentPanel(FilamentPanel::Platform->value)),
     ]],
     'restaurant panel' => [fn (): array => [
-        AdminLogin::class,
+        RestaurantLogin::class,
         tap(
             restaurantAdmin(Restaurant::factory()->create(['slug' => 't1'])),
-            fn (): mixed => Filament::setCurrentPanel(AdminPanel::Admin->value),
+            fn (): mixed => Filament::setCurrentPanel(FilamentPanel::Restaurant->value),
         ),
     ]],
 ]);
@@ -105,10 +105,10 @@ it('submits the code rather than asking for another one', function (Closure $set
 */
 
 it('issues a code and moves on to asking for it', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->assertHasNoFormErrors()
@@ -118,10 +118,10 @@ it('issues a code and moves on to asking for it', function (): void {
 });
 
 it('matches the address regardless of how it is capitalised', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => strtoupper($user->email)])
         ->call('requestCode');
 
@@ -129,9 +129,9 @@ it('matches the address regardless of how it is capitalised', function (): void 
 });
 
 it('turns down an address with no account behind it', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => 'nobody@example.com'])
         ->call('requestCode')
         ->assertHasFormErrors(['email'])
@@ -141,9 +141,9 @@ it('turns down an address with no account behind it', function (): void {
 });
 
 it('turns down an address that is not an email at all', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => 'not-an-email'])
         ->call('requestCode')
         ->assertHasFormErrors(['email' => 'email'])
@@ -153,12 +153,12 @@ it('turns down an address that is not an email at all', function (): void {
 });
 
 it('issues no code to a user who cannot reach the panel', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = restaurantAdmin(Restaurant::factory()->create(['slug' => 't1']));
 
     // A real account, but not one that can use this panel. It is refused in
     // exactly the same words as an address nobody owns.
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->assertHasFormErrors(['email'])
@@ -168,9 +168,9 @@ it('issues no code to a user who cannot reach the panel', function (): void {
 });
 
 it('will not request a code without an address', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => ''])
         ->call('requestCode')
         ->assertHasFormErrors(['email' => 'required']);
@@ -179,10 +179,10 @@ it('will not request a code without an address', function (): void {
 });
 
 it('sends a new code without the code field being filled in', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -196,10 +196,10 @@ it('sends a new code without the code field being filled in', function (): void 
 });
 
 it('turns down a second code asked for inside the cooldown', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->call('requestCode')
@@ -209,11 +209,11 @@ it('turns down a second code asked for inside the cooldown', function (): void {
 });
 
 it('stops issuing codes once the allowance is used up', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
     $maxSends = (int) config('otp.max_sends');
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email]);
 
     // One more request than the allowance, each after the cooldown has passed.
@@ -226,10 +226,10 @@ it('stops issuing codes once the allowance is used up', function (): void {
 });
 
 it('goes back to the address step on request', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->assertSet('hasRequestedCode', true)
@@ -245,10 +245,10 @@ it('goes back to the address step on request', function (): void {
 */
 
 it('keeps the sign-in button disabled until every digit is typed', function (string $code, bool $isEnabled): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->fillForm(['email' => $user->email, 'code' => $code])
@@ -270,20 +270,20 @@ it('keeps the sign-in button disabled until every digit is typed', function (str
 ]);
 
 it('says how many digits the code has', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->assertSee(sprintf('%d-digit code', (int) config('otp.length')));
 });
 
 it('turns down a code that is not all digits', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -302,10 +302,10 @@ it('turns down a code that is not all digits', function (): void {
 */
 
 it('signs a super admin in with the code that was issued', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -319,10 +319,10 @@ it('signs a super admin in with the code that was issued', function (): void {
 
 it('signs a restaurant admin into their own tenant panel', function (): void {
     $restaurant = Restaurant::factory()->create(['slug' => 't1']);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::setCurrentPanel(FilamentPanel::Restaurant->value);
     $user = restaurantAdmin($restaurant);
 
-    $component = Livewire::test(AdminLogin::class)
+    $component = Livewire::test(RestaurantLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -343,10 +343,10 @@ it('signs the product team in on a restaurant subdomain they staff no part of', 
     $user = superAdmin();
 
     Restaurant::factory()->create(['slug' => 't1']);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::setCurrentPanel(FilamentPanel::Restaurant->value);
     Filament::bootCurrentPanel();
 
-    $component = Livewire::test(AdminLogin::class)
+    $component = Livewire::test(RestaurantLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode')
         ->assertHasNoFormErrors();
@@ -365,28 +365,28 @@ it('identifies no restaurant until someone has signed in', function (): void {
     // and the scope leaves every query alone while that is true.
     Restaurant::factory()->create(['slug' => 't1']);
 
-    $this->get('http://t1.restaurant-app.test/admin/login')->assertOk();
+    $this->get('http://t1.restaurant-app.test/dashboard/login')->assertOk();
 
     expect(Filament::getTenant())->toBeNull();
 });
 
 it('still refuses a code to an address with no account at all', function (): void {
     Restaurant::factory()->create(['slug' => 't1']);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::setCurrentPanel(FilamentPanel::Restaurant->value);
     Filament::bootCurrentPanel();
 
-    Livewire::test(AdminLogin::class)
+    Livewire::test(RestaurantLogin::class)
         ->fillForm(['email' => 'nobody@example.com'])
         ->call('requestCode')
         ->assertHasFormErrors(['email']);
 });
 
 it('marks the address verified once a code has been used', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
     $user->forceFill(['email_verified_at' => null])->save();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -398,10 +398,10 @@ it('marks the address verified once a code has been used', function (): void {
 });
 
 it('turns the first submit into a code request', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    Livewire::test(SuperAdminLogin::class)
+    Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('authenticate')
         ->assertSet('hasRequestedCode', true);
@@ -417,10 +417,10 @@ it('turns the first submit into a code request', function (): void {
 */
 
 it('rejects a code that is not the one issued', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -435,10 +435,10 @@ it('rejects a code that is not the one issued', function (): void {
 });
 
 it('rejects a code that has expired', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -455,10 +455,10 @@ it('rejects a code that has expired', function (): void {
 });
 
 it('re-checks panel access when the code is submitted', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -476,10 +476,10 @@ it('re-checks panel access when the code is submitted', function (): void {
 });
 
 it('will not let a code be used twice', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 
@@ -497,10 +497,10 @@ it('will not let a code be used twice', function (): void {
 });
 
 it('will not accept a code against a swapped-in address', function (): void {
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     $user = superAdmin();
 
-    $component = Livewire::test(SuperAdminLogin::class)
+    $component = Livewire::test(PlatformLogin::class)
         ->fillForm(['email' => $user->email])
         ->call('requestCode');
 

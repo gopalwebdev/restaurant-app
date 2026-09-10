@@ -7,31 +7,35 @@ use Filament\Support\Icons\Heroicon;
 /**
  * The Filament panels this application serves.
  *
- * The backing value is the panel's Filament id — what its route names are built
- * from — and path() is where it is served. Both panels are served at /admin and
- * told apart by host: the product team's on the root domain, a restaurant's on
- * its own subdomain. Keeping both here stops the id, the route and the access
- * check drifting apart.
+ * Named for whose they are rather than for a role: a restaurant's panel is used
+ * by its admins and its staff alike, and the platform panel by the product
+ * team. The backing value is the panel's Filament id — what its route names are
+ * built from — and path() is where it is served.
+ *
+ * Both panels live under /dashboard and are told apart by host: the platform's
+ * on the root domain, a restaurant's on its own subdomain. People arrive
+ * through /login on either host, which sends them to the panel's sign-in page
+ * or, when they are already signed in, straight to /dashboard.
  */
-enum AdminPanel: string
+enum FilamentPanel: string
 {
-    /** The product team panel, on the root domain at /admin. */
-    case SuperAdmin = 'super-admin';
+    /** The product team's panel, on the root domain. */
+    case Platform = 'platform';
 
-    /** One restaurant's own panel, on its subdomain at /admin. */
-    case Admin = 'admin';
+    /** One restaurant's own panel, on its subdomain, for its admins and staff. */
+    case Restaurant = 'restaurant';
 
     /**
      * The URL path this panel is served from.
      *
-     * The same for both. That holds only because the product team panel is bound
-     * to the root domain and registered first — the restaurant panel's sign-in
+     * The same for both. That holds only because the platform panel is bound to
+     * the root domain and registered first — the restaurant panel's sign-in
      * route answers on any host, since nobody has a tenant before signing in.
      * See bootstrap/providers.php.
      */
     public function path(): string
     {
-        return 'admin';
+        return 'dashboard';
     }
 
     /**
@@ -43,8 +47,8 @@ enum AdminPanel: string
     public function icon(): Heroicon
     {
         return match ($this) {
-            self::SuperAdmin => Heroicon::OutlinedBuildingOffice2,
-            self::Admin => Heroicon::OutlinedBuildingStorefront,
+            self::Platform => Heroicon::OutlinedBuildingOffice2,
+            self::Restaurant => Heroicon::OutlinedBuildingStorefront,
         };
     }
 
@@ -54,8 +58,8 @@ enum AdminPanel: string
     public function brandName(): string
     {
         return match ($this) {
-            self::SuperAdmin => 'Restaurant Platform',
-            self::Admin => (string) config('app.name'),
+            self::Platform => 'Restaurant Platform',
+            self::Restaurant => (string) config('app.name'),
         };
     }
 
@@ -65,8 +69,8 @@ enum AdminPanel: string
     public function signInDescription(): string
     {
         return match ($this) {
-            self::SuperAdmin => 'Sign in to manage every restaurant on the platform.',
-            self::Admin => 'Sign in to manage your restaurant.',
+            self::Platform => 'Sign in to manage every restaurant on the platform.',
+            self::Restaurant => 'Sign in to manage your restaurant.',
         };
     }
 

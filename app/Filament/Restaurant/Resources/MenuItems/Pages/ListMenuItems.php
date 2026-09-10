@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MenuItems\Pages;
+namespace App\Filament\Restaurant\Resources\MenuItems\Pages;
 
-use App\Filament\Admin\Resources\MenuItems\MenuItemResource;
-use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Restaurant\Resources\MenuItems\MenuItemResource;
+use App\Filament\Restaurant\Resources\MenuItems\Schemas\MenuItemForm;
 use App\Models\MenuCategory;
 use Filament\Actions\CreateAction;
 use Filament\Facades\Filament;

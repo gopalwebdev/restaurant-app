@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Permissions\Pages;
+namespace App\Filament\Platform\Resources\Permissions\Pages;
 
-use App\Filament\SuperAdmin\Resources\Permissions\PermissionResource;
+use App\Filament\Platform\Resources\Permissions\PermissionResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Icons\Heroicon;

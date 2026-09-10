@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Permissions\Schemas;
+namespace App\Filament\Platform\Resources\Permissions\Schemas;
 
 use App\Enums\PermissionGroup;
 use Filament\Forms\Components\TextInput;

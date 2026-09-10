@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Restaurants\Pages;
+namespace App\Filament\Platform\Resources\Restaurants\Pages;
 
-use App\Filament\SuperAdmin\Resources\Restaurants\RestaurantResource;
+use App\Filament\Platform\Resources\Restaurants\RestaurantResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 

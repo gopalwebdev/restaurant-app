@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Roles\Pages;
+namespace App\Filament\Platform\Resources\Roles\Pages;
 
-use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
+use App\Filament\Platform\Resources\Roles\RoleResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Icons\Heroicon;

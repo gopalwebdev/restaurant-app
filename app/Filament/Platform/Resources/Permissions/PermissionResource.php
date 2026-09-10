@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Permissions;
+namespace App\Filament\Platform\Resources\Permissions;
 
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\CreatePermission;
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\EditPermission;
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\ListPermissions;
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\ViewPermission;
-use App\Filament\SuperAdmin\Resources\Permissions\Schemas\PermissionForm;
-use App\Filament\SuperAdmin\Resources\Permissions\Schemas\PermissionInfolist;
-use App\Filament\SuperAdmin\Resources\Permissions\Tables\PermissionsTable;
+use App\Filament\Platform\Resources\Permissions\Pages\CreatePermission;
+use App\Filament\Platform\Resources\Permissions\Pages\EditPermission;
+use App\Filament\Platform\Resources\Permissions\Pages\ListPermissions;
+use App\Filament\Platform\Resources\Permissions\Pages\ViewPermission;
+use App\Filament\Platform\Resources\Permissions\Schemas\PermissionForm;
+use App\Filament\Platform\Resources\Permissions\Schemas\PermissionInfolist;
+use App\Filament\Platform\Resources\Permissions\Tables\PermissionsTable;
 use App\Models\Permission;
 use BackedEnum;
 use Filament\Resources\Resource;

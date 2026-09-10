@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Users\Pages;
+namespace App\Filament\Restaurant\Resources\Users\Pages;
 
 use App\Actions\Restaurants\AddUserToRestaurant;
-use App\Filament\Admin\Resources\Users\UserResource;
+use App\Filament\Restaurant\Resources\Users\UserResource;
 use App\Models\Restaurant;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\CreateRecord;

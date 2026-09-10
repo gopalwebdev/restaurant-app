@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Restaurants;
+namespace App\Filament\Platform\Resources\Restaurants;
 
-use App\Filament\SuperAdmin\Resources\Restaurants\Pages\CreateRestaurant;
-use App\Filament\SuperAdmin\Resources\Restaurants\Pages\EditRestaurant;
-use App\Filament\SuperAdmin\Resources\Restaurants\Pages\ListRestaurants;
-use App\Filament\SuperAdmin\Resources\Restaurants\RelationManagers\UsersRelationManager;
-use App\Filament\SuperAdmin\Resources\Restaurants\Schemas\RestaurantForm;
-use App\Filament\SuperAdmin\Resources\Restaurants\Tables\RestaurantsTable;
+use App\Filament\Platform\Resources\Restaurants\Pages\CreateRestaurant;
+use App\Filament\Platform\Resources\Restaurants\Pages\EditRestaurant;
+use App\Filament\Platform\Resources\Restaurants\Pages\ListRestaurants;
+use App\Filament\Platform\Resources\Restaurants\RelationManagers\UsersRelationManager;
+use App\Filament\Platform\Resources\Restaurants\Schemas\RestaurantForm;
+use App\Filament\Platform\Resources\Restaurants\Tables\RestaurantsTable;
 use App\Models\Restaurant;
 use BackedEnum;
 use Filament\Resources\Resource;

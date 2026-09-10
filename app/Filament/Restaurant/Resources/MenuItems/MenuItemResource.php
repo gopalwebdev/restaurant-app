@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MenuItems;
+namespace App\Filament\Restaurant\Resources\MenuItems;
 
-use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
-use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
-use App\Filament\Admin\Resources\MenuItems\Tables\MenuItemsTable;
+use App\Filament\Restaurant\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Restaurant\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Restaurant\Resources\MenuItems\Tables\MenuItemsTable;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuItem;
 use BackedEnum;

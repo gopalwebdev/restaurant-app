@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MenuItems\Schemas;
+namespace App\Filament\Restaurant\Resources\MenuItems\Schemas;
 
 use App\Enums\Currency;
 use App\Enums\FoodType;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuItem;

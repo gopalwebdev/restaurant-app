@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Restaurants\Pages;
+namespace App\Filament\Platform\Resources\Restaurants\Pages;
 
 use App\Enums\Role;
-use App\Filament\SuperAdmin\Resources\Restaurants\RestaurantResource;
-use App\Filament\SuperAdmin\Resources\Users\UserResource;
+use App\Filament\Platform\Resources\Restaurants\RestaurantResource;
+use App\Filament\Platform\Resources\Users\UserResource;
 use App\Models\Restaurant;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;

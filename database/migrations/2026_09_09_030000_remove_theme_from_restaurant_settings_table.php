@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Take theme customisation back out of the admin panel.
+     * Take theme customisation back out of the restaurant panel.
      *
      * A restaurant no longer chooses a brand colour or a light/dark default.
      * Light and dark are the whole of the theming, and the choice belongs to

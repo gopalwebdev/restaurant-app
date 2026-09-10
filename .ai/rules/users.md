@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'app/Filament/SuperAdmin/Resources/Users/**'
+  - 'app/Filament/Platform/Resources/Users/**'
 ---
 
 # Users

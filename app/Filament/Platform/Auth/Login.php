@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Auth;
+namespace App\Filament\Platform\Auth;
 
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use App\Filament\Auth\OtpLogin;
 
 /**
@@ -10,8 +10,8 @@ use App\Filament\Auth\OtpLogin;
  */
 class Login extends OtpLogin
 {
-    protected function panel(): AdminPanel
+    protected function panel(): FilamentPanel
     {
-        return AdminPanel::SuperAdmin;
+        return FilamentPanel::Platform;
     }
 }

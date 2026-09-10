@@ -63,11 +63,11 @@ it('lets each restaurant admin into their own panel and no further', function ()
     $admin = $restaurant->users()->role(Role::Admin->value)->firstOrFail();
 
     $this->actingAs($admin)
-        ->get("http://{$restaurant->slug}.restaurant-app.test/admin")
+        ->get("http://{$restaurant->slug}.restaurant-app.test/dashboard")
         ->assertOk();
 
     $this->actingAs($admin)
-        ->get('http://restaurant-app.test/admin')
+        ->get('http://restaurant-app.test/dashboard')
         ->assertForbidden();
 });
 
@@ -75,7 +75,7 @@ it('lets the product team owner into the product team panel', function (): void 
     $superAdmin = User::query()->where('email', SuperAdminSeeder::EMAIL)->firstOrFail();
 
     $this->actingAs($superAdmin)
-        ->get('http://restaurant-app.test/admin')
+        ->get('http://restaurant-app.test/dashboard')
         ->assertOk();
 });
 
@@ -89,9 +89,10 @@ it('lists every account and where it signs in', function (): void {
 
     expect($output)
         ->toContain(SuperAdminSeeder::EMAIL)
-        ->toContain('restaurant-app.test/admin')
+        // /login on each host: the one address to hand anyone who uses a panel.
+        ->toContain('restaurant-app.test/login')
         ->toContain($admin->email)
-        ->toContain($restaurant->slug.'.restaurant-app.test/admin');
+        ->toContain($restaurant->slug.'.restaurant-app.test/login');
 });
 
 it('opens a way into every menu it seeds', function (): void {
@@ -110,8 +111,8 @@ it('opens a way into every menu it seeds', function (): void {
 it('can be seeded again without duplicating anything', function (): void {
     $this->seed(DatabaseSeeder::class);
 
-    // The product team, plus an admin and a staff member for each restaurant:
-    // one to run it from the panel, one to work the floor from the phone app.
+    // The product team, plus an admin and a staff member for each restaurant,
+    // both of whom sign in to that restaurant's panel at its /login.
     $perRestaurant = 2;
 
     expect(User::query()->count())->toBe(1 + ($perRestaurant * count(RestaurantSeeder::RESTAURANTS)))

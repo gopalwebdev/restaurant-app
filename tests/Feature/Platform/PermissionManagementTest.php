@@ -3,10 +3,10 @@
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\CreatePermission;
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\EditPermission;
-use App\Filament\SuperAdmin\Resources\Permissions\Pages\ListPermissions;
-use App\Filament\SuperAdmin\Resources\Permissions\PermissionResource;
+use App\Filament\Platform\Resources\Permissions\Pages\CreatePermission;
+use App\Filament\Platform\Resources\Permissions\Pages\EditPermission;
+use App\Filament\Platform\Resources\Permissions\Pages\ListPermissions;
+use App\Filament\Platform\Resources\Permissions\PermissionResource;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -49,7 +49,7 @@ it('keeps a restaurant admin off the permissions page', function (): void {
     $user->assignRole(RoleEnum::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/permissions')
+        ->get('http://restaurant-app.test/dashboard/permissions')
         ->assertForbidden();
 });
 
@@ -57,7 +57,7 @@ it('serves the permissions page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/permissions')
+        ->get('http://restaurant-app.test/dashboard/permissions')
         ->assertOk();
 });
 
@@ -360,7 +360,7 @@ it('closes the edit page for a built-in permission', function (): void {
     $permission = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
 
     $this->actingAs($user)
-        ->get("http://restaurant-app.test/admin/permissions/{$permission->getKey()}/edit")
+        ->get("http://restaurant-app.test/dashboard/permissions/{$permission->getKey()}/edit")
         ->assertForbidden();
 });
 
@@ -369,7 +369,7 @@ it('still shows a built-in permission read only', function (): void {
     $permission = Permission::query()->where('name', PermissionEnum::MenuView->value)->sole();
 
     $this->actingAs($user)
-        ->get("http://restaurant-app.test/admin/permissions/{$permission->getKey()}")
+        ->get("http://restaurant-app.test/dashboard/permissions/{$permission->getKey()}")
         ->assertOk()
         ->assertSee(PermissionEnum::MenuView->value);
 });

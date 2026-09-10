@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'app/Filament/Admin/Resources/Menus/**'
+  - 'app/Filament/Restaurant/Resources/Menus/**'
 ---
 
 # Menus

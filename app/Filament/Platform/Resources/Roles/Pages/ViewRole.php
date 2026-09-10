@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Roles\Pages;
+namespace App\Filament\Platform\Resources\Roles\Pages;
 
-use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
+use App\Filament\Platform\Resources\Roles\RoleResource;
 use App\Models\Role;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;

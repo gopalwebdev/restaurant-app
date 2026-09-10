@@ -2,8 +2,8 @@
 
 namespace App\Providers\Filament;
 
-use App\Enums\AdminPanel;
-use App\Filament\SuperAdmin\Auth\Login;
+use App\Enums\FilamentPanel;
+use App\Filament\Platform\Auth\Login;
 use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -24,35 +24,36 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The product team panel, served at restaurant-app.com/admin.
+ * The product team's panel, served at restaurant-app.com/dashboard and entered
+ * through restaurant-app.com/login.
  *
  * It is bound to the bare host so it can never be reached from a tenant
  * subdomain, and it is the default panel because it carries no tenancy. It
- * shares /admin with every restaurant's panel and is told apart by host, which
- * holds because this provider is registered first (bootstrap/providers.php).
+ * shares /dashboard with every restaurant's panel and is told apart by host,
+ * which holds because this provider is registered first (bootstrap/providers.php).
  */
-class SuperAdminPanelProvider extends PanelProvider
+class PlatformPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
         return $panel
             ->default()
-            ->id(AdminPanel::SuperAdmin->value)
-            ->path(AdminPanel::SuperAdmin->path())
+            ->id(FilamentPanel::Platform->value)
+            ->path(FilamentPanel::Platform->path())
             ->domain(config('app.domain'))
             ->login(Login::class)
-            ->brandName(AdminPanel::SuperAdmin->brandName())
-            ->brandLogo(fn (): View => view('filament.brand', ['panel' => AdminPanel::SuperAdmin]))
+            ->brandName(FilamentPanel::Platform->brandName())
+            ->brandLogo(fn (): View => view('filament.brand', ['panel' => FilamentPanel::Platform]))
             ->brandLogoHeight('2rem')
             ->colors([
                 'primary' => Color::Indigo,
             ])
-            ->discoverResources(in: app_path('Filament/SuperAdmin/Resources'), for: 'App\Filament\SuperAdmin\Resources')
-            ->discoverPages(in: app_path('Filament/SuperAdmin/Pages'), for: 'App\Filament\SuperAdmin\Pages')
+            ->discoverResources(in: app_path('Filament/Platform/Resources'), for: 'App\Filament\Platform\Resources')
+            ->discoverPages(in: app_path('Filament/Platform/Pages'), for: 'App\Filament\Platform\Pages')
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/SuperAdmin/Widgets'), for: 'App\Filament\SuperAdmin\Widgets')
+            ->discoverWidgets(in: app_path('Filament/Platform/Widgets'), for: 'App\Filament\Platform\Widgets')
             ->widgets([
                 AccountWidget::class,
             ])

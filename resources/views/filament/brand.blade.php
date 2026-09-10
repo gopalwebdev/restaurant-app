@@ -6,7 +6,7 @@
     which carries its fi- classes and no general utilities to lean on. The
     colours are the panel's own, so each panel brands itself.
 
-    $name overrides the panel's own brandName() — the admin panel passes the
+    $name overrides the panel's own brandName() — the restaurant panel passes the
     signed-in restaurant's own name once one is known, and falls back to its
     generic name before that. The product team's panel never passes it: it
     has no tenant to name itself after.

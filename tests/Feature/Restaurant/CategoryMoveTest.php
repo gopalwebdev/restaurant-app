@@ -2,7 +2,7 @@
 
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\ArrangeMenu;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;

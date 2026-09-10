@@ -1,14 +1,14 @@
 <?php
 
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Pages\Settings;
-use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
-use App\Filament\Admin\Resources\Menus\MenuResource;
-use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
-use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
-use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
-use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
-use App\Filament\Admin\Resources\Menus\Pages\ManageMenuFeaturedItems;
+use App\Filament\Restaurant\Pages\Settings;
+use App\Filament\Restaurant\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\Menus\Pages\ArrangeMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\EditMenu;
+use App\Filament\Restaurant\Resources\Menus\Pages\ListMenus;
+use App\Filament\Restaurant\Resources\Menus\Pages\ManageMenuCombos;
+use App\Filament\Restaurant\Resources\Menus\Pages\ManageMenuFeaturedItems;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuCombo;
@@ -78,7 +78,7 @@ it('moves between panel pages without a blank browser load', function (): void {
 
     // The panel is a SPA, so a click fetches the next page over Livewire and
     // shows a progress bar while it does — rather than leaving an admin looking
-    // at the page they have just left. The phone apps get the same from Inertia,
+    // at the page they have just left. The guest app gets the same from Inertia,
     // plus a splash for the first load.
     $html = (string) $this->get(MenuResource::getUrl('index', ['tenant' => $restaurant]))
         ->assertOk()

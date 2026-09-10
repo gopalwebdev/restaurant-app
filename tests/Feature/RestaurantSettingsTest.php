@@ -1,9 +1,9 @@
 <?php
 
-use App\Enums\AdminPanel;
 use App\Enums\Currency;
+use App\Enums\FilamentPanel;
 use App\Enums\Role;
-use App\Filament\Admin\Pages\Settings;
+use App\Filament\Restaurant\Pages\Settings;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
 use App\Models\User;
@@ -138,7 +138,7 @@ it('is open to a super admin supporting a restaurant', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::setCurrentPanel(FilamentPanel::Restaurant->value);
     Filament::setTenant($restaurant);
 
     expect(Settings::canAccess())->toBeTrue();

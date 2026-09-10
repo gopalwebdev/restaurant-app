@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Restaurants\Schemas;
+namespace App\Filament\Platform\Resources\Restaurants\Schemas;
 
 use App\Enums\CountryCallingCode;
 use App\Enums\Role as RoleEnum;

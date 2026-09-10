@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\Tables;
+namespace App\Filament\Restaurant\Resources\Menus\Tables;
 
-use App\Filament\Admin\Resources\Menus\MenuResource;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Schemas\TranslatedFields;
 use App\Filament\Tables\Reordering;
 use App\Models\Menu;

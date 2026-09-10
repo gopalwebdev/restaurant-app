@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Light or dark for the marketing site at the root domain.
  *
- * The same unencrypted cookie the two phone apps use, read through the same
+ * The same unencrypted cookie the guest app uses, read through the same
  * enum, so there is one vocabulary for shading across the whole application.
  * The guest app does not go through here — HandleGuestAppRequests reads
  * the cookie itself, because it has a root template of its own to paint.

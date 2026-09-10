@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
 
             // The product team, as opposed to the people who run one restaurant.
-            // This is the only thing that grants the super admin panel, so it
+            // This is the only thing that grants the platform panel, so it
             // is a column rather than a role that could be handed out.
             $table->boolean('is_super_admin')->default(false)->index();
 

@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\Tables;
+namespace App\Filament\Restaurant\Resources\Menus\Tables;
 
 use App\Actions\Menus\ApplyMenuArrangement;
 use App\Actions\Menus\MoveCategoryToMenu;
 use App\Enums\Currency;
 use App\Enums\MenuBlock;
-use App\Filament\Admin\Resources\MenuItems\MenuItemResource;
-use App\Filament\Admin\Resources\Menus\MenuResource;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuCategoryForm;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
+use App\Filament\Restaurant\Resources\MenuItems\MenuItemResource;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuCategoryForm;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Tables\Reordering;
 use App\Models\Menu;

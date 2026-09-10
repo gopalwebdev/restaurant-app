@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { login } from '@/routes/filament/super-admin/auth';
+import { login } from '@/routes/platform';
 import { Badge } from '@/components/ui/badge';
 import {
     Card,
@@ -13,7 +13,7 @@ import {
  * The marketing page for the platform itself, served from the root domain.
  *
  * Each restaurant gets its own subdomain for its storefront, and the same
- * subdomain plus /admin for the people who run it.
+ * subdomain plus /login for the people who work there.
  */
 export default function Welcome() {
     const capabilities = [
@@ -30,7 +30,7 @@ export default function Welcome() {
         {
             title: 'Roles that fit a kitchen',
             description:
-                'Owners, managers and floor staff each see only the part of the admin they need.',
+                'Owners, managers and floor staff each see only the part of the dashboard they need.',
         },
     ];
 
@@ -45,7 +45,7 @@ export default function Welcome() {
                             Restaurant Platform
                         </span>
 
-                        {/* The admin panel is server rendered, so this leaves
+                        {/* The restaurant panel is server rendered, so this leaves
                             the Inertia app rather than navigating inside it. */}
                         <a
                             href={login.url()}

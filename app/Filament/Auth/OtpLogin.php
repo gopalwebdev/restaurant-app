@@ -5,7 +5,7 @@ namespace App\Filament\Auth;
 use App\Actions\Otp\SendOneTimePassword;
 use App\Actions\Otp\ThrottleOneTimePasswordRequests;
 use App\Actions\Otp\VerifyOneTimePassword;
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use App\Models\User;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Actions\Action;
@@ -51,7 +51,7 @@ abstract class OtpLogin extends BaseLogin
     /**
      * The panel this page signs people into.
      */
-    abstract protected function panel(): AdminPanel;
+    abstract protected function panel(): FilamentPanel;
 
     /**
      * Issue a code for the address that was entered and move to step two.

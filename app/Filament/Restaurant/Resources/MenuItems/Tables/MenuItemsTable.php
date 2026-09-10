@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MenuItems\Tables;
+namespace App\Filament\Restaurant\Resources\MenuItems\Tables;
 
 use App\Enums\FoodType;
 use App\Enums\ItemAvailability;
-use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuCategoryForm;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
+use App\Filament\Restaurant\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuCategoryForm;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\MenuItem;
@@ -69,7 +69,7 @@ class MenuItemsTable
                 // storing it that way.
                 //
                 // Formatted here rather than in the browser, unlike the guest
-                // and staff apps: a panel is server rendered, and the currency
+                // app: a panel is server rendered, and the currency
                 // is resolved once for the page rather than per row.
                 TextColumn::make('price_minor_units')
                     ->label(__('panel.items.price'))

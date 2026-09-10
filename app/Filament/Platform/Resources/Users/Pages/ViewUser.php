@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\SuperAdmin\Resources\Users\Pages;
+namespace App\Filament\Platform\Resources\Users\Pages;
 
-use App\Filament\SuperAdmin\Resources\Users\UserResource;
+use App\Filament\Platform\Resources\Users\UserResource;
 use App\Models\User;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;

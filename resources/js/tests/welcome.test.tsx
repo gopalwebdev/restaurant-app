@@ -14,7 +14,7 @@ describe('welcome', () => {
         ).toBeInTheDocument();
     });
 
-    it('sends people to the admin panel with a plain link', () => {
+    it('sends people to the restaurant panel with a plain link', () => {
         render(<Welcome />);
 
         const signIn = screen.getByRole('link', { name: 'Sign in' });
@@ -23,7 +23,7 @@ describe('welcome', () => {
         // rather than an Inertia visit.
         expect(signIn).toHaveAttribute(
             'href',
-            expect.stringContaining('/admin/login'),
+            expect.stringContaining('/login'),
         );
     });
 

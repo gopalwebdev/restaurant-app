@@ -1,7 +1,7 @@
 import type { SVGProps } from 'react';
 
 /**
- * The handful of icons the two phone apps need.
+ * The handful of icons the guest app needs.
  *
  * Written out rather than pulled from an icon package: a handful of glyphs do
  * not earn a dependency, and these ship as part of the bundle instead of as

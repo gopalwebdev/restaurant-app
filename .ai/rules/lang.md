@@ -22,7 +22,7 @@ Filament's own chrome was always English regardless (the framework ships no `ta`
 
 Each file is sent to the browser whole as the `translations` Inertia prop and read with `useTranslations()`'s dotted path. Laravel's `:name` placeholders are therefore filled in JavaScript, not PHP — keep them in the string rather than writing a second string with the number baked in. A key that is missing falls back to the path itself, so a typo reads as `menu.empy` rather than as nothing.
 
-## panel.php is the admin panel, and only its menu surfaces
+## panel.php is the restaurant panel, and only its menu surfaces
 `lang/en/panel.php` holds the labels of the Filament resources a restaurant works in daily — menus, the arrangement, dishes, additions and home screen tiles — plus the navigation groups they sit under.
 
 Roles, permissions, accounts and restaurants are deliberately **not** in here. They are the product team's vocabulary and code refers to those names, so translating them would make a `hasRole('admin')` check read as though it might not be English.

@@ -4,11 +4,11 @@ use App\Actions\Roles\SetRolePermissions;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
-use App\Filament\SuperAdmin\Resources\Roles\Pages\CreateRole;
-use App\Filament\SuperAdmin\Resources\Roles\Pages\EditRole;
-use App\Filament\SuperAdmin\Resources\Roles\Pages\ListRoles;
-use App\Filament\SuperAdmin\Resources\Roles\RoleResource;
-use App\Filament\SuperAdmin\Resources\Roles\Schemas\RoleForm;
+use App\Filament\Platform\Resources\Roles\Pages\CreateRole;
+use App\Filament\Platform\Resources\Roles\Pages\EditRole;
+use App\Filament\Platform\Resources\Roles\Pages\ListRoles;
+use App\Filament\Platform\Resources\Roles\RoleResource;
+use App\Filament\Platform\Resources\Roles\Schemas\RoleForm;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -53,7 +53,7 @@ it('keeps a restaurant admin off the roles page', function (): void {
     $user->assignRole(RoleEnum::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/roles')
+        ->get('http://restaurant-app.test/dashboard/roles')
         ->assertForbidden();
 });
 
@@ -61,7 +61,7 @@ it('serves the roles page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/roles')
+        ->get('http://restaurant-app.test/dashboard/roles')
         ->assertOk();
 });
 
@@ -606,7 +606,7 @@ it('opens the edit page for a built-in role', function (): void {
     $role = Role::findByName(RoleEnum::Admin->value);
 
     $this->actingAs($user)
-        ->get("http://restaurant-app.test/admin/roles/{$role->getKey()}/edit")
+        ->get("http://restaurant-app.test/dashboard/roles/{$role->getKey()}/edit")
         ->assertOk();
 });
 
@@ -615,7 +615,7 @@ it('still shows a built-in role read only', function (): void {
     $role = Role::findByName(RoleEnum::Admin->value);
 
     $this->actingAs($user)
-        ->get("http://restaurant-app.test/admin/roles/{$role->getKey()}")
+        ->get("http://restaurant-app.test/dashboard/roles/{$role->getKey()}")
         ->assertOk()
         ->assertSee(RoleEnum::Admin->value);
 });

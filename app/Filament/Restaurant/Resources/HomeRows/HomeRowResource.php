@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Filament\Admin\Resources\HomeRows;
+namespace App\Filament\Restaurant\Resources\HomeRows;
 
-use App\Filament\Admin\Resources\HomeRows\Pages\EditHomeRow;
-use App\Filament\Admin\Resources\HomeRows\Pages\ListHomeRows;
-use App\Filament\Admin\Resources\HomeRows\RelationManagers\TilesRelationManager;
-use App\Filament\Admin\Resources\HomeRows\Schemas\HomeRowForm;
-use App\Filament\Admin\Resources\HomeRows\Tables\HomeRowsTable;
+use App\Filament\Restaurant\Resources\HomeRows\Pages\EditHomeRow;
+use App\Filament\Restaurant\Resources\HomeRows\Pages\ListHomeRows;
+use App\Filament\Restaurant\Resources\HomeRows\RelationManagers\TilesRelationManager;
+use App\Filament\Restaurant\Resources\HomeRows\Schemas\HomeRowForm;
+use App\Filament\Restaurant\Resources\HomeRows\Tables\HomeRowsTable;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\HomeRow;
 use BackedEnum;

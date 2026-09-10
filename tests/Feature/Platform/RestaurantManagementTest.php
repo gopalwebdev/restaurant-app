@@ -3,12 +3,12 @@
 use App\Enums\CountryCallingCode;
 use App\Enums\Permission;
 use App\Enums\Role;
-use App\Filament\SuperAdmin\Resources\Restaurants\Pages\CreateRestaurant;
-use App\Filament\SuperAdmin\Resources\Restaurants\Pages\EditRestaurant;
-use App\Filament\SuperAdmin\Resources\Restaurants\Pages\ListRestaurants;
-use App\Filament\SuperAdmin\Resources\Restaurants\RelationManagers\UsersRelationManager;
-use App\Filament\SuperAdmin\Resources\Restaurants\RestaurantResource;
-use App\Filament\SuperAdmin\Resources\Users\UserResource;
+use App\Filament\Platform\Resources\Restaurants\Pages\CreateRestaurant;
+use App\Filament\Platform\Resources\Restaurants\Pages\EditRestaurant;
+use App\Filament\Platform\Resources\Restaurants\Pages\ListRestaurants;
+use App\Filament\Platform\Resources\Restaurants\RelationManagers\UsersRelationManager;
+use App\Filament\Platform\Resources\Restaurants\RestaurantResource;
+use App\Filament\Platform\Resources\Users\UserResource;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -57,7 +57,7 @@ it('keeps a restaurant admin out of the restaurants page', function (): void {
     $user->assignRole(Role::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/restaurants')
+        ->get('http://restaurant-app.test/dashboard/restaurants')
         ->assertForbidden();
 });
 
@@ -65,7 +65,7 @@ it('serves the restaurants page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/admin/restaurants')
+        ->get('http://restaurant-app.test/dashboard/restaurants')
         ->assertOk();
 });
 
@@ -303,7 +303,7 @@ it("links straight to a restaurant's own admin sign-in, now that the tenant menu
     enterProductTeamPanel();
 
     Livewire::test(ListRestaurants::class)
-        ->assertTableActionHasUrl('openAdmin', $restaurant->adminSignInUrl(), $restaurant);
+        ->assertTableActionHasUrl('openPanel', $restaurant->signInUrl(), $restaurant);
 });
 
 it('leaves the link to another host as a real browser visit', function (): void {
@@ -316,7 +316,7 @@ it('leaves the link to another host as a real browser visit', function (): void 
     // alone, which is why no spaUrlExceptions() is needed.
     $html = Livewire::test(ListRestaurants::class)->html();
 
-    $link = str($html)->after($restaurant->adminSignInUrl())->before('>')->toString();
+    $link = str($html)->after($restaurant->signInUrl())->before('>')->toString();
 
     expect($link)->not->toContain('wire:navigate');
 });

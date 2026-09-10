@@ -61,7 +61,7 @@ return [
     |
     | The bare host the application is served from, without a scheme or port.
     | Restaurants are tenants on subdomains of it (t1.restaurant-app.com),
-    | while the root host serves the super admin panel.
+    | while the root host serves the platform panel.
     |
     */
 

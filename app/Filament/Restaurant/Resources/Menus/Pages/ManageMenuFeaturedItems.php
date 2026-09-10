@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\Pages;
+namespace App\Filament\Restaurant\Resources\Menus\Pages;
 
 use App\Enums\FoodType;
-use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
-use App\Filament\Admin\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
 use App\Filament\Tables\Reordering;
 use App\Models\Menu;
 use App\Models\MenuCategory;

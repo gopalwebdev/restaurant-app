@@ -1,9 +1,9 @@
 <?php
 
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Pages\Settings;
+use App\Filament\Restaurant\Pages\Settings;
 use App\Models\Restaurant;
 use App\Models\Role;
 use App\Models\User;
@@ -37,7 +37,7 @@ beforeEach(function (): void {
  *
  * @return list<class-string>
  */
-function gatedPagesOf(AdminPanel $panel): array
+function gatedPagesOf(FilamentPanel $panel): array
 {
     $registered = Filament::getPanel($panel->value);
 
@@ -51,10 +51,10 @@ it('refuses every product team page to an account holding nothing', function ():
     $powerless = User::factory()->create();
 
     $this->actingAs($powerless);
-    Filament::setCurrentPanel(AdminPanel::SuperAdmin->value);
+    Filament::setCurrentPanel(FilamentPanel::Platform->value);
     Filament::bootCurrentPanel();
 
-    $pages = gatedPagesOf(AdminPanel::SuperAdmin);
+    $pages = gatedPagesOf(FilamentPanel::Platform);
 
     expect($pages)->not->toBeEmpty();
 
@@ -68,11 +68,11 @@ it('refuses every restaurant page to someone on the roster holding no role', fun
     $powerless = User::factory()->ofRestaurant($restaurant)->create();
 
     $this->actingAs($powerless);
-    Filament::setCurrentPanel(AdminPanel::Admin->value);
+    Filament::setCurrentPanel(FilamentPanel::Restaurant->value);
     Filament::bootCurrentPanel();
     Filament::setTenant($restaurant);
 
-    $pages = gatedPagesOf(AdminPanel::Admin);
+    $pages = gatedPagesOf(FilamentPanel::Restaurant);
 
     expect($pages)->not->toBeEmpty();
 
@@ -84,7 +84,7 @@ it('refuses every restaurant page to someone on the roster holding no role', fun
 it('opens every product team page to the product team', function (): void {
     enterProductTeamPanel();
 
-    foreach (gatedPagesOf(AdminPanel::SuperAdmin) as $page) {
+    foreach (gatedPagesOf(FilamentPanel::Platform) as $page) {
         expect($page::canAccess())->toBeTrue("{$page} is closed to the product team");
     }
 });
@@ -93,7 +93,7 @@ it('opens every restaurant page to a restaurant admin', function (): void {
     $restaurant = Restaurant::factory()->create();
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    foreach (gatedPagesOf(AdminPanel::Admin) as $page) {
+    foreach (gatedPagesOf(FilamentPanel::Restaurant) as $page) {
         expect($page::canAccess())->toBeTrue("{$page} is closed to a restaurant admin");
     }
 });
@@ -122,7 +122,7 @@ it('names a permission for every resource it registers', function (): void {
     // Each resource is gated by its model's policy, and every one of those
     // policies asks a permission rather than answering true. Reaching a page is
     // therefore always a question about permissions, never about a class name.
-    foreach (gatedPagesOf(AdminPanel::SuperAdmin) as $page) {
+    foreach (gatedPagesOf(FilamentPanel::Platform) as $page) {
         if (! is_a($page, Resource::class, allow_string: true)) {
             continue;
         }

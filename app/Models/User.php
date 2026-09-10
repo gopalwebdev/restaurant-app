@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\AdminPanel;
+use App\Enums\FilamentPanel;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -173,15 +173,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     /**
      * Gate entry to each Filament panel.
      *
-     * The super admin panel is reserved for the product team. The tenant panel is
+     * The platform panel is reserved for the product team. The tenant panel is
      * open to anyone attached to a restaurant, plus the product team for support.
      * A panel this application does not know about is closed to everyone.
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return match (AdminPanel::tryFrom($panel->getId())) {
-            AdminPanel::SuperAdmin => $this->isSuperAdmin(),
-            AdminPanel::Admin => $this->isSuperAdmin() || $this->restaurants()->exists(),
+        return match (FilamentPanel::tryFrom($panel->getId())) {
+            FilamentPanel::Platform => $this->isSuperAdmin(),
+            FilamentPanel::Restaurant => $this->isSuperAdmin() || $this->restaurants()->exists(),
             default => false,
         };
     }

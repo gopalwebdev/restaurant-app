@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\Pages;
+namespace App\Filament\Restaurant\Resources\Menus\Pages;
 
-use App\Filament\Admin\Resources\Menus\MenuResource;
-use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
+use App\Filament\Restaurant\Resources\Menus\MenuResource;
+use App\Filament\Restaurant\Resources\Menus\Schemas\MenuForm;
 use App\Models\Menu;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
