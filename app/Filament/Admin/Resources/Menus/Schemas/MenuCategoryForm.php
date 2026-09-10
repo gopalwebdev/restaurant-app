@@ -15,13 +15,15 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Naming a category, on the page of the menu it belongs to.
  *
- * There is no "which menu" field any more: categories are edited inside a
- * menu's own page (CategoriesRelationManager), so the menu is the page rather
- * than a select. Moving one to another menu is its own action, because that is
- * a different act from renaming.
+ * There is no "which menu" field any more: categories are created and renamed
+ * on the menu's arrangement screen, so the menu is the page rather than a
+ * select. Moving one to another menu is its own action, because that is a
+ * different act from renaming.
  *
- * The menu still has to be *known* — uniqueness is per menu — so the relation
- * manager passes its key in.
+ * The menu still has to be *known* — uniqueness is per menu — so the screen
+ * passes its key in, and the category being renamed with it: that screen's
+ * table is built on plain arrays rather than models, so there is no record for
+ * the uniqueness rule to find and ignore on its own.
  */
 class MenuCategoryForm
 {
@@ -32,7 +34,7 @@ class MenuCategoryForm
      */
     public const array TRANSLATED = ['name'];
 
-    public static function configure(Schema $schema, ?int $menuId = null): Schema
+    public static function configure(Schema $schema, ?int $menuId = null, ?MenuCategory $editing = null): Schema
     {
         return $schema
             ->columns(1)
@@ -54,6 +56,7 @@ class MenuCategoryForm
                             ->where('menu_id', $menuId)
                             ->topLevel(),
                         uniqueMessage: __('panel.categories.unique'),
+                        editing: $editing,
                     )),
 
                 Section::make(__('panel.categories.on_the_menu'))

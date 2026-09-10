@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\RelationManagers;
+namespace App\Filament\Admin\Resources\Menus\Pages;
 
 use App\Enums\ItemAvailability;
+use App\Filament\Admin\Resources\Menus\MenuResource;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuComboForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
@@ -13,34 +14,43 @@ use BackedEnum;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
  * The bundles this menu offers, in the order a guest reads them.
  *
- * A row of its own beside the featured dishes, and dragged into order the same
- * way — a combo is something a menu leads with rather than something in a
- * section, which is why it hangs off the menu and is arranged here.
+ * A combo hangs off the menu rather than off a category — it is something a
+ * menu leads with, not something in a section — so this is where one is made,
+ * priced and dragged into order against the other combos. Where the combos rail
+ * sits among the menu's categories is dragged on the arrangement page instead.
  *
- * Unlike the featured row, records really are created and deleted here: a combo
- * is a thing in its own right, not a flag on a dish.
+ * Unlike the featured rail, records really are created and deleted here: a
+ * combo is a thing in its own right, not a flag on a dish.
  */
-class CombosRelationManager extends RelationManager
+class ManageMenuCombos extends ManageRelatedRecords
 {
+    protected static string $resource = MenuResource::class;
+
     protected static string $relationship = 'combos';
 
-    protected static string|BackedEnum|null $icon = Heroicon::OutlinedSparkles;
+    protected static ?string $recordTitleAttribute = 'name';
 
-    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSparkles;
+
+    public function getTitle(): string
     {
-        return __('panel.combos.plural');
+        return (string) __('panel.combos.plural');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return (string) __('panel.combos.plural');
     }
 
     public function form(Schema $schema): Schema
@@ -122,6 +132,6 @@ class CombosRelationManager extends RelationManager
     {
         $menu = $this->getOwnerRecord();
 
-        return $menu instanceof Menu ? $menu : throw new LogicException('The combos relation manager requires a menu.');
+        return $menu instanceof Menu ? $menu : throw new LogicException('The combos page requires a menu.');
     }
 }

@@ -3,8 +3,12 @@
 use App\Enums\Role as RoleEnum;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Admin\Resources\Menus\MenuResource;
+use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
 use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
+use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
+use App\Filament\Admin\Resources\Menus\Pages\ManageMenuFeaturedItems;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuCombo;
@@ -21,12 +25,12 @@ beforeEach(fn () => $this->seed(RolesAndPermissionsSeeder::class));
 | The panel's menu pages actually render
 |--------------------------------------------------------------------------
 |
-| The tests elsewhere mount one relation manager or one table at a time, which
-| says nothing about the page that holds four of them together. These two walk
-| the pages a restaurant admin opens daily — once with a full tree on them, and
-| once with nothing at all, because an empty restaurant is what every new one
-| starts as and empty states are exactly where a missing relation or a null
-| slips through.
+| The tests elsewhere mount one table or one action at a time, which says
+| nothing about whether the page holding it renders. These two walk every tab a
+| restaurant admin opens daily — once with a full tree on them, and once with
+| nothing at all, because an empty restaurant is what every new one starts as
+| and empty states are exactly where a missing relation or a null slips
+| through.
 |
 */
 
@@ -45,7 +49,10 @@ it('renders every menu page with a full tree on it', function (): void {
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
     Livewire::test(ListMenus::class)->assertOk()->assertCanSeeTableRecords([$menu]);
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])->assertOk();
     Livewire::test(EditMenu::class, ['record' => $menu->getKey()])->assertOk();
+    Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])->assertOk()->assertCanSeeTableRecords([$direct]);
+    Livewire::test(ManageMenuCombos::class, ['record' => $menu->getKey()])->assertOk()->assertCanSeeTableRecords([$combo]);
     Livewire::test(ListMenuItems::class)->assertOk()->assertCanSeeTableRecords([$direct, $nested]);
     Livewire::test(Settings::class)->assertOk();
 });
@@ -56,6 +63,28 @@ it('renders the menu page for a restaurant with nothing on it yet', function ():
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])->assertOk();
     Livewire::test(EditMenu::class, ['record' => $menu->getKey()])->assertOk();
+    Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])->assertOk();
+    Livewire::test(ManageMenuCombos::class, ['record' => $menu->getKey()])->assertOk();
     Livewire::test(ListMenuItems::class)->assertOk();
+});
+
+it('serves every menu tab over HTTP, tab strip and all', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+    MenuItem::factory()->inCategory($category)->create(['is_featured' => true]);
+    MenuCombo::factory()->onMenu($menu)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // A Livewire test renders the component and not the page around it, so it
+    // says nothing about the layout, the record sub-navigation or the render
+    // hooks. These are the four URLs an admin actually opens.
+    foreach (['arrange', 'edit', 'featured', 'combos'] as $tab) {
+        $this->get(MenuResource::getUrl($tab, ['record' => $menu, 'tenant' => $restaurant]))
+            ->assertOk()
+            ->assertSee(__('panel.arrangement.title'));
+    }
 });

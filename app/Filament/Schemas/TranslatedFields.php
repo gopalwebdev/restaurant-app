@@ -79,6 +79,13 @@ final class TranslatedFields
      * the fallback language, because that is what the database's unique indexes
      * are built on.
      *
+     * `editing` names the row being edited when the form is not bound to one.
+     * A form on a resource or a relation manager has its record injected and
+     * needs nothing here; one opened from the arrangement screen is looking at
+     * a table of plain arrays, so the record it would otherwise ignore has to
+     * be handed in — without it, saving a category under its own name is
+     * refused as a clash with itself.
+     *
      * @param  (Closure(Get): Builder<covariant Model>)|null  $uniqueWithin
      * @return list<TextInput>
      */
@@ -88,9 +95,10 @@ final class TranslatedFields
         int $maxLength = 120,
         ?Closure $uniqueWithin = null,
         string $uniqueMessage = 'Something here already has that name.',
+        ?Model $editing = null,
     ): array {
         return array_map(
-            static function (Locale $locale) use ($name, $label, $maxLength, $uniqueWithin, $uniqueMessage): TextInput {
+            static function (Locale $locale) use ($name, $label, $maxLength, $uniqueWithin, $uniqueMessage, $editing): TextInput {
                 $field = self::configure(
                     TextInput::make("{$name}.{$locale->value}")->maxLength($maxLength),
                     $locale,
@@ -103,9 +111,12 @@ final class TranslatedFields
                 }
 
                 return $field->rule(
-                    fn (Get $get, ?Model $record): Closure => self::uniqueFallbackValue(
+                    // `mixed` rather than `?Model`: a schema's record is a
+                    // plain array when the form was opened from a table built
+                    // on custom data, and a typed parameter would be handed one.
+                    fn (Get $get, mixed $record): Closure => self::uniqueFallbackValue(
                         fn (): Builder => $uniqueWithin($get),
-                        $record,
+                        $editing ?? ($record instanceof Model ? $record : null),
                         $name,
                         $uniqueMessage,
                         $get($name.'.'.Locale::default()->value),
@@ -191,8 +202,13 @@ final class TranslatedFields
 
             $matches = $query()->where($column.'->'.Locale::default()->value, $english);
 
-            // Editing a record must not collide with itself.
-            if ($record instanceof Model) {
+            // Editing a record must not collide with itself — but only when
+            // the record *is* one of the rows being searched. A schema is
+            // handed whatever record its surroundings have, and an action modal
+            // on a page falls back to that page's own record: a menu, whose id
+            // would otherwise exclude the category that happens to share it and
+            // let a duplicate straight through to the unique index.
+            if ($record instanceof Model && $record::class === $matches->getModel()::class) {
                 $matches->whereKeyNot($record->getKey());
             }
 

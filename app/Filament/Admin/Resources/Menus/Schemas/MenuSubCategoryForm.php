@@ -33,7 +33,7 @@ class MenuSubCategoryForm
      */
     public const array TRANSLATED = ['name'];
 
-    public static function configure(Schema $schema, ?int $menuId = null): Schema
+    public static function configure(Schema $schema, ?int $menuId = null, ?MenuCategory $editing = null): Schema
     {
         return $schema
             ->columns(1)
@@ -66,6 +66,7 @@ class MenuSubCategoryForm
                             uniqueWithin: fn (Get $get): Builder => MenuCategory::query()
                                 ->where('parent_id', $get('parent_id')),
                             uniqueMessage: __('panel.sub_categories.unique'),
+                            editing: $editing,
                         ),
                     ])
                     ->columns(2),

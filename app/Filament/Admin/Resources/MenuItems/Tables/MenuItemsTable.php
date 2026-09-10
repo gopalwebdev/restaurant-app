@@ -9,7 +9,6 @@ use App\Filament\Admin\Resources\Menus\Schemas\MenuCategoryForm;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
-use App\Filament\Tables\Reordering;
 use App\Models\MenuItem;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -172,23 +171,13 @@ class MenuItemsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            // Dragging is only offered once the table is showing one category,
-            // because Filament turns grouping **off** while reordering
-            // (CanGroupRecords::getTableGrouping() returns null) and sorts by
-            // the reorder column alone. Left ungated, entering drag mode threw
-            // away the tree and produced one flat list of every dish on every
-            // menu — where dropping a dish between two others rewrote a
-            // position that is only ever read within its own category, so the
-            // row sprang back on the next load. There is no grouped drag mode
-            // to switch on; narrowing the table is the whole fix.
+            // Dishes are not dragged here. This page is a flat list of every
+            // dish on every menu, and a dish's position is only ever read
+            // within its own category — so a drag here would rewrite a number
+            // that meant nothing where it landed. Dishes are put in order on
+            // the menu's arrangement page, under the heading they belong to,
+            // which is the only place the order is legible anyway.
             //
-            // isReorderable() is `column && condition && authorized`, so this
-            // narrows when dragging is offered without touching who may do it —
-            // the reorder() policy check is the separate third term. It also
-            // guards the write: reorderTable() short-circuits on the same call,
-            // so a request that arrives without the filter set does nothing.
-            ->reorderable('position', condition: fn (HasTable $livewire): bool => self::filteredSectionKey($livewire) !== null)
-            ->reorderRecordsTriggerAction(Reordering::trigger())
             // Menu, then section, then the order the restaurant dragged the
             // dishes into. Filament's grouping used to imply this; with the
             // group gone the query has to say it.
@@ -254,18 +243,5 @@ class MenuItemsTable
                 .' from menu_categories where id = menu_items.menu_category_id), -1)'
             )
             ->orderBy('position');
-    }
-
-    /**
-     * The category the table is currently narrowed to, if it is narrowed to one.
-     *
-     * Dishes are ordered within their own category, so this is what says whether
-     * dragging can mean anything on screen right now.
-     */
-    private static function filteredSectionKey(HasTable $livewire): ?int
-    {
-        $value = $livewire->getTableFilterState('menu_category_id')['value'] ?? null;
-
-        return filled($value) ? (int) $value : null;
     }
 }

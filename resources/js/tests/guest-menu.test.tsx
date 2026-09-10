@@ -44,8 +44,14 @@ function dish(overrides: Partial<MenuItem> = {}): MenuItem {
 
 /**
  * Render the page with everything empty but the parts a test names.
+ *
+ * `order` defaults to what an unarranged menu is served with — the featured
+ * rail, the combos rail, then the sections — so only a test about arranging
+ * has to spell one out.
  */
 function renderMenu(overrides: Partial<Parameters<typeof Menu>[0]> = {}) {
+    const sections = overrides.sections ?? [];
+
     return render(
         <Menu
             restaurant={restaurant}
@@ -53,6 +59,11 @@ function renderMenu(overrides: Partial<Parameters<typeof Menu>[0]> = {}) {
             featured={[]}
             combos={[]}
             sections={[]}
+            order={[
+                'featured',
+                'combos',
+                ...sections.map((section) => section.id),
+            ]}
             charges={charges}
             acceptingOrders
             homeUrl={homeUrl}
@@ -181,6 +192,36 @@ describe('guest menu', () => {
                 .getAllByRole('heading', { level: 4 })
                 .map((heading) => heading.textContent),
         ).toEqual(['Chicken Biryani', 'Mutton Biryani']);
+    });
+
+    it('reads the blocks in the order the restaurant arranged them', () => {
+        renderMenu({
+            featured: [dish({ id: 10, name: 'Paneer Tikka' })],
+            combos: [
+                {
+                    id: 1,
+                    name: 'Family Feast',
+                    description: null,
+                    priceMinorUnits: 99900,
+                    compareAtPriceMinorUnits: null,
+                    contents: [],
+                },
+            ],
+            sections: [
+                { id: 7, name: 'Starters', items: [], subSections: [] },
+                { id: 8, name: 'Desserts', items: [], subSections: [] },
+            ],
+            // The whole point of arranging: a menu that opens with its
+            // sections and closes with its combos is the same screen read in
+            // a different order.
+            order: [7, 'featured', 8, 'combos'],
+        });
+
+        expect(
+            screen
+                .getAllByRole('heading', { level: 2 })
+                .map((heading) => heading.textContent?.trim()),
+        ).toEqual(['Starters', 'Featured', 'Desserts', 'Combos']);
     });
 
     it('strikes through the old price beside the one being charged', () => {

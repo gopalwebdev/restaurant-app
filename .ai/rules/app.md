@@ -61,9 +61,9 @@ What a guest sees first is `home_rows`, each holding its own `home_tiles`. The *
 
 "Row" and not "section": the panel already calls `menu_categories` sections, and one word for two different things is how a reader ends up on the wrong page.
 
-A menu opens with two rows above its sections: the dishes the restaurant leads with (`menu_items.is_featured`, ordered by `featured_position`) and its combos. A featured dish still appears under its own section further down, so a guest scrolling finds it where they expect it.
+A menu carries two **rails** as well as its categories: the dishes the restaurant leads with (`menu_items.is_featured`, ordered by `featured_position`) and its combos. Where they sit among the categories is the restaurant's own decision — `menus.featured_position` and `menus.combos_position` put them in the same number space as `menu_categories.position`, and `Menu::readingOrder()` merges the three. A menu nobody has arranged still opens with its featured dishes and then its combos, which is what those two columns default to. A featured dish still appears under its own category further down, so a guest scrolling finds it where they expect it.
 
-Every list a guest reads is ordered by `position` within its own parent — sections within a menu, subdivisions within a section, dishes within a category, additions within a dish — and each is dragged into that order in the panel. Nothing is ordered alphabetically, and nothing is ordered across parents.
+Every list a guest reads is ordered by `position` within its own parent — the blocks of a menu, subdivisions within a category, dishes within a category, additions within a dish — and each is dragged into that order in the panel, on one screen: the menu's arrangement (`.ai/rules/menus.md`). Nothing is ordered alphabetically, and nothing is ordered across parents.
 
 Featuring belongs to **one menu**, so a dish that leaves a menu stops being featured — `MenuItem::booted()` clears the flag when a dish's category crosses menus, and `MoveCategoryToMenu` clears it for a whole branch, rather than letting a dish appear at the top of a menu nobody chose it for.
 

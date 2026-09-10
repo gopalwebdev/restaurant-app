@@ -75,10 +75,20 @@ interface MenuProps {
         servedUntil: string | null;
         isBeingServed: boolean;
     };
-    /** The dishes this menu leads with, above its sections. */
+    /** The dishes this menu leads with. */
     featured: MenuItem[];
     combos: Combo[];
     sections: Section[];
+    /**
+     * The order the blocks of this menu are read in: the two rails by name and
+     * a section by its id.
+     *
+     * The restaurant drags all three against each other in the panel, so where
+     * the featured dishes and the combos sit is its decision rather than this
+     * page's — which is why the order is decided on the server and sent, not
+     * assembled here.
+     */
+    order: (number | 'featured' | 'combos')[];
     charges: Charges;
     acceptingOrders: boolean;
     homeUrl: string;
@@ -115,6 +125,7 @@ export default function Menu({
     featured,
     combos,
     sections,
+    order,
     charges,
     acceptingOrders,
     homeUrl,
@@ -123,6 +134,10 @@ export default function Menu({
 
     const isEmpty =
         sections.length === 0 && featured.length === 0 && combos.length === 0;
+
+    const sectionsById = new Map(
+        sections.map((section) => [section.id, section]),
+    );
 
     return (
         <>
@@ -166,108 +181,146 @@ export default function Menu({
                     </p>
                 )}
 
-                {featured.length > 0 && (
-                    <section className="pt-6">
-                        <h2 className="text-muted-foreground flex items-center gap-1.5 px-5 text-xs font-semibold tracking-widest uppercase">
-                            <StarIcon className="size-3.5" />
-                            {t('menu.featured')}
-                        </h2>
-
-                        {/* A rail rather than a list: these are the dishes the
-                            restaurant wants seen first, and a guest should meet
-                            them before scrolling rather than instead of the
-                            sections below, where each one also appears. */}
-                        <ul className="mt-2 flex snap-x snap-mandatory [scrollbar-width:none] gap-3 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
-                            {featured.map((item) => (
-                                <li
-                                    key={item.id}
-                                    className="bg-card w-64 shrink-0 snap-start rounded-xl border"
-                                >
-                                    <Dish item={item} />
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                )}
-
-                {combos.length > 0 && (
-                    <section className="pt-6">
-                        <h2 className="text-muted-foreground px-5 text-xs font-semibold tracking-widest uppercase">
-                            {t('menu.combos')}
-                        </h2>
-
-                        {/* The same rail as the featured row: a combo is
-                            something the menu leads with, not something in a
-                            section, so it is read the same way. */}
-                        <ul className="mt-2 flex snap-x snap-mandatory [scrollbar-width:none] gap-3 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
-                            {combos.map((combo) => (
-                                <li
-                                    key={combo.id}
-                                    className="bg-card w-72 shrink-0 snap-start rounded-xl border"
-                                >
-                                    <ComboCard combo={combo} />
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                )}
-
                 {isEmpty ? (
                     <p className="text-muted-foreground px-5 py-16 text-center text-sm">
                         {t('menu.empty')}
                     </p>
                 ) : (
-                    sections.map((section) => (
-                        <section key={section.id} className="pt-6">
-                            <h2 className="text-muted-foreground px-5 text-xs font-semibold tracking-widest uppercase">
-                                {section.name}
-                            </h2>
+                    /* In the order the restaurant arranged, rails included: a
+                       menu that leads with its combos and one that closes with
+                       them are the same screen read in a different order. */
+                    order.map((block) => {
+                        if (block === 'featured') {
+                            return featured.length > 0 ? (
+                                <FeaturedRail key="featured" items={featured} />
+                            ) : null;
+                        }
 
-                            {section.items.length > 0 && (
-                                <ul className="mt-2">
-                                    {section.items.map((item, index) => (
-                                        <li key={item.id}>
-                                            {index > 0 && (
-                                                <Separator className="ml-5" />
-                                            )}
-                                            <Dish item={item} />
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                        if (block === 'combos') {
+                            return combos.length > 0 ? (
+                                <CombosRail key="combos" combos={combos} />
+                            ) : null;
+                        }
 
-                            {/* A subdivision is a quieter heading than its
-                                category, indented rather than shouted, so the
-                                nesting is read at a glance without a second
-                                level of uppercase competing with the first. */}
-                            {section.subSections.map((subSection) => (
-                                <div key={subSection.id} className="mt-4">
-                                    <h3 className="text-foreground/80 px-5 text-sm font-semibold">
-                                        {subSection.name}
-                                    </h3>
+                        const section = sectionsById.get(block);
 
-                                    <ul className="mt-1">
-                                        {subSection.items.map((item, index) => (
-                                            <li key={item.id}>
-                                                {index > 0 && (
-                                                    <Separator className="ml-5" />
-                                                )}
-                                                <Dish
-                                                    item={item}
-                                                    headingLevel={4}
-                                                />
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </section>
-                    ))
+                        return section ? (
+                            <SectionBlock key={section.id} section={section} />
+                        ) : null;
+                    })
                 )}
 
                 {!isEmpty && <ChargesNote charges={charges} />}
             </main>
         </>
+    );
+}
+
+/**
+ * The dishes the menu leads with.
+ *
+ * A rail rather than a list: these are the dishes the restaurant wants seen
+ * first, and a guest should meet them before scrolling rather than instead of
+ * the sections, where each one also appears.
+ */
+function FeaturedRail({ items }: { items: MenuItem[] }) {
+    const { t } = useTranslations();
+
+    return (
+        <section className="pt-6">
+            <h2 className="text-muted-foreground flex items-center gap-1.5 px-5 text-xs font-semibold tracking-widest uppercase">
+                <StarIcon className="size-3.5" />
+                {t('menu.featured')}
+            </h2>
+
+            <ul className="mt-2 flex snap-x snap-mandatory [scrollbar-width:none] gap-3 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
+                {items.map((item) => (
+                    <li
+                        key={item.id}
+                        className="bg-card w-64 shrink-0 snap-start rounded-xl border"
+                    >
+                        <Dish item={item} />
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
+/**
+ * The bundles sold at one price.
+ *
+ * The same rail as the featured row: a combo is something the menu leads with,
+ * not something in a section, so it is read the same way.
+ */
+function CombosRail({ combos }: { combos: Combo[] }) {
+    const { t } = useTranslations();
+
+    return (
+        <section className="pt-6">
+            <h2 className="text-muted-foreground px-5 text-xs font-semibold tracking-widest uppercase">
+                {t('menu.combos')}
+            </h2>
+
+            <ul className="mt-2 flex snap-x snap-mandatory [scrollbar-width:none] gap-3 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
+                {combos.map((combo) => (
+                    <li
+                        key={combo.id}
+                        className="bg-card w-72 shrink-0 snap-start rounded-xl border"
+                    >
+                        <ComboCard combo={combo} />
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
+/**
+ * One section of the menu: its own dishes, then its subdivisions.
+ *
+ * Headings are nested for real — the section is an h2, a subdivision an h3, and
+ * a dish inside one an h4 — so someone navigating by headings is reading the
+ * menu's actual structure.
+ */
+function SectionBlock({ section }: { section: Section }) {
+    return (
+        <section className="pt-6">
+            <h2 className="text-muted-foreground px-5 text-xs font-semibold tracking-widest uppercase">
+                {section.name}
+            </h2>
+
+            {section.items.length > 0 && (
+                <ul className="mt-2">
+                    {section.items.map((item, index) => (
+                        <li key={item.id}>
+                            {index > 0 && <Separator className="ml-5" />}
+                            <Dish item={item} />
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {/* A subdivision is a quieter heading than its category, indented
+                rather than shouted, so the nesting is read at a glance without
+                a second level of uppercase competing with the first. */}
+            {section.subSections.map((subSection) => (
+                <div key={subSection.id} className="mt-4">
+                    <h3 className="text-foreground/80 px-5 text-sm font-semibold">
+                        {subSection.name}
+                    </h3>
+
+                    <ul className="mt-1">
+                        {subSection.items.map((item, index) => (
+                            <li key={item.id}>
+                                {index > 0 && <Separator className="ml-5" />}
+                                <Dish item={item} headingLevel={4} />
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </section>
     );
 }
 

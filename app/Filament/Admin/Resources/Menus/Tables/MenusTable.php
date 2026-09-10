@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Menus\Tables;
 
+use App\Filament\Admin\Resources\Menus\MenuResource;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Schemas\TranslatedFields;
 use App\Filament\Tables\Reordering;
@@ -33,9 +34,9 @@ class MenusTable
                     ->sortable(query: fn (Builder $query, string $direction): Builder => TranslatedFields::sort($query, 'name', $direction)),
 
                 TextColumn::make('categories_count')
-                    ->label(__('panel.menus.sections_count'))
+                    ->label(__('panel.categories.plural'))
                     ->icon(Heroicon::OutlinedRectangleStack)
-                    // The sections, not their subdivisions: both are rows of
+                    // The categories, not their subdivisions: both are rows of
                     // menu_categories, and only one of them is what a guest
                     // scrolls past.
                     ->counts('categories')
@@ -71,6 +72,10 @@ class MenusTable
                     DeleteBulkAction::make(),
                 ]),
             ])
+            // Opening a menu opens its arrangement, which is what a menu mostly
+            // is; renaming one is the pencil beside it. The other tabs are a
+            // click away from there.
+            ->recordUrl(fn (Menu $record): string => MenuResource::getUrl('arrange', ['record' => $record]))
             ->reorderable('position')
             ->reorderRecordsTriggerAction(Reordering::trigger())
             ->defaultSort('position');

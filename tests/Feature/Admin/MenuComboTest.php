@@ -3,8 +3,7 @@
 use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
-use App\Filament\Admin\Resources\Menus\RelationManagers\CombosRelationManager;
+use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuComboForm;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -39,10 +38,7 @@ function comboNamed(string $name): MenuCombo
  */
 function combosOf(Menu $menu): Testable
 {
-    return Livewire::test(CombosRelationManager::class, [
-        'ownerRecord' => $menu,
-        'pageClass' => EditMenu::class,
-    ]);
+    return Livewire::test(ManageMenuCombos::class, ['record' => $menu->getKey()]);
 }
 
 /**

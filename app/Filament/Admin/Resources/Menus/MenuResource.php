@@ -2,16 +2,18 @@
 
 namespace App\Filament\Admin\Resources\Menus;
 
+use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
 use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
-use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
-use App\Filament\Admin\Resources\Menus\RelationManagers\CombosRelationManager;
-use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
-use App\Filament\Admin\Resources\Menus\RelationManagers\SubCategoriesRelationManager;
+use App\Filament\Admin\Resources\Menus\Pages\ManageMenuCombos;
+use App\Filament\Admin\Resources\Menus\Pages\ManageMenuFeaturedItems;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuForm;
 use App\Filament\Admin\Resources\Menus\Tables\MenusTable;
 use App\Models\Menu;
 use BackedEnum;
+use Filament\Navigation\NavigationItem;
+use Filament\Pages\Enums\SubNavigationPosition;
+use Filament\Resources\Pages\Page;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -20,11 +22,11 @@ use Filament\Tables\Table;
 /**
  * The menus this restaurant serves: Lunch, Dinner, Drinks.
  *
- * The top of the hierarchy the panel edits, and the one page a menu's whole
- * structure is arranged on: a menu holds sections, a section may be subdivided,
- * and both are dragged into order here, alongside the featured dishes and the
- * combos the menu opens with. Dishes themselves are their own page — there are
- * far more of them, and they are the thing edited daily.
+ * The top of the hierarchy the panel edits. One menu opens on its arrangement:
+ * its categories, their subdivisions, the dishes in each and the two rails it
+ * leads with, all in one list and all dragged into order there. Dishes are
+ * still their own page — there are far more of them, and they are the thing a
+ * restaurant edits daily.
  *
  * A restaurant that serves one card all day simply keeps one menu.
  *
@@ -77,29 +79,44 @@ class MenuResource extends Resource
     }
 
     /**
-     * A menu's whole shape hangs under its own page.
+     * A menu is four tabs across the top of one record, not four tables down
+     * one page.
      *
-     * In reading order rather than in any technical one: the sections a guest
-     * scrolls, the subdivisions inside them, then the two rows the menu opens
-     * with. Categories and sub-categories were a separate navigation item
-     * before this and are not any more — a category only means something
-     * inside a menu.
+     * Arrangement comes first because it is what a menu mostly *is*: every
+     * category, every subdivision and every dish in the order a guest reads
+     * them, with the featured and combo rails sitting among them. The three
+     * that follow are the details behind it — what the menu is called and when
+     * it is served, which dishes it leads with, and the combos it sells.
+     *
+     * Categories and sub-categories were two of those tabs and are neither any
+     * more: both are rows of the arrangement, where the dishes under them are
+     * finally visible in the same list.
+     *
+     * @return array<int, NavigationItem>
      */
-    public static function getRelations(): array
+    public static function getRecordSubNavigation(Page $page): array
     {
-        return [
-            CategoriesRelationManager::class,
-            SubCategoriesRelationManager::class,
-            FeaturedItemsRelationManager::class,
-            CombosRelationManager::class,
-        ];
+        return $page->generateNavigationItems([
+            ArrangeMenu::class,
+            EditMenu::class,
+            ManageMenuFeaturedItems::class,
+            ManageMenuCombos::class,
+        ]);
+    }
+
+    public static function getSubNavigationPosition(): SubNavigationPosition
+    {
+        return SubNavigationPosition::Top;
     }
 
     public static function getPages(): array
     {
         return [
             'index' => ListMenus::route('/'),
+            'arrange' => ArrangeMenu::route('/{record}/arrange'),
             'edit' => EditMenu::route('/{record}/edit'),
+            'featured' => ManageMenuFeaturedItems::route('/{record}/featured'),
+            'combos' => ManageMenuCombos::route('/{record}/combos'),
         ];
     }
 }

@@ -1,42 +1,56 @@
 <?php
 
-namespace App\Filament\Admin\Resources\Menus\RelationManagers;
+namespace App\Filament\Admin\Resources\Menus\Pages;
 
 use App\Enums\FoodType;
 use App\Filament\Admin\Resources\MenuItems\Schemas\MenuItemForm;
+use App\Filament\Admin\Resources\Menus\MenuResource;
 use App\Filament\Tables\Reordering;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
-use Filament\Resources\RelationManagers\RelationManager;
+use BackedEnum;
+use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
+use LogicException;
 
 /**
  * The dishes this menu leads with, in the order a guest reads them.
  *
  * Featuring is a flag on the dish rather than a table of its own, so nothing is
- * created, deleted or featured here — this row exists to be **put in order**,
- * which is the one thing a dish's own form cannot do. Whether a dish is
- * featured at all is the `is_featured` toggle on that form; having a second
- * pair of actions here to set the same flag was two mechanisms for one thing.
+ * created, deleted or featured here — this page exists to put the rail **in
+ * order**, which is the one thing a dish's own form cannot do. Whether a dish
+ * is featured at all is the `is_featured` toggle on that form; a second pair of
+ * actions here setting the same flag was two mechanisms for one thing.
+ *
+ * Where the rail *sits* on the menu is a different question again, and it is
+ * answered by dragging its row on the arrangement page.
  *
  * The relationship is Menu::menuItems(), which reaches dishes through their
- * sections because that is the only path there is; the featured filter is
+ * categories because that is the only path there is; the featured filter is
  * applied to the table's own query.
  */
-class FeaturedItemsRelationManager extends RelationManager
+class ManageMenuFeaturedItems extends ManageRelatedRecords
 {
+    protected static string $resource = MenuResource::class;
+
     protected static string $relationship = 'menuItems';
 
-    protected static string|\BackedEnum|null $icon = Heroicon::OutlinedStar;
+    protected static ?string $recordTitleAttribute = 'name';
 
-    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedStar;
+
+    public function getTitle(): string
     {
-        return __('panel.items.featured_heading');
+        return (string) __('panel.items.featured_heading');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return (string) __('panel.items.featured_heading');
     }
 
     /**
@@ -47,7 +61,7 @@ class FeaturedItemsRelationManager extends RelationManager
      * a HasManyThrough, so it carries a join to menu_categories — and both the
      * `where in (id, ...)` and the `case when id = ...` it builds resolve to
      * "ambiguous column name: id" on SQLite and Postgres alike. Dragging the
-     * featured row 500s without this.
+     * featured rail 500s without this.
      *
      * So the same update is issued against menu_items on its own, with the menu
      * named as a plain subquery instead of a join. The reorderable check stays
@@ -127,6 +141,6 @@ class FeaturedItemsRelationManager extends RelationManager
     {
         $menu = $this->getOwnerRecord();
 
-        return $menu instanceof Menu ? $menu : throw new \LogicException('The featured dishes relation manager requires a menu.');
+        return $menu instanceof Menu ? $menu : throw new LogicException('The featured dishes page requires a menu.');
     }
 }

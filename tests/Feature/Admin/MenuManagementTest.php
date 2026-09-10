@@ -7,11 +7,9 @@ use App\Enums\Locale;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
-use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
+use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
-use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
-use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
-use App\Filament\Admin\Resources\Menus\RelationManagers\SubCategoriesRelationManager;
+use App\Filament\Admin\Resources\Menus\Pages\ManageMenuFeaturedItems;
 use App\Filament\Schemas\PricingFields;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -188,8 +186,8 @@ it('creates a section on the menu it was filed under', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
-        ->callAction(TestAction::make('create')->table(), [
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->callAction(TestAction::make('createCategory')->table(), [
             'name' => [Locale::English->value => 'Starters', Locale::Tamil->value => 'தொடக்கங்கள்'],
             'is_active' => true,
         ])
@@ -210,8 +208,8 @@ it('refuses a section name the same menu already uses', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
-        ->callAction(TestAction::make('create')->table(), [
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->callAction(TestAction::make('createCategory')->table(), [
             'name' => [Locale::English->value => 'Starters'],
             'is_active' => true,
         ])
@@ -229,8 +227,8 @@ it('lets a lunch and a dinner menu each have their own Starters', function (): v
 
     // Uniqueness moved from the restaurant to the menu when menus arrived, and
     // this is the case that motivated it.
-    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $dinner, 'pageClass' => EditMenu::class])
-        ->callAction(TestAction::make('create')->table(), [
+    Livewire::test(ArrangeMenu::class, ['record' => $dinner->getKey()])
+        ->callAction(TestAction::make('createCategory')->table(), [
             'name' => [Locale::English->value => 'Starters'],
             'is_active' => true,
         ])
@@ -252,8 +250,8 @@ it('lets two restaurants both have a section of the same name', function (): voi
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(CategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
-        ->callAction(TestAction::make('create')->table(), [
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->callAction(TestAction::make('createCategory')->table(), [
             'name' => [Locale::English->value => 'Starters'],
             'is_active' => true,
         ])
@@ -281,33 +279,38 @@ it('refuses at the database to file a section under another restaurant\'s menu',
     ]))->toThrow(QueryException::class);
 });
 
-it('groups sub-categories by their category without ordering on the translated json column', function (): void {
-    // menu_categories.name and menu_sub_categories.name are both translated
-    // json columns. Postgres has no ordering operator for json, so a group
-    // whose default ordering selects one 500s there even though SQLite — what
-    // this suite runs against — tolerates it silently. Inspecting the compiled
-    // SQL catches that regardless of which database is running.
+it('reads a menu as one tree without grouping or ordering on a translated column', function (): void {
+    // Grouping is the trap this replaced. menu_categories.name is a translated
+    // json column, Postgres has no ordering operator for json, and a Filament
+    // group orders by the attribute it groups on — which 500'd there while the
+    // SQLite this suite runs on tolerated it silently.
     //
-    // The categories table itself no longer groups at all: it hangs off one
-    // menu's page, so there is nothing left to group by. The trap moved down a
-    // level with the tree.
+    // The arrangement has no grouping at all: it is one list built in reading
+    // order, so the nesting survives drag mode, which a grouped table's never
+    // did (Filament turns grouping off while reordering).
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
-    $category = MenuCategory::factory()->inMenu($menu)->create();
-    MenuCategory::factory()->under($category)->count(2)->create();
+    $starters = MenuCategory::factory()->inMenu($menu)->create(['position' => 0]);
+    $chicken = MenuCategory::factory()->under($starters)->create(['position' => 0]);
+    $dish = MenuItem::factory()->inCategory($starters)->create(['position' => 0]);
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    $group = Livewire::test(SubCategoriesRelationManager::class, ['ownerRecord' => $menu, 'pageClass' => EditMenu::class])
+    $table = Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
         ->assertOk()
         ->instance()
-        ->getTable()
-        ->getDefaultGroup();
+        ->getTable();
 
-    $sql = $group->orderQuery(MenuCategory::query(), 'asc')->toSql();
-
-    expect($sql)->toContain('position')
-        ->and($sql)->not->toContain('name');
+    expect($table->getDefaultGroup())->toBeNull()
+        // A section, then its own dishes, then its subdivisions: the order a
+        // guest reads the menu in.
+        ->and(array_keys($table->getRecords()->all()))->toBe([
+            'featured',
+            'combos',
+            'category-'.$starters->getKey(),
+            'item-'.$dish->getKey(),
+            'category-'.$chicken->getKey(),
+        ]);
 });
 
 /*
@@ -685,10 +688,7 @@ it('features a dish from its own form', function (): void {
 
     expect($dish->refresh()->is_featured)->toBeTrue();
 
-    Livewire::test(FeaturedItemsRelationManager::class, [
-        'ownerRecord' => $menu,
-        'pageClass' => EditMenu::class,
-    ])->assertCanSeeTableRecords([$dish]);
+    Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])->assertCanSeeTableRecords([$dish]);
 });
 
 it('takes a dish out of the featured row without taking it off the menu', function (): void {
@@ -727,10 +727,7 @@ it('offers no way to feature a dish from the menu page itself', function (): voi
 
     // The featured row is for putting dishes in order and nothing else, so the
     // flag has exactly one home.
-    $table = Livewire::test(FeaturedItemsRelationManager::class, [
-        'ownerRecord' => $menu,
-        'pageClass' => EditMenu::class,
-    ])
+    $table = Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])
         ->assertOk()
         ->instance()
         ->getTable();
@@ -757,10 +754,7 @@ it('shows only the featured dishes of this menu', function (): void {
 
     enterRestaurantPanel($restaurant, RoleEnum::Admin);
 
-    Livewire::test(FeaturedItemsRelationManager::class, [
-        'ownerRecord' => $menu,
-        'pageClass' => EditMenu::class,
-    ])
+    Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])
         ->assertCanSeeTableRecords([$featured])
         ->assertCanNotSeeTableRecords([$plain, $elsewhere]);
 });
@@ -1039,10 +1033,7 @@ it('rearranges the featured row by dragging it', function (): void {
 
     // featured_position is its own order, separate from the position that
     // places a dish inside its section — a dish answers both at once.
-    Livewire::test(FeaturedItemsRelationManager::class, [
-        'ownerRecord' => $menu,
-        'pageClass' => EditMenu::class,
-    ])->call('reorderTable', [$second->getKey(), $first->getKey()]);
+    Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])->call('reorderTable', [$second->getKey(), $first->getKey()]);
 
     expect($second->refresh()->featured_position)->toBeLessThan($first->refresh()->featured_position)
         // Dragging the featured row must not disturb where either dish sits
@@ -1060,10 +1051,7 @@ it('keeps rearranging the featured row away from someone who may only read the m
 
     enterRestaurantPanel($restaurant, RoleEnum::Staff);
 
-    Livewire::test(FeaturedItemsRelationManager::class, [
-        'ownerRecord' => $menu,
-        'pageClass' => EditMenu::class,
-    ])->call('reorderTable', [$second->getKey(), $first->getKey()]);
+    Livewire::test(ManageMenuFeaturedItems::class, ['record' => $menu->getKey()])->call('reorderTable', [$second->getKey(), $first->getKey()]);
 
     expect($first->refresh()->featured_position)->toBe(1)
         ->and($second->refresh()->featured_position)->toBe(2);

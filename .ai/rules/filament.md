@@ -56,6 +56,8 @@ Three things the switcher costs, all handled inside `TranslatedFields` and none 
 
 Table columns must still go through `TranslatedFields::sort()` / `::search()`, and every edit action still needs `->mutateRecordDataUsing(fn (array $data, Model $record) => XForm::fillTranslations($data, $record))` — Spatie hands back one language, and a form editing all of them needs the whole document.
 
+One trap in the uniqueness rule, which cost an afternoon. It ignores the record being edited so a name does not clash with itself, and it used to take that record from the `$record` a schema injects. **A schema is handed whatever record surrounds it**: on a resource or a relation manager that is the row being edited, but an action modal on a page falls back to *that page's* record — a `Menu` — and `whereKeyNot($menu->getKey())` silently excluded the category that happened to share the id, letting a duplicate through to fail at the expression index instead. So `uniqueFallbackValue()` now applies the exclusion only when the record is of the same model as the query, and a form opened from a table of arrays is handed the row explicitly (`MenuCategoryForm::configure($schema, $menuId, $editing)`). The injected parameter is typed `mixed` for the same reason — a custom-data table's record is an `array`, and `?Model` would be a TypeError.
+
 ## The panel is worked in a language too, and its labels are methods
 Both panels carry a language switcher in the top bar (`resources/views/filament/language-switcher.blade.php`, hung on `USER_MENU_BEFORE`) and both list `SetLocale` in their own middleware stack — a panel does not run the `web` group, so the middleware that reads the language cookie has to be named there as well.
 

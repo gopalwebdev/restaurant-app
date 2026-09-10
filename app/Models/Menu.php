@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MenuBlock;
 use App\Models\Concerns\HasTranslatedNames;
 use Carbon\CarbonImmutable;
 use Database\Factories\MenuFactory;
@@ -28,13 +29,15 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  * @property string $name
  * @property string|null $description
  * @property int $position
+ * @property int $featured_position
+ * @property int $combos_position
  * @property bool $is_active
  * @property string|null $available_from
  * @property string|null $available_until
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['name', 'description', 'position', 'is_active', 'available_from', 'available_until'])]
+#[Fillable(['name', 'description', 'position', 'featured_position', 'combos_position', 'is_active', 'available_from', 'available_until'])]
 class Menu extends Model
 {
     /** @use HasFactory<MenuFactory> */
@@ -57,6 +60,11 @@ class Menu extends Model
      */
     protected $attributes = [
         'position' => 0,
+        // Both start where the first category does; the tie is broken rails
+        // first, so a menu nobody has arranged opens with its featured dishes,
+        // then its combos, then its categories. See readingOrder().
+        'featured_position' => 0,
+        'combos_position' => 0,
         'is_active' => true,
     ];
 
@@ -139,6 +147,45 @@ class Menu extends Model
     public function menuItems(): HasManyThrough
     {
         return $this->hasManyThrough(MenuItem::class, MenuCategory::class);
+    }
+
+    /**
+     * The blocks of this menu in the order they are read, rails included.
+     *
+     * A menu is a sequence of three kinds of thing — the featured rail, the
+     * combos rail and the categories — and all three are ordered against each
+     * other by `position`. The rails keep theirs on this row
+     * (App\Enums\MenuBlock::positionColumn()), a category on its own.
+     *
+     * Ties break rails first and then in declaration order, which is what makes
+     * a menu nobody has arranged yet read exactly as it did before those
+     * columns existed: the featured dishes, the combos, then the categories.
+     * Once dragged, every block on the menu is renumbered uniquely and nothing
+     * ties.
+     *
+     * The categories are taken in the order given rather than re-sorted, so a
+     * caller that has already asked the database for `inMenuOrder()` keeps it.
+     *
+     * @param  iterable<MenuCategory>  $categories  this menu's top-level categories, in order
+     * @return list<MenuBlock|MenuCategory>
+     */
+    public function readingOrder(iterable $categories): array
+    {
+        $blocks = [];
+
+        foreach (MenuBlock::cases() as $rail) {
+            $blocks[] = [$rail->positionOn($this), $rail === MenuBlock::Featured ? 0 : 1, $rail];
+        }
+
+        foreach ($categories as $category) {
+            $blocks[] = [$category->position, 2, $category];
+        }
+
+        // PHP sorts stably, so categories sharing a position keep the order the
+        // query returned them in.
+        usort($blocks, static fn (array $a, array $b): int => [$a[0], $a[1]] <=> [$b[0], $b[1]]);
+
+        return array_map(static fn (array $block): MenuBlock|MenuCategory => $block[2], $blocks);
     }
 
     /**
@@ -265,6 +312,8 @@ class Menu extends Model
     {
         return [
             'position' => 'integer',
+            'featured_position' => 'integer',
+            'combos_position' => 'integer',
             'is_active' => 'boolean',
         ];
     }

@@ -252,6 +252,52 @@ it('leads a menu with the dishes the restaurant featured', function (): void {
         );
 });
 
+it('reads a menu in the order the restaurant arranged, rails and all', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    $starters = MenuCategory::factory()->inMenu($menu)->create(['position' => 0]);
+    $desserts = MenuCategory::factory()->inMenu($menu)->create(['position' => 2]);
+
+    MenuItem::factory()->inCategory($starters)->create();
+    MenuItem::factory()->inCategory($desserts)->create();
+
+    // Untouched, a menu opens with its featured dishes and its combos. This one
+    // has been dragged: the combos sit between the two sections and the
+    // featured rail closes the menu.
+    $menu->update(['combos_position' => 1, 'featured_position' => 3]);
+
+    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/menus/'.$menu->getKey())
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('order', [
+                $starters->getKey(),
+                'combos',
+                $desserts->getKey(),
+                'featured',
+            ])
+            ->etc(),
+        );
+});
+
+it('opens a menu nobody has arranged with its featured dishes and its combos', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    MenuItem::factory()->inCategory($category)->create();
+
+    // Both rails default to where the first category sits and ties break rails
+    // first, so the order a menu had before it could be arranged is the order
+    // it still has.
+    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/menus/'.$menu->getKey())
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->where('order', ['featured', 'combos', $category->getKey()])
+            ->etc(),
+        );
+});
+
 it('leaves a sold-out dish out of the featured row', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);

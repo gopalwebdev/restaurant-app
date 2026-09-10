@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Guest;
 
 use App\Enums\ItemAvailability;
+use App\Enums\MenuBlock;
 use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -62,7 +63,9 @@ class MenuController extends Controller
             ->inMenuOrder();
 
         $sections = MenuCategory::query()
-            ->select(['id', 'parent_id', 'name'])
+            // position is read as well as ordered by: it is what places a
+            // section against the two rails in Menu::readingOrder().
+            ->select(['id', 'parent_id', 'name', 'position'])
             ->where('menu_id', $menu->getKey())
             ->topLevel()
             ->where('is_active', true)
@@ -135,6 +138,17 @@ class MenuController extends Controller
                     'quantity' => $comboItem->quantity,
                 ])->values()->all(),
             ])->values()->all(),
+            // Where the two rails sit among the sections is the restaurant's
+            // decision, dragged on the menu's arrangement screen, so the order
+            // is worked out here rather than assumed by the app. Sections with
+            // nothing to read have already been filtered out, so nothing in
+            // this list points at a block that was not sent.
+            'order' => array_map(
+                fn (MenuBlock|MenuCategory $block): string|int => $block instanceof MenuBlock
+                    ? $block->value
+                    : $block->getKey(),
+                $menu->readingOrder($sections),
+            ),
             'sections' => $sections->map(fn (MenuCategory $category): array => [
                 'id' => $category->getKey(),
                 'name' => $category->name,
