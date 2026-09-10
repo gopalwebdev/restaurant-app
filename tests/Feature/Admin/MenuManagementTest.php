@@ -281,9 +281,8 @@ it('refuses at the database to file a section under another restaurant\'s menu',
 
 it('reads a menu as one tree without grouping or ordering on a translated column', function (): void {
     // Grouping is the trap this replaced. menu_categories.name is a translated
-    // json column, Postgres has no ordering operator for json, and a Filament
-    // group orders by the attribute it groups on — which 500'd there while the
-    // SQLite this suite runs on tolerated it silently.
+    // column, and a Filament group orders by the attribute it groups on — which
+    // 500'd while the column was plain json, which has no ordering operator.
     //
     // The arrangement has no grouping at all: it is one list built in reading
     // order, so the nesting survives drag mode, which a grouped table's never

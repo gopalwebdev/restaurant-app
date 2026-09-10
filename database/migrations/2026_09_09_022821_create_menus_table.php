@@ -44,8 +44,7 @@ return new class extends Migration
         // menus both named "Dinner" would be allowed the moment their Tamil
         // halves differed. The constraint belongs on the English name, which
         // every menu is required to have, and that needs an expression index —
-        // something Blueprint cannot express. Verified identical on Postgres
-        // and on the SQLite the test suite runs against.
+        // something Blueprint cannot express and Postgres builds natively.
         DB::statement("CREATE UNIQUE INDEX menus_restaurant_id_name_en_unique ON menus (restaurant_id, (name ->> 'en'))");
     }
 

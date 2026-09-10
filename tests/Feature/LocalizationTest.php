@@ -168,21 +168,6 @@ it('translates the tiles on the home screen too', function (): void {
         );
 });
 
-it('serves the staff app its own strings, not the guest app\'s', function (): void {
-    $restaurant = Restaurant::factory()->create();
-
-    $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
-        ->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
-            ->where('translations.login.heading', __('staff.login.heading'))
-            // A guest never downloads "Sold out" and staff never download the
-            // tile empty state.
-            ->missing('translations.home.empty_tiles')
-            ->has('translations.item.sold_out'),
-        );
-});
-
 /*
 |--------------------------------------------------------------------------
 | The admin panel follows the same choice
@@ -220,7 +205,7 @@ it('shows the panel switcher on English until a language is chosen', function ()
 it('offers a language switcher in the product team panel', function (): void {
     $this->actingAs(User::factory()->superAdmin()->create());
 
-    $this->get('http://restaurant-app.test/super-admin')
+    $this->get('http://restaurant-app.test/admin')
         ->assertOk()
         ->assertSee(route('panel.language.update'), escape: false)
         ->assertSee(Locale::Tamil->label());
@@ -282,8 +267,10 @@ it('searches a table in the language it is showing, and in English', function ()
 
 it('sorts a table by the name it is showing', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $alpha = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Alpha', 'ta' => 'ஜ']]);
-    $beta = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Beta', 'ta' => 'அ']]);
+    // Latin-script translations on purpose: how Postgres's collation orders
+    // Tamil against Latin is not what this is about.
+    $alpha = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Alpha', 'ta' => 'Zeta']]);
+    $beta = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Beta', 'ta' => 'Apple']]);
     $charlie = Menu::factory()->create(['tenant_id' => $restaurant->getKey(), 'name' => ['en' => 'Charlie']]);
     enterRestaurantPanel($restaurant, Role::Admin);
 
@@ -297,7 +284,7 @@ it('sorts a table by the name it is showing', function (): void {
     // by the English it is displayed in rather than by a null.
     Livewire::test(ListMenus::class)
         ->sortTable('name')
-        ->assertCanSeeTableRecords([$charlie, $beta, $alpha], inOrder: true);
+        ->assertCanSeeTableRecords([$beta, $charlie, $alpha], inOrder: true);
 });
 
 it('finds records from the top bar in the language the panel is showing', function (): void {
@@ -323,7 +310,7 @@ it('leaves roles and permissions in English', function (): void {
     $this->actingAs(User::factory()->superAdmin()->create());
 
     $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
-        ->get('http://restaurant-app.test/super-admin/roles')
+        ->get('http://restaurant-app.test/admin/roles')
         ->assertOk()
         ->assertSee('admin');
 });
@@ -367,9 +354,8 @@ it('ships its own strings in English and in no other language', function (): voi
     // are written once, and a restaurant's words are translated in the database
     // instead. A second directory here would be a second copy of the chrome to
     // keep in step, for a panel whose framework chrome is English anyway.
-    expect(array_map('basename', glob(lang_path('*'), GLOB_ONLYDIR) ?: []))->toBe(['en'])
-        ->and(dotKeys(require lang_path('en/guest.php')))->not->toBeEmpty()
-        ->and(dotKeys(require lang_path('en/staff.php')))->not->toBeEmpty();
+    expect(array_map(basename(...), glob(lang_path('*'), GLOB_ONLYDIR) ?: []))->toBe(['en'])
+        ->and(dotKeys(require lang_path('en/guest.php')))->not->toBeEmpty();
 });
 
 it('lists exactly the languages a restaurant may write in', function (): void {

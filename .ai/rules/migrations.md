@@ -18,30 +18,25 @@ Never a float or a decimal string: every monetary column is an integer holding t
 ## A phone number is two columns: calling code and national number
 Never one free-text string. The calling code goes in its own column cast to App\Enums\CountryCallingCode (backing values carry the plus, '+91', which keeps them strings when used as array keys), and the national number goes in a column of its own holding digits only — ten of them for India. Size number columns to CountryCallingCode::longestMobileNumberLength(), so a country with longer numbers needs a migration as well as an enum case. Restaurant::dialablePhone() puts the two halves back together for display; nothing else should concatenate them by hand. See restaurants.phone_country_code/phone for the shape.
 
-## A translated column is json, and its unique index is an expression
-Any text a guest reads is a `json` column holding one key per App\Enums\Locale case, not a string — see `.ai/rules/models.md`. That makes a plain `$table->unique(['menu_id', 'name'])` useless: JSON documents only compare equal when every language in them does, so two menus both called "Dinner" slip through the moment their Tamil halves differ.
+## A translated column is jsonb, and its unique index is an expression
+Any text a guest reads is a `jsonb` column holding one key per App\Enums\Locale case, not a string — see `.ai/rules/models.md`. They began as `json` and were converted by the `add_postgres_types_and_checks_to_*` migrations: `jsonb` is stored parsed, has the equality and ordering operators plain `json` lacks, and Postgres rebuilds an expression index over the column as part of the type change, so nothing has to be dropped around it. A new translated column is `$table->jsonb(...)`.
 
-Put the constraint on the fallback language instead, with a raw statement, because Blueprint cannot express an expression index:
+A plain `$table->unique(['menu_id', 'name'])` is still useless: JSON documents only compare equal when every language in them does, so two menus both called "Dinner" slip through the moment their Tamil halves differ. Put the constraint on the fallback language, with a raw statement, because Blueprint cannot express an expression index:
 
 ```php
 DB::statement("CREATE UNIQUE INDEX menus_tenant_id_name_en_unique ON menus (tenant_id, (name ->> 'en'))");
 ```
 
-Verified identical on the Postgres of development and the SQLite the test suite runs on. Two ordering rules that follow from it: convert values to JSON text **while the column is still text**, because Postgres will not cast `Starters` to json, and create the index **after** the type change, because changing a column's type rebuilds the table on SQLite and an index built beforehand would not survive it. `translate_menu_names_and_descriptions` does both in that order and its `down()` mirrors them.
+Convert values to JSON text **while the column is still text** — Postgres will not cast `Starters` to json — and create the index after the type change. `translate_menu_names_and_descriptions` does both in that order and its `down()` mirrors them.
 
-## A SQLite table rebuild silently strips an expression index
-SQLite cannot add a foreign key or drop a column with `ALTER TABLE`, so Laravel recreates the whole table and copies the indexes across — reading them from `pragma index_info`, which reports **columns and not expressions**. A unique index on `(menu_category_id, (name ->> 'en'))` therefore comes out the other side as a unique on `menu_category_id` alone, which would let one category hold exactly one dish.
+Several older migrations carried a second copy of these index statements to repair what a SQLite table rebuild strips. SQLite is gone (`.ai/rules/config.md`), and so are those repairs; do not reintroduce them.
 
-It fails silently, only on SQLite, and SQLite is what the test suite runs on — so the whole suite would start failing in a way that looks nothing like the cause.
+## Rules the database can state, it states
+Postgres is the only engine, so a rule a CHECK constraint can express is written as one as well as in the model and the form — raw `ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)`, dropped by name in `down()`. What exists: money, positions and role limits are never negative (Postgres has no unsigned integers, so `unsignedInteger` alone promised nothing); rates are 0–10000 basis points; a combo holds a dish at least once; a menu's service window is both times or neither; a category is not its own parent; and a tile's action and its destination match — exactly the column its action uses is filled.
 
-Any migration that alters a table carrying an expression index in a way SQLite has to rebuild for — a foreign key, a dropped column, a changed type — must drop and recreate that index from its real definition afterwards, in both `up()` and `down()`. `add_sub_category_to_menu_items_table` and `replace_availability_flag_on_menu_items_table` both do, with the same two statements:
+Two things are deliberately **not** constraints. A compare-at price above the price is refused by the form but not by the database, because repricing a dish upwards can strand an old offer and `hasComparePrice()` is what hides one. And "no third level of category" needs a subquery, which a CHECK cannot hold, so it stays in `MenuCategory::booted()`.
 
-```php
-DB::statement('DROP INDEX IF EXISTS menu_items_menu_category_id_name_en_unique');
-DB::statement("CREATE UNIQUE INDEX menu_items_menu_category_id_name_en_unique ON menu_items (menu_category_id, (name ->> 'en'))");
-```
-
-On Postgres nothing was rebuilt and those are the same index again, which keeps one pair of statements correct on both engines rather than branching on the driver.
+A constraint's values are written out, not read from an enum: a migration has to mean the same thing when it is run again after the enum has grown. A new tile action is a new migration replacing `home_tiles_destination_matches_action`. Before adding a constraint to a table with rows, check the existing data satisfies it — a failed validation aborts the deploy.
 
 ## One migration per table, and walk rows in chunks
 A change that touches two tables is two migrations, each named for the table it touches — `translate_menu_category_names` and `translate_menu_item_names_and_descriptions` are one change split that way. It keeps a rollback surgical and a name honest about what it does.

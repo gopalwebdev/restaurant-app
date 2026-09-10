@@ -2,14 +2,10 @@
 
 use App\Http\Controllers\Guest\HomeController;
 use App\Http\Controllers\Guest\MenuController;
+use App\Http\Controllers\Guest\ProgressiveWebAppController;
 use App\Http\Controllers\Guest\TileController;
 use App\Http\Controllers\Preferences\UpdateLanguageController;
-use App\Http\Controllers\Staff\HomeController as StaffHomeController;
-use App\Http\Controllers\Staff\ProgressiveWebAppController;
-use App\Http\Controllers\Staff\SignInController;
-use App\Http\Middleware\EnsureStaffMemberWorksHere;
 use App\Http\Middleware\HandleGuestAppRequests;
-use App\Http\Middleware\HandleStaffAppRequests;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,21 +18,19 @@ use Illuminate\Support\Facades\Route;
 | These are registered before the root-domain routes so a subdomain never
 | falls through to the marketing site.
 |
-| Two apps live here and they share nothing but the domain. Each has its own
-| Inertia root template, so each loads its own entry and its own page chunk
-| and neither downloads the other — or any of Filament, which the panels
-| serve from their own compiled assets.
+| The guest app is the one Inertia app on a subdomain. Its own root template
+| loads its own entry and its own page chunk, and never any of Filament, which
+| the restaurant's panel serves from its own compiled assets.
 |
 */
 
 Route::domain('{restaurant}.'.config('app.domain'))->group(function (): void {
     /*
-     * The guest app: what a diner reads at the table, reached by QR code.
-     * No sign-in and no install prompt — see .ai/rules/js.md.
+     * The guest app: what a diner reads at the table, reached by QR code, and
+     * installable so a guest who comes back keeps it on their home screen.
      *
      * A guest lands on the tiles the restaurant arranged, and walks from there
-     * into a menu or a PDF. The `guest.` prefix mirrors `staff.` below, so a
-     * route name says which of the two apps it belongs to.
+     * into a menu or a PDF.
      */
     Route::name('guest.')->middleware(HandleGuestAppRequests::class)->group(function (): void {
         Route::get('/', HomeController::class)->name('home');
@@ -59,36 +53,20 @@ Route::domain('{restaurant}.'.config('app.domain'))->group(function (): void {
     });
 
     /*
-     * Both apps switch language through here. It is not under either app's
-     * middleware because it renders nothing — it records the choice and sends
-     * the visitor back to the page they were on, which is then re-rendered in
-     * that language, chrome and menu alike.
+     * What makes the guest app installable. At the root of the subdomain so the
+     * worker's scope is the whole app, and outside the Inertia middleware: a
+     * manifest is JSON and a service worker is JavaScript, and neither is a page.
      */
-    Route::put('preferences/language', UpdateLanguageController::class)
-        ->name('preferences.language.update');
-
-    /*
-     * The staff app: installed once and kept, so it carries a manifest and a
-     * service worker. `/staff/login` is the way in; the two endpoints behind it
-     * are named for what they create rather than for the act of signing in.
-     */
-    Route::prefix('staff')->name('staff.')->middleware(HandleStaffAppRequests::class)->group(function (): void {
-        Route::get('login', [SignInController::class, 'create'])->name('login');
-        Route::post('sign-in-codes', [SignInController::class, 'storeCode'])->name('sign-in-codes.store');
-        Route::post('session', [SignInController::class, 'store'])->name('session.store');
-        Route::delete('session', [SignInController::class, 'destroy'])->name('session.destroy');
-
-        // Signed in is not enough: an account is platform-wide, so this also
-        // checks they work at the restaurant whose subdomain they are on.
-        Route::middleware(['auth', EnsureStaffMemberWorksHere::class])->group(function (): void {
-            Route::get('/', StaffHomeController::class)->name('home');
-        });
+    Route::name('guest.')->group(function (): void {
+        Route::get('manifest.webmanifest', [ProgressiveWebAppController::class, 'manifest'])->name('manifest');
+        Route::get('service-worker.js', [ProgressiveWebAppController::class, 'serviceWorker'])->name('service-worker');
     });
 
     /*
-     * Served outside the Inertia middleware: a manifest is JSON and a service
-     * worker is JavaScript, and neither is a page.
+     * Switching language, from the guest app and from the restaurant's panel.
+     * It renders nothing: it records the choice and sends the visitor back to
+     * the page they were on, which is then re-rendered in that language.
      */
-    Route::get('staff/manifest.webmanifest', [ProgressiveWebAppController::class, 'manifest'])->name('staff.manifest');
-    Route::get('staff/service-worker.js', [ProgressiveWebAppController::class, 'serviceWorker'])->name('staff.service-worker');
+    Route::put('preferences/language', UpdateLanguageController::class)
+        ->name('preferences.language.update');
 });

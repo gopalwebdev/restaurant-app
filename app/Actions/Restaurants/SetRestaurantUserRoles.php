@@ -25,7 +25,7 @@ class SetRestaurantUserRoles
         // Roles are held per account rather than per restaurant, so setting
         // them for someone who staffs more than one restaurant would change
         // what they can do at the others. That stays a super admin's call.
-        if ($user->restaurants()->count() > 1) {
+        if ($user->staffsSeveralRestaurants()) {
             return;
         }
 
@@ -50,6 +50,8 @@ class SetRestaurantUserRoles
             }
         }
 
-        $user->syncRoles($assignable->pluck('name')->all());
+        // The models already loaded above, so Spatie does not look each one up
+        // by name a second time.
+        $user->syncRoles($assignable);
     }
 }

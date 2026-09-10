@@ -170,73 +170,56 @@ class Restaurant extends Model
     }
 
     /**
+     * This restaurant's settings, read once and remembered on the model.
+     *
+     * Currency, tax and whether orders are open are each asked for several
+     * times while one page renders — by the guest middleware, a controller, and
+     * every price on a panel table — and each used to issue its own query for
+     * its own column. Loading the row once and keeping it as the `settings`
+     * relation means the first question pays for all of them, and a list that
+     * eager loaded `settings` pays nothing. It is never a lazy load, so it is
+     * safe on a model that came out of a collection.
+     */
+    public function resolvedSettings(): ?RestaurantSetting
+    {
+        if (! $this->relationLoaded('settings')) {
+            $this->setRelation(
+                'settings',
+                RestaurantSetting::query()->where('tenant_id', $this->getKey())->first(),
+            );
+        }
+
+        $settings = $this->getRelation('settings');
+
+        return $settings instanceof RestaurantSetting ? $settings : null;
+    }
+
+    /**
      * The currency this restaurant prices in.
      *
      * Every price on a menu shares one, so resolve it once and pass it down
-     * rather than asking per dish. Reaching through $this->settings would be a
-     * lazy load, which Model::shouldBeStrict() turns into an exception outside
-     * production, so a settings row that was not eager loaded is fetched by the
-     * single column this needs.
+     * rather than asking per dish.
      */
     public function currency(): Currency
     {
-        if ($this->relationLoaded('settings')) {
-            $settings = $this->getRelation('settings');
-
-            return $settings instanceof RestaurantSetting ? $settings->currency : Currency::IndianRupee;
-        }
-
-        $stored = RestaurantSetting::query()
-            ->where('tenant_id', $this->getKey())
-            ->value('currency');
-
-        return $stored instanceof Currency ? $stored : Currency::IndianRupee;
+        return $this->resolvedSettings()->currency ?? Currency::IndianRupee;
     }
 
     /**
      * The GST rate this restaurant charges on anything that names no rate.
-     *
-     * Resolved exactly as currency() is, and for the same reason: every dish on
-     * a menu falls back to this one rate, so it is read once for a list rather
-     * than per row, and reaching through $this->settings would be a lazy load.
      */
     public function taxRateBasisPoints(): int
     {
-        if ($this->relationLoaded('settings')) {
-            $settings = $this->getRelation('settings');
-
-            return $settings instanceof RestaurantSetting
-                ? $settings->taxRateBasisPoints()
-                : RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS;
-        }
-
-        $stored = RestaurantSetting::query()
-            ->where('tenant_id', $this->getKey())
-            ->value('tax_rate_basis_points');
-
-        return $stored === null
-            ? RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS
-            : (int) $stored;
+        return $this->resolvedSettings()?->taxRateBasisPoints()
+            ?? RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS;
     }
 
     /**
      * Whether this restaurant is taking new orders right now.
-     *
-     * Resolved the same way as currency(), and for the same reason: reaching
-     * through $this->settings is a lazy load, which Model::shouldBeStrict()
-     * turns into an exception outside production.
      */
     public function isAcceptingOrders(): bool
     {
-        if ($this->relationLoaded('settings')) {
-            $settings = $this->getRelation('settings');
-
-            return $settings instanceof RestaurantSetting && $settings->accepts_orders;
-        }
-
-        return (bool) RestaurantSetting::query()
-            ->where('tenant_id', $this->getKey())
-            ->value('accepts_orders');
+        return $this->resolvedSettings()->accepts_orders ?? false;
     }
 
     /**

@@ -26,10 +26,9 @@ trait HasTranslatedNames
     /**
      * The query path to a translated column's fallback value.
      *
-     * Laravel compiles a `column->key` path per driver, so this stays correct
-     * on the Postgres of production and the SQLite of the test suite without
-     * any raw SQL. It is deliberately the same expression the unique indexes
-     * are built on, so validation and the database agree.
+     * Laravel compiles a `column->key` path to Postgres's `->>` operator, so
+     * this needs no raw SQL. It is deliberately the same expression the unique
+     * indexes are built on, so validation and the database agree.
      */
     public static function fallbackLocalePath(string $column = 'name'): string
     {

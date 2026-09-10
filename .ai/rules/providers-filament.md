@@ -15,3 +15,6 @@ Both AdminPanelProvider and SuperAdminPanelProvider now call ->databaseTransacti
 AdminPanelProvider::brandName() resolves per request: the signed-in restaurant's own name once Filament::getTenant() is known, and AdminPanel::Admin->brandName() (the generic panel name, from config('app.name')) before that — the sign-in page has no tenant yet. Both ->brandName() and the ->brandLogo() view (resources/views/filament/brand.blade.php, via its optional $name param) read from the same private brandName() helper.
 
 ->tenantMenu(false) is also set: a restaurant admin has nowhere to switch to (the panel is scoped to one restaurant), and a super admin supporting one opens it from the "Open admin" row action on the super-admin panel's Restaurants table instead (RestaurantsTable.php), which links to Restaurant::adminSignInUrl(). Sessions are per-domain (.ai/rules/middleware.md), so this was never a same-session switch even when the tenant menu was on — removing it loses no real capability.
+
+## SuperAdminPanelProvider registers before AdminPanelProvider
+Both panels are served at `/admin`, and the order in `bootstrap/providers.php` decides which one the root domain's `/admin/login` belongs to — see `.ai/rules/filament.md`. Both providers also run `->spa(hasPrefetching: true)`.

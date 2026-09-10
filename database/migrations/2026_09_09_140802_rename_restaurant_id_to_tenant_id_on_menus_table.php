@@ -14,7 +14,7 @@ return new class extends Migration
      * said `restaurant_id`, so the same fact wore two names depending on which
      * table you were reading. This is the first of seven, one per table.
      *
-     * Both Postgres and SQLite carry a constraint's *definition* through a
+     * Postgres carries a constraint's *definition* through a
      * column rename, so the composite foreign keys that are this schema's
      * tenant isolation survive untouched — only their generated names still
      * read `restaurant_id`, which nothing queries by. The one exception is the

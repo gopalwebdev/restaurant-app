@@ -67,7 +67,7 @@ it('lets each restaurant admin into their own panel and no further', function ()
         ->assertOk();
 
     $this->actingAs($admin)
-        ->get('http://restaurant-app.test/super-admin')
+        ->get('http://restaurant-app.test/admin')
         ->assertForbidden();
 });
 
@@ -75,7 +75,7 @@ it('lets the product team owner into the product team panel', function (): void 
     $superAdmin = User::query()->where('email', SuperAdminSeeder::EMAIL)->firstOrFail();
 
     $this->actingAs($superAdmin)
-        ->get('http://restaurant-app.test/super-admin')
+        ->get('http://restaurant-app.test/admin')
         ->assertOk();
 });
 
@@ -89,7 +89,7 @@ it('lists every account and where it signs in', function (): void {
 
     expect($output)
         ->toContain(SuperAdminSeeder::EMAIL)
-        ->toContain('restaurant-app.test/super-admin')
+        ->toContain('restaurant-app.test/admin')
         ->toContain($admin->email)
         ->toContain($restaurant->slug.'.restaurant-app.test/admin');
 });

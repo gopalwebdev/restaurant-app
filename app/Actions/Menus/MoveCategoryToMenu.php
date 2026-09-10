@@ -18,10 +18,10 @@ use LogicException;
  * by the ON UPDATE CASCADE on the (parent_id, menu_id) key, and the dishes
  * follow because they hang off a category rather than off a menu.
  *
- * This is the only way a subdivision ever changes menus — see
- * MoveSubCategoryToParent, which is deliberately limited to one menu.
+ * This is the only way a subdivision ever changes menus: its parent moves, and
+ * it follows.
  *
- * Two guards, both backstops: MenuCategoriesTable states the same rules as
+ * Two guards, both backstops: MenuArrangementTable states the same rules as
  * validation, so the panel never reaches these. The target menu has to belong
  * to the same restaurant — the composite foreign key would refuse otherwise,
  * but only as a 500 — and the name has to be free on the target, because
@@ -52,16 +52,8 @@ class MoveCategoryToMenu
             'A sub-category moves between the categories of its menu, not between menus.',
         );
 
-        // Uniqueness is per level, so only the target's own sections count.
-        $taken = MenuCategory::query()
-            ->withoutGlobalScopes()
-            ->where('menu_id', $target->getKey())
-            ->whereNull('parent_id')
-            ->where('name->'.Locale::default()->value, $category->getTranslation('name', Locale::default()->value))
-            ->exists();
-
         throw_if(
-            $taken,
+            self::nameIsTakenOn($category, $target->getKey()),
             LogicException::class,
             'That menu already has a category with this name.',
         );
@@ -86,5 +78,24 @@ class MoveCategoryToMenu
                     ->select('id')
                     ->where('parent_id', $category->getKey())))
             ->update(['is_featured' => false, 'featured_position' => 0]);
+    }
+
+    /**
+     * Whether the menu a category is moving to already has a section of its name.
+     *
+     * Uniqueness is per level, so only the target's own top-level sections
+     * count. The arrangement table asks this as validation and this action asks
+     * it again as a backstop, in the same request, so it is answered once.
+     */
+    public static function nameIsTakenOn(MenuCategory $category, int $menuId): bool
+    {
+        $name = $category->getTranslation('name', Locale::default()->value);
+
+        return once(fn (): bool => MenuCategory::query()
+            ->withoutGlobalScopes()
+            ->where('menu_id', $menuId)
+            ->whereNull('parent_id')
+            ->where('name->'.Locale::default()->value, $name)
+            ->exists());
     }
 }

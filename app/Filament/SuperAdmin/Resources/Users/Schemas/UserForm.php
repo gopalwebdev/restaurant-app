@@ -60,10 +60,12 @@ class UserForm
                         // admin — so it is offered once and read-only after.
                         Select::make('tenant_id')
                             ->label('Restaurant')
-                            ->options(fn (): array => Restaurant::query()
+                            // once(): asked more than once per request while the
+                            // form is built and validated.
+                            ->options(fn (): array => once(fn (): array => Restaurant::query()
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
-                                ->all())
+                                ->all()))
                             ->searchable()
                             ->live()
                             ->placeholder('Product team — no restaurant')
@@ -94,10 +96,10 @@ class UserForm
                         // is for. A restaurant panel is offered a filtered list
                         // instead, by SetRestaurantUserRoles.
                         CheckboxList::make('roles')
-                            ->options(fn (): array => Role::query()
+                            ->options(fn (): array => once(fn (): array => Role::query()
                                 ->orderBy('name')
                                 ->pluck('name', 'name')
-                                ->all())
+                                ->all()))
                             ->searchable()
                             ->bulkToggleable()
                             ->columns(2)

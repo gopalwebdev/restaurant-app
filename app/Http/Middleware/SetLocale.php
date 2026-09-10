@@ -12,10 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
  * The language this request is answered in.
  *
  * A guest picks a language on their own phone, so the choice lives in a cookie
- * rather than on an account — guests do not have one. Staff are signed in but
- * get the same treatment, because the language someone reads a screen in is a
- * property of the phone in their hand, not of the account they share a shift
- * with.
+ * rather than on an account — guests do not have one. The panels read the same
+ * cookie, because the language someone reads a screen in is a property of the
+ * device in front of them rather than of the account.
  *
  * The cookie is unencrypted (see bootstrap/app.php) so the language toggle in
  * React and this middleware read the same value, exactly as the appearance

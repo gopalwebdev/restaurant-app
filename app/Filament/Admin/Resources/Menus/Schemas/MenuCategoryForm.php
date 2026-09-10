@@ -94,11 +94,15 @@ class MenuCategoryForm
      */
     public static function menuOptions(): array
     {
-        return Menu::query()
-            ->where('tenant_id', Filament::getTenant()?->getKey())
+        $tenantId = Filament::getTenant()?->getKey();
+
+        // once(): Filament asks a select for its options more than once while
+        // it builds and validates one form.
+        return once(fn (): array => Menu::query()
+            ->where('tenant_id', $tenantId)
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (Menu $menu): array => [$menu->getKey() => $menu->name])
-            ->all();
+            ->all());
     }
 }

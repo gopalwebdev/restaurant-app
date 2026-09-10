@@ -18,8 +18,7 @@ return new class extends Migration
      * The order below matters and is not arbitrary: the values are encoded
      * while the column is still text, because Postgres will not cast `Starters`
      * to json; the type change comes second; and the expression index comes
-     * last, because changing a column's type rebuilds the table on SQLite and
-     * an index built beforehand would not survive it.
+     * last, because it indexes the json the type change produces.
      */
     public function up(): void
     {

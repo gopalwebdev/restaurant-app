@@ -140,15 +140,16 @@ class MenuComboForm
             return [];
         }
 
-        return MenuItem::query()
+        // once(): a repeater asks every row's select for its options.
+        return once(fn (): array => MenuItem::query()
             ->onMenu($menuId)
-            ->with(['menuCategory.parent'])
+            ->with(['menuCategory:id,parent_id,name', 'menuCategory.parent:id,name'])
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (MenuItem $item): array => [
                 $item->getKey() => sprintf('%s · %s', $item->menuCategory->path(), $item->name),
             ])
-            ->all();
+            ->all());
     }
 
     /**

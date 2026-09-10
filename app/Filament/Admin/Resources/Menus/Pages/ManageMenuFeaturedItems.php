@@ -60,7 +60,7 @@ class ManageMenuFeaturedItems extends ManageRelatedRecords
      * on the model's unqualified `id`. This table's query is Menu::menuItems(),
      * a HasManyThrough, so it carries a join to menu_categories — and both the
      * `where in (id, ...)` and the `case when id = ...` it builds resolve to
-     * "ambiguous column name: id" on SQLite and Postgres alike. Dragging the
+     * an ambiguous column reference to "id" on Postgres. Dragging the
      * featured rail 500s without this.
      *
      * So the same update is issued against menu_items on its own, with the menu

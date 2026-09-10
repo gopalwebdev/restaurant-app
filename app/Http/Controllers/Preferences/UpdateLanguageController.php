@@ -9,7 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cookie;
 
 /**
- * Switch the language a visitor reads the guest or staff app in.
+ * Switch the language a visitor reads the guest app or a panel in.
  *
  * A full round trip rather than something React does on its own, and
  * deliberately: half of what a guest reads — the dish names, the sections, the

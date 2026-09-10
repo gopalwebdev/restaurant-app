@@ -124,7 +124,7 @@ class ArrangeMenu extends Page implements HasTable
      */
     public function getDefaultActionRecord(Action $action): ?Model
     {
-        return $action->getTable() ? null : parent::getDefaultActionRecord($action);
+        return $action->getTable() instanceof Table ? null : parent::getDefaultActionRecord($action);
     }
 
     /**

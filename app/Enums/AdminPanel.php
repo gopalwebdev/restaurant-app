@@ -7,13 +7,15 @@ use Filament\Support\Icons\Heroicon;
 /**
  * The Filament panels this application serves.
  *
- * The backing value is the panel's Filament id, and it doubles as the path the
- * panel is served from. Keeping both here stops the id, the route and the
- * access check drifting apart.
+ * The backing value is the panel's Filament id — what its route names are built
+ * from — and path() is where it is served. Both panels are served at /admin and
+ * told apart by host: the product team's on the root domain, a restaurant's on
+ * its own subdomain. Keeping both here stops the id, the route and the access
+ * check drifting apart.
  */
 enum AdminPanel: string
 {
-    /** The product team panel, on the root domain at /super-admin. */
+    /** The product team panel, on the root domain at /admin. */
     case SuperAdmin = 'super-admin';
 
     /** One restaurant's own panel, on its subdomain at /admin. */
@@ -21,10 +23,15 @@ enum AdminPanel: string
 
     /**
      * The URL path this panel is served from.
+     *
+     * The same for both. That holds only because the product team panel is bound
+     * to the root domain and registered first — the restaurant panel's sign-in
+     * route answers on any host, since nobody has a tenant before signing in.
+     * See bootstrap/providers.php.
      */
     public function path(): string
     {
-        return $this->value;
+        return 'admin';
     }
 
     /**

@@ -12,4 +12,4 @@ It has to be there, not in an Inertia prop: React runs after the first paint, so
 
 There is **no brand colour and no per restaurant theme**. `restaurant_settings` used to carry `theme_primary_color` and `theme_appearance`; both were dropped, the admin panel offers no theming, and `App\Enums\Appearance` has exactly two cases. Do not reintroduce either without asking.
 
-`HandleTenantInertiaRequests` shares two view variables for this — `$theme` and `$tenantSlug`. The slug is required because every tenant route carries `{restaurant}` in its **domain**, so `route('staff.manifest')` without it throws `UrlGenerationException`. Any new tenant URL built in a Blade template needs `['restaurant' => $tenantSlug]`.
+`HandleGuestAppRequests` shares two view variables for this — `$theme` and `$tenantSlug`. The slug is required because every tenant route carries `{restaurant}` in its **domain**, so `route('guest.manifest')` without it throws `UrlGenerationException`. Any new tenant URL built in a Blade template needs `['restaurant' => $tenantSlug]`.

@@ -214,10 +214,9 @@ class MenuItemsTable
      *
      * Raw because each rank is a correlated subquery over menu_categories,
      * which appears twice — once as the dish's own category and once as that
-     * category's parent. Every rank is COALESCEd rather than left null:
-     * Postgres sorts nulls last ascending and SQLite sorts them first, so a
-     * null would put the sections at opposite ends of the list on the two
-     * engines, and the suite runs on SQLite.
+     * category's parent. Every rank is COALESCEd rather than left null, so a
+     * dish filed straight under a category and one inside a subdivision rank
+     * against each other by value rather than by where Postgres puts a null.
      *
      * @param  Builder<MenuItem>  $query
      * @return Builder<MenuItem>

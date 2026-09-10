@@ -148,13 +148,7 @@ class ApplyMenuArrangement
      */
     private function railsMoved(Menu $menu, array $railPositions): bool
     {
-        foreach ($railPositions as $column => $position) {
-            if ((int) $menu->getAttribute($column) !== $position) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($railPositions, fn (int $position, $column): bool => (int) $menu->getAttribute($column) !== $position);
     }
 
     /**

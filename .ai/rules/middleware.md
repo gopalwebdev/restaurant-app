@@ -6,14 +6,10 @@ paths:
 
 # Middleware
 
-## Signed in is not the same as works here
-Accounts are platform-wide but sessions are per domain, so `auth` alone does **not** stop someone who works at one restaurant from opening another's staff app by editing the subdomain. `EnsureStaffMemberWorksHere` is what does, and every authenticated staff route needs it alongside `auth`.
+## HandleGuestAppRequests is the one Inertia middleware on a subdomain
+It picks the `guest` root template, shares `$theme` and `$tenantSlug` with it, and sends the shared props. `restaurant`, `currency` and `translations` are Inertia **once props**: none changes while a guest walks between one restaurant's screens, so each is sent on the first visit and left out of every visit after it, which is most of a page's payload on a phone. `locale` and `appearance` are sent every time, because the guest can change both. A tenant-wide abstract base and a staff subclass existed; both went with the staff app, as did `EnsureStaffMemberWorksHere`.
 
-It delegates to `AuthenticateStaffMember::mayWorkHere()`, the same check `SignInController` runs on the way in — one definition of "may work this floor" (on the roster, and holds `menu.view`), applied at sign-in and on every request after.
-
-This was a real hole caught by a test, not a hypothetical: `/staff` returned 200 for another restaurant's staff before the middleware existed.
-
-Guests hitting an authenticated staff route are redirected per tenant by `redirectGuestsTo` in `bootstrap/app.php`, which must handle the domain parameter arriving as either a resolved `Restaurant` or a raw slug string depending on where in the stack it is reached.
+There is no `redirectGuestsTo` in `bootstrap/app.php` any more: nothing outside the panels uses `auth`, and each panel carries its own sign-in page.
 
 ## SetLocale runs first in the web group, and its cookie is untrusted
 SetLocale is appended to the `web` group in bootstrap/app.php **before** HandleInertiaRequests, so everything downstream — the Inertia props, the translated columns a controller reads, the root template's `lang` attribute — renders in the language it chose. Moving it after the Inertia middleware silently serves English props on a Tamil page.

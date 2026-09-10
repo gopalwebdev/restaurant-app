@@ -122,7 +122,7 @@ it('hides a restaurant that is switched off', function (): void {
 |--------------------------------------------------------------------------
 */
 
-it('paints both apps light until the phone says otherwise', function (): void {
+it('paints the guest app light until the phone says otherwise', function (): void {
     $restaurant = Restaurant::factory()->create();
 
     // In the first response's HTML, not an Inertia prop: React runs after the
@@ -130,13 +130,9 @@ it('paints both apps light until the phone says otherwise', function (): void {
     $this->get(guestUrl($restaurant))
         ->assertOk()
         ->assertSee('"light"', escape: false);
-
-    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
-        ->assertOk()
-        ->assertSee('"light"', escape: false);
 });
 
-it('paints both apps dark when the phone has asked for dark', function (): void {
+it('paints the guest app dark when the phone has asked for dark', function (): void {
     $restaurant = Restaurant::factory()->create();
 
     // There is no per restaurant default and no brand colour: the whole of the
@@ -147,11 +143,6 @@ it('paints both apps dark when the phone has asked for dark', function (): void 
         ->assertOk()
         ->assertSee('"dark"', escape: false)
         ->assertDontSee('"light"', escape: false);
-
-    $this->withUnencryptedCookie('appearance', Appearance::Dark->value)
-        ->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
-        ->assertOk()
-        ->assertSee('"dark"', escape: false);
 });
 
 it('ignores a tampered appearance cookie rather than breaking the page', function (): void {
@@ -173,7 +164,7 @@ it('offers no theme customisation to the restaurant', function (): void {
 
 /*
 |--------------------------------------------------------------------------
-| The two apps never load each other, or Filament
+| The guest app loads its own entry, and never Filament
 |--------------------------------------------------------------------------
 */
 
@@ -195,31 +186,55 @@ it('loads only its own entry and page', function (): void {
 
     expect($guest)->toContain($chunk('resources/js/guest.tsx'))
         ->and($guest)->toContain($chunk('resources/js/pages/guest/home.tsx'))
-        ->and($guest)->not->toContain($chunk('resources/js/staff.tsx'))
-        ->and($guest)->not->toContain($chunk('resources/js/pages/staff/login.tsx'))
         ->and($guest)->not->toContain($chunk('resources/js/app.tsx'));
-
-    $staff = $this->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
-        ->assertOk()->getContent();
-
-    expect($staff)->toContain($chunk('resources/js/staff.tsx'))
-        ->and($staff)->toContain($chunk('resources/js/pages/staff/login.tsx'))
-        ->and($staff)->not->toContain($chunk('resources/js/guest.tsx'))
-        ->and($staff)->not->toContain($chunk('resources/js/pages/guest/home.tsx'));
 });
 
-it('makes only the staff app installable', function (): void {
+it('makes the guest app installable', function (): void {
     $restaurant = Restaurant::factory()->create();
 
-    // Staff install this and keep it; guests arrive by QR and leave, so an
-    // install prompt at a table would be noise. See .ai/rules/js.md.
-    $this->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
-        ->assertSee('rel="manifest"', escape: false)
-        ->assertSee('serviceWorker', escape: false);
-
+    // A guest who comes back keeps the restaurant on their home screen, so the
+    // app links a manifest and registers a service worker on every page.
     $this->get(guestUrl($restaurant))
-        ->assertDontSee('rel="manifest"', escape: false)
-        ->assertDontSee('serviceWorker', escape: false);
+        ->assertOk()
+        ->assertSee('rel="manifest"', escape: false)
+        ->assertSee(route('guest.manifest', ['restaurant' => $restaurant->slug]), escape: false)
+        ->assertSee('serviceWorker', escape: false);
+});
+
+it('serves a manifest named for the restaurant, scoped to its subdomain', function (): void {
+    $restaurant = Restaurant::factory()->create(['name' => 'Spice Garden']);
+
+    // Per restaurant rather than a static file, so a phone with two restaurants
+    // installed shows two apps.
+    $this->get(route('guest.manifest', ['restaurant' => $restaurant->slug]))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/manifest+json')
+        ->assertJsonPath('name', 'Spice Garden')
+        ->assertJsonPath('start_url', '/')
+        ->assertJsonPath('scope', '/')
+        ->assertJsonPath('display', 'standalone')
+        ->assertJsonCount(3, 'icons');
+});
+
+it('serves a service worker that never caches Inertia\'s own requests', function (): void {
+    $restaurant = Restaurant::factory()->create();
+
+    $response = $this->get(route('guest.service-worker', ['restaurant' => $restaurant->slug]))
+        ->assertOk();
+
+    // The same URL answers HTML to a navigation and JSON to Inertia, so only
+    // navigations and hashed build assets are ever put in the cache.
+    expect((string) $response->headers->get('Content-Type'))->toContain('javascript')
+        ->and($response->getContent())
+        ->toContain("request.mode === 'navigate'")
+        ->toContain("url.pathname.startsWith('/build/')");
+});
+
+it('does not make a switched-off restaurant installable', function (): void {
+    $restaurant = Restaurant::factory()->create(['is_active' => false]);
+
+    $this->get(route('guest.manifest', ['restaurant' => $restaurant->slug]))->assertNotFound();
+    $this->get(route('guest.service-worker', ['restaurant' => $restaurant->slug]))->assertNotFound();
 });
 
 it('leads a menu with the dishes the restaurant featured', function (): void {

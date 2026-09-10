@@ -194,7 +194,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function getTenants(Panel $panel): Collection
     {
         if ($this->isSuperAdmin()) {
-            return Restaurant::query()->orderBy('name')->get();
+            // Filament asks for this more than once per request.
+            return once(fn (): Collection => Restaurant::query()->orderBy('name')->get());
         }
 
         return $this->restaurants;
@@ -210,6 +211,18 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         }
 
         return $this->restaurants()->whereKey($tenant)->exists();
+    }
+
+    /**
+     * Whether this account is on more than one restaurant's roster.
+     *
+     * Roles are held per account, so someone staffing two restaurants cannot
+     * have them changed from either one's panel. Asked by the form that shows
+     * the roles and again by the action that saves them, in the same request.
+     */
+    public function staffsSeveralRestaurants(): bool
+    {
+        return once(fn (): bool => $this->restaurants()->count() > 1);
     }
 
     /**

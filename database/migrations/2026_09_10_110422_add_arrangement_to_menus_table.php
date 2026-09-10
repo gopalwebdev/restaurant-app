@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -32,21 +31,10 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Dropping a column rebuilds the table on SQLite, and a rebuild reads the
-     * indexes back from `pragma index_info` — which reports columns and not
-     * expressions, so the unique on the English name would come back as a
-     * unique on tenant_id alone. It is recreated from its real definition here
-     * for that reason; on Postgres nothing is rebuilt and this is the same
-     * index again. See .ai/rules/migrations.md.
-     */
     public function down(): void
     {
         Schema::table('menus', function (Blueprint $table): void {
             $table->dropColumn(['featured_position', 'combos_position']);
         });
-
-        DB::statement('DROP INDEX IF EXISTS menus_tenant_id_name_en_unique');
-        DB::statement("CREATE UNIQUE INDEX menus_tenant_id_name_en_unique ON menus (tenant_id, (name ->> 'en'))");
     }
 };

@@ -5,12 +5,14 @@ paths:
 
 # Filament
 
-## Each panel owns its own Filament namespace and path
+## Each panel owns its own Filament namespace; both are served at /admin
 Two panels, kept apart on purpose:
-- super-admin — root domain, /super-admin, classes under app/Filament/SuperAdmin/
+- super-admin — root domain, /admin, classes under app/Filament/SuperAdmin/
 - admin — restaurant subdomain, /admin, classes under app/Filament/Admin/
 
-App\Enums\AdminPanel is the single source of truth for both the Filament panel id and its path; the providers and User::canAccessPanel() all read it. Never hardcode 'admin'/'super-admin' or a panel path anywhere else.
+They share the path and are told apart by host, which holds for one non-obvious reason. The restaurant panel's sign-in route — and its logout, and its `/admin` tenant redirect — carries **no domain**, because nobody has a tenant before signing in, so it answers on the root domain too. `SuperAdminPanelProvider` is therefore registered **before** `AdminPanelProvider` in `bootstrap/providers.php`, so the product team panel's root-domain routes are matched first. Swap the order and the root domain's `/admin/login` becomes a tenant-less restaurant sign-in. `PanelRoutingTest` pins it. A link to a restaurant's sign-in is built with its subdomain (`Restaurant::adminSignInUrl()`), never with `route('filament.admin.auth.login')`, which has no host of its own.
+
+App\Enums\AdminPanel is the single source of truth for the Filament panel id (`super-admin`, `admin` — route names are built from it, and were kept when the product team moved off `/super-admin`) and for the path; the providers and User::canAccessPanel() all read it. Never hardcode 'admin'/'super-admin' or a panel path anywhere else.
 
 Never put a page, resource or widget where both panels discover it. Shared behaviour goes in an abstract base under app/Filament/Auth/ (see OtpLogin) and each panel registers its own thin subclass.
 
@@ -26,11 +28,11 @@ Those guards live in RoleResource/PermissionResource::canDelete() (and `disabled
 Both panels run `strictAuthorization()`, so a resource whose policy lacks the method being asked about is refused rather than waved through. tests/Feature/PanelAuthorizationTest.php walks every registered resource and page in both panels and asserts an account holding nothing is refused, so a page added later cannot ship open.
 
 ## Panels are for laptops and larger screens, not phones
-Both panels are back-office tools — the product team's, and a restaurant admin's — used sitting down at a laptop or a bigger display. "Staff" in this codebase means the floor staff on phones, who are not in a panel at all. Design for that width and do not spend effort making a panel page work on a phone: no phone-first layouts, and no hiding columns below a breakpoint with visibleFrom()/hiddenFrom(), which only costs information when a laptop window is dragged narrow. A table may show every column it needs, and a form may assume the room to use columns().
+Both panels are back-office tools — the product team's, and a restaurant admin's — used sitting down at a laptop or a bigger display. "Staff" in this codebase means floor staff on phones; they have no surface right now, and would not be given a panel. Design for that width and do not spend effort making a panel page work on a phone: no phone-first layouts, and no hiding columns below a breakpoint with visibleFrom()/hiddenFrom(), which only costs information when a laptop window is dragged narrow. A table may show every column it needs, and a form may assume the room to use columns().
 
 This is enforced, not just intended: both panels render `resources/views/filament/desktop-only.blade.php` through the `BODY_START` render hook, which covers the panel with a "open this on a laptop" message below 1024px. It is CSS-only and inline, so it is correct on first paint and needs none of the utilities a panel does not ship. It is a door, not a second layout — building a phone layout for a panel is exactly what this rule rules out.
 
-Guests and staff are the opposite — see .ai/rules/js.md, which is phone-only. Staff are deliberately not a panel: they are on phones, and this rule is the reason.
+The guest app is the opposite — see .ai/rules/js.md, which is phone-only. A staff surface, when one comes back, is not a panel either: staff are on phones, and this rule is the reason.
 
 Panels are served Filament's own compiled CSS, which carries its fi- classes and no general Tailwind utilities, so any styling of your own needs inline styles or a panel theme rather than utility classes.
 
@@ -53,7 +55,7 @@ Four things the switcher costs, all handled inside `TranslatedFields` and none o
 - **The switcher itself is set with `formatStateUsing()`, not `default()`.** A default only applies to a form filled with *nothing*, so every edit form — and every modal handed data, which includes a create modal with one field prefilled — opened with neither language lit. That is not cosmetic: the switcher decides which box is on screen and which value the "required in English" rule reads. Formatting the state normalises whatever the form was opened with, `null` included, to **the language the panel is being worked in** — the top bar's choice, which `SetLocale` puts on every request, Livewire's included, because it is in the `web` group. A panel switched to Tamil opens every form on Tamil; one nobody has switched opens on English. It was English unconditionally for one change, and a Tamil panel had to move the switcher on every record.
 - Hidden languages carry `->dehydratedWhenHidden()`. Without it, typing the Tamil and saving would blank the English.
 - The "English is required" rule rides on **every** language's input, reading the English value out of the form state. Left only on the English input it would never fire, because that input is hidden at exactly the moment it needs to.
-- The uniqueness rule does the same, for the same reason. It is built on the English name because the database's expression index is — a rule that skipped while Tamil was on screen would let a duplicate through to fail at the index instead.
+- The uniqueness rule does the same, for the same reason — though only the input for the language on screen runs its query, since every input asks the same question about the English value and the duplicate-query guard would otherwise stop the page. It is built on the English name because the database's expression index is — a rule that skipped while Tamil was on screen would let a duplicate through to fail at the index instead.
 
 Table columns must still go through `TranslatedFields::sort()` / `::search()` — both answer in the panel's language, with English for anything untranslated — and every edit action still needs `->mutateRecordDataUsing(fn (array $data, Model $record) => XForm::fillTranslations($data, $record))` — Spatie hands back one language, and a form editing all of them needs the whole document.
 
@@ -68,8 +70,10 @@ The form posts to the host it was rendered on, because a cross-host post loses t
 
 The panel's own labels are English and stay English: `lang/en/panel.php` is the only file, and a `lang/ta/panel.php` was deleted deliberately (`.ai/rules/lang.md`). What the switcher still changes is the **restaurant's** words — a menu or dish name comes out of a translated column and follows the chosen language, so a Tamil-reading manager reads their own menu in Tamil with the panel's labels in English around it. **Roles, permissions, accounts and restaurants** are English for a second reason: code refers to those names.
 
-## Both panels navigate as a SPA
-`->spa()` on both providers, so moving between pages is a Livewire visit with a progress bar across the top rather than a browser load that leaves an admin looking at the page they just left. Links inside a panel carry `wire:navigate`; a form post — the language switcher, for one — is unaffected, and so is anything pointing off the panel.
+## Both panels navigate as a SPA, and prefetch on hover
+`->spa(hasPrefetching: true)` on both providers, so moving between pages is a Livewire visit with a progress bar across the top rather than a browser load, and hovering a link fetches its page before the click. Links inside a panel carry `wire:navigate.hover`; a form post — the language switcher, for one — is unaffected, and so is anything pointing off the panel's host (Filament compares hosts, so the product team's link into a restaurant's subdomain stays a real browser visit).
+
+Deployment runs `php artisan optimize` and `php artisan filament:optimize` (`composer deploy`), which cache Filament's components and Blade Icons. Never run those locally: a component cache stops new resources and pages being discovered until it is cleared.
 
 ## No theming in the panel
 A restaurant chooses no colours and no light/dark default. `App\Enums\Appearance` has two cases and lives on the phone. Do not add a theme section back without asking.

@@ -238,8 +238,9 @@ class Menu extends Model
     /**
      * The start of the service window as a clock reading, or null.
      *
-     * Postgres hands back "07:00:00" from a time column and SQLite hands back
-     * whatever was written, so the raw value is not one shape. These two are
+     * Postgres hands back "07:00:00" from a time column, but a model that has
+     * only just been filled holds whatever was assigned — "07:00" from a form —
+     * so the raw value is not one shape. These two are
      * what crosses the wire, so the guest app is given one format to render
      * rather than having to cope with both — the same reason prices leave as
      * integers rather than in whichever way a driver stringified them.

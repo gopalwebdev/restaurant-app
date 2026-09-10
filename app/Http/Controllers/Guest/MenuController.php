@@ -13,6 +13,8 @@ use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
+use Closure;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -53,13 +55,15 @@ class MenuController extends Controller
 
         $orderable = ItemAvailability::orderableValues();
 
+        $additions = fn ($additions) => $additions
+            ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
+            ->available()
+            ->inMenuOrder();
+
         $dishes = fn ($items) => $items
             ->select($this->itemColumns())
             ->whereIn('availability', $orderable)
-            ->with(['additions' => fn ($additions) => $additions
-                ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
-                ->available()
-                ->inMenuOrder()])
+            ->with(['additions' => $additions])
             ->inMenuOrder();
 
         $sections = MenuCategory::query()
@@ -93,12 +97,10 @@ class MenuController extends Controller
             ->where('tenant_id', $restaurant->getKey())
             ->featuredOnMenu($menu->getKey())
             ->orderable()
-            ->with(['additions' => fn ($additions) => $additions
-                ->select(['id', 'menu_item_id', 'name', 'price_minor_units'])
-                ->available()
-                ->inMenuOrder()])
             ->inFeaturedOrder()
             ->get();
+
+        $this->attachAdditions($featured, $sections, $additions);
 
         $combos = MenuCombo::query()
             ->select(['id', 'name', 'description', 'price_minor_units', 'compare_at_price_minor_units'])
@@ -172,6 +174,41 @@ class MenuController extends Controller
     }
 
     /**
+     * Give each featured dish the additions its section has already loaded.
+     *
+     * A featured dish is nearly always also listed under its own section, where
+     * its additions have just been read, so reading them again for the rail was
+     * the same query twice. Only a featured dish that no section being shown
+     * lists has its additions fetched here.
+     *
+     * @param  EloquentCollection<int, MenuItem>  $featured
+     * @param  EloquentCollection<int, MenuCategory>  $sections
+     */
+    private function attachAdditions(EloquentCollection $featured, EloquentCollection $sections, Closure $additions): void
+    {
+        $listed = $sections
+            ->flatMap(fn (MenuCategory $category): array => [
+                ...$category->menuItems->all(),
+                ...$category->children->flatMap(fn (MenuCategory $child): array => $child->menuItems->all())->all(),
+            ])
+            ->keyBy(fn (MenuItem $item): int => $item->getKey());
+
+        $unlisted = $featured->reject(fn (MenuItem $item): bool => $listed->has($item->getKey()));
+
+        if ($unlisted->isNotEmpty()) {
+            $unlisted->load(['additions' => $additions]);
+        }
+
+        foreach ($featured as $item) {
+            $inSection = $listed->get($item->getKey());
+
+            if ($inSection instanceof MenuItem) {
+                $item->setRelation('additions', $inSection->additions);
+            }
+        }
+    }
+
+    /**
      * What every dish on this page is read from.
      *
      * menu_category_id is here because Eloquent needs it to attach a dish to
@@ -223,20 +260,9 @@ class MenuController extends Controller
      */
     private function charges(Restaurant $restaurant): array
     {
-        // One row, one query, and only the columns this needs — reaching
-        // through $restaurant->settings would be a lazy load, which
-        // Model::shouldBeStrict() throws on outside production.
-        $settings = RestaurantSetting::query()
-            ->select([
-                'tax_rate_basis_points',
-                'prices_include_tax',
-                'service_charge_enabled',
-                'service_charge_basis_points',
-                'parcel_charge_enabled',
-                'parcel_charge_minor_units',
-            ])
-            ->where('tenant_id', $restaurant->getKey())
-            ->first();
+        // The row the guest middleware has already read for the currency, not
+        // a second query for the same restaurant.
+        $settings = $restaurant->resolvedSettings();
 
         if (! $settings instanceof RestaurantSetting) {
             return [

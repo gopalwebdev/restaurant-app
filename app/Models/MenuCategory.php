@@ -99,7 +99,10 @@ class MenuCategory extends Model
                     ->value('tenant_id');
             }
 
-            if (blank($category->parent_id)) {
+            // Only a parent that is being set needs checking. Rearranging a menu
+            // saves every row it renumbers, and asking again about a parent
+            // nobody changed would be one query per sibling.
+            if (blank($category->parent_id) || ! $category->isDirty('parent_id')) {
                 return;
             }
 

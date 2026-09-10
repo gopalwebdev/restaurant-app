@@ -244,9 +244,8 @@ it('refuses a PDF tile with no file uploaded', function (): void {
 it('refuses to save a tile with no destination, whatever the form says', function (): void {
     $restaurant = Restaurant::factory()->create();
 
-    // The second half of the same rule, at the model. This would be a CHECK
-    // constraint if Laravel's Blueprint could express one and SQLite could add
-    // one after the table exists; neither is true, so the guard lives here.
+    // The second half of the same rule, at the model — with a CHECK constraint
+    // behind it for anything that goes around the model altogether.
     expect(fn () => HomeTile::query()->create([
         'label' => [Locale::English->value => 'Nowhere'],
         'action' => HomeTileAction::Menu,

@@ -429,9 +429,9 @@ it('reads the dishes list menu by menu, section by section', function (): void {
 });
 
 it('orders the dishes list without touching a translated json column', function (): void {
-    // Postgres has no ordering operator for json, so ordering by a translated
-    // name 500s there even though SQLite tolerates it silently. Inspecting the
-    // compiled SQL catches that on either engine.
+    // Ordering by a translated column orders whole JSON documents rather than
+    // names, and while the column was plain json Postgres had no ordering
+    // operator for it at all and 500'd. Inspecting the compiled SQL catches both.
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
     MenuItem::factory()->inCategory(MenuCategory::factory()->inMenu($menu)->create())->create();

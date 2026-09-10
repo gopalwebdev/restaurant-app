@@ -57,7 +57,7 @@ it('keeps a restaurant admin out of the restaurants page', function (): void {
     $user->assignRole(Role::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/super-admin/restaurants')
+        ->get('http://restaurant-app.test/admin/restaurants')
         ->assertForbidden();
 });
 
@@ -65,7 +65,7 @@ it('serves the restaurants page to the product team', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/super-admin/restaurants')
+        ->get('http://restaurant-app.test/admin/restaurants')
         ->assertOk();
 });
 

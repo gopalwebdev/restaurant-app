@@ -205,7 +205,7 @@ class MenuItem extends Model
             ->whereRelation('menuCategory', 'is_active', true)
             ->whereRelation('menuCategory.menu', 'is_active', true)
             ->where(fn (Builder $underAShowingSection): Builder => $underAShowingSection
-                ->whereRelation('menuCategory', 'parent_id', null)
+                ->whereRelation('menuCategory', 'parent_id')
                 ->orWhereRelation('menuCategory.parent', 'is_active', true));
     }
 

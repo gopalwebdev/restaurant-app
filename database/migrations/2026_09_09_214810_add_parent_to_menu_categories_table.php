@@ -56,7 +56,7 @@ return new class extends Migration
         // top-level Chicken and a nested one. COALESCE because a unique index
         // treats NULLs as distinct, so without it every top-level category
         // would escape the constraint entirely.
-        $this->restoreNameIndex();
+        $this->scopeNameIndexToLevel();
     }
 
     public function down(): void
@@ -73,17 +73,9 @@ return new class extends Migration
     }
 
     /**
-     * Put the category-name unique index back, scoped to its level.
-     *
-     * Also repairs it after SQLite has rebuilt the table. SQLite cannot add a
-     * foreign key with ALTER TABLE, so Laravel recreates the table and copies
-     * the indexes from `pragma index_info`, which reports columns and **not**
-     * expressions — the index would otherwise come out the other side as a
-     * plain unique on `menu_id`, allowing one category per menu. Silently, and
-     * only on SQLite, which is what the test suite runs on. See
-     * .ai/rules/migrations.md.
+     * Rebuild the category-name unique index on the level as well as the menu.
      */
-    private function restoreNameIndex(): void
+    private function scopeNameIndexToLevel(): void
     {
         DB::statement('DROP INDEX IF EXISTS menu_categories_menu_id_name_en_unique');
         DB::statement("CREATE UNIQUE INDEX menu_categories_menu_id_name_en_unique ON menu_categories (menu_id, COALESCE(parent_id, 0), (name ->> 'en'))");

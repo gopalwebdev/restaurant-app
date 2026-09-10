@@ -46,8 +46,8 @@ return new class extends Migration
         });
 
         // A row's title is optional, so two untitled rows are not a clash and
-        // the index only constrains the ones that have been named. Partial on
-        // Postgres; SQLite accepts the same WHERE clause on an index.
+        // the index only constrains the ones that have been named — a partial
+        // index, which Postgres builds natively.
         DB::statement("CREATE UNIQUE INDEX home_rows_tenant_id_title_en_unique ON home_rows (tenant_id, (title ->> 'en')) WHERE title IS NOT NULL");
     }
 

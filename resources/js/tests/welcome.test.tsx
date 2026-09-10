@@ -23,7 +23,7 @@ describe('welcome', () => {
         // rather than an Inertia visit.
         expect(signIn).toHaveAttribute(
             'href',
-            expect.stringContaining('/super-admin/login'),
+            expect.stringContaining('/admin/login'),
         );
     });
 

@@ -1,9 +1,7 @@
 /**
- * The props HandleTenantInertiaRequests shares with every page of both apps.
+ * The props HandleGuestAppRequests shares with every page of the guest app.
  *
- * Both the guest app and the staff app are served by the same middleware, so
- * both receive exactly this. Anything a single page needs is declared on that
- * page instead.
+ * Anything a single page needs is declared on that page instead.
  */
 
 export type LocaleOption = {
@@ -43,7 +41,6 @@ export type CurrencyProp = {
 
 export type TenantSharedProps = {
     restaurant: { name: string; slug: string } | null;
-    auth: { user: { name: string; email: string } | null };
     locale: LocaleProp;
     currency: CurrencyProp | null;
     translations: Translations;

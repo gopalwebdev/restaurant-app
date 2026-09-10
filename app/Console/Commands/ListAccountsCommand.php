@@ -61,11 +61,10 @@ class ListAccountsCommand extends Command
     }
 
     /**
-     * Everyone attached to a restaurant, and which of its two surfaces they use.
+     * Everyone who runs a restaurant, and where they sign in.
      *
-     * An admin runs the restaurant from the panel on a laptop; staff work the
-     * floor from the phone app. Someone holding both roles is listed for both,
-     * because they really can open both.
+     * An admin runs the restaurant from its panel on a laptop. Staff have no
+     * surface of their own, so only admins are listed.
      *
      * @return list<array{string, string, string}>
      */
@@ -87,14 +86,6 @@ class ListAccountsCommand extends Command
                         $restaurant->name.' admin',
                         $user->email,
                         $host.'/'.AdminPanel::Admin->path(),
-                    ];
-                }
-
-                if ($user->hasRole(Role::Staff->value)) {
-                    $rows[] = [
-                        $restaurant->name.' staff',
-                        $user->email,
-                        $host.'/staff/login',
                     ];
                 }
             }

@@ -19,6 +19,19 @@ Follow SOLID: one reason to change per class, depend on the abstraction, extend 
 
 Laravel's own idiom wins over cleverness: named routes, Form Requests, Eloquent relationships, artisan make: for new files, and `vendor/bin/pint` before finishing.
 
+## N+1 and duplicate queries throw in local and in the test suite
+`AppServiceProvider::configureQueryGuards()` turns on `Model::shouldBeStrict()` — lazy loading, unselected attributes, silently discarded attributes — and `preventDuplicateQueries()`, in the `local` and `testing` environments and nowhere else. The suite is included on purpose: it is the one place every page is exercised on every change, and a guard that only ran in local would let an N+1 merge.
+
+A duplicate is the same SQL with the same bindings twice inside one HTTP request, Livewire's own requests included, counted from `RouteMatched` to `RequestHandled`. Three things are deliberately not duplicates:
+
+- anything outside a request — migrations, seeders, queued jobs, console commands, a test's own set-up;
+- a read repeated after a **write** in the same request, which is a refresh (a table redrawn after an action, a relation reloaded after a sync) — any statement that is not a `select` clears the set;
+- a repeat no application code asked for. `DuplicateQueryException::applicationOrigin()` walks the backtrace, passes over middleware frames that only hand the request to Laravel's pipeline, and does not throw when no application frame is left — Filament or Spatie doing their own work twice is nothing this codebase can fix.
+
+The fixes, in order of preference: read the answer once and hand it down; eager load what a loop asks for and name the columns (an eager load of `menu:id,name` never collides with a table's own `select *`); and where Filament evaluates the same closure several times while building one page — select options, a `disabled()` beside a `helperText()`, a rule on every language's input — memoize it with `once()`. `configureRequestMemoization()` flushes `Once` on every `RouteMatched`, so `once()` means once per request rather than once per process; without it a test that makes several requests reads a stale option list.
+
+`Restaurant::resolvedSettings()` is the pattern for a per-request lookup on a model: loaded once and kept as the `settings` relation, never a lazy load. `currency()`, `taxRateBasisPoints()` and `isAcceptingOrders()` all read it, as do the guest menu's charges and the Settings page.
+
 ## India is the only market for now
 Defaults are Indian: CountryCallingCode has one case (+91) and mobile numbers validate as ten digits, and addresses take a pincode. This is a "for now", not a permanent assumption, so keep this shape multi-country: values that vary by country belong in an enum with a case per country rather than hardcoded in a form or a rule. Add the country to the enum rather than branching on it at the call site.
 
@@ -34,17 +47,18 @@ The people who run the whole product are the **product team** — that is the vo
 
 "Platform" is still correct for the *software*, and is deliberately kept: "accounts are platform-wide", "every restaurant on the platform", and the super-admin panel's brand name "Restaurant Platform". The distinction is people versus product — do not rename those back.
 
-## Four surfaces: two Filament panels, two React apps
+## Three surfaces: two Filament panels and the guest app
 Settled architecture, one surface per audience:
 
-1. **Product team** — Filament, root domain `/super-admin`. Restaurants, roles, permissions, accounts.
+1. **Product team** — Filament, root domain `/admin`. Restaurants, roles, permissions, accounts.
 2. **Restaurant admin** — Filament, tenant subdomain `/admin`. Menu, settings, reports, receipt printing.
-3. **Staff** — React + Inertia, phone-first, installed as a PWA. Order taking and status.
-4. **Guest** — React + Inertia, phone-first, no install; arrives by QR and lands on a home screen the restaurant arranges out of rows of tiles (`home_rows` → `home_tiles`), walking from there into a menu, a PDF, or off to a link.
+3. **Guest** — React + Inertia, phone-first, installable as a PWA; arrives by QR and lands on a home screen the restaurant arranges out of rows of tiles (`home_rows` → `home_tiles`), walking from there into a menu, a PDF, or off to a link.
 
-Staff are React rather than a third Filament panel because they are on phones: `.ai/rules/filament.md` reserves panels for laptop-and-larger, and order-taking is the highest-frequency screen in the product, where a Livewire round-trip per tap is the wrong trade. Neither React surface works offline — there is no offline requirement, and Inertia needs the server too.
+Both panels are served at `/admin` and told apart by host — `.ai/rules/filament.md` explains why that depends on provider order. The product team panel used to live at `/super-admin`; its Filament id, and so its route names (`filament.super-admin.*`), did not change.
 
-Keeping guests and staff as the only Inertia surfaces is also what keeps their bundles free of Filament assets. Do not import Filament into either, and do not add a Filament panel for a phone audience.
+A staff app (React, phone-first) existed and was removed on the project owner's instruction. When staff get a surface again it is React rather than a third panel, for the reason it was before: they are on phones, and `.ai/rules/filament.md` reserves panels for laptop-and-larger. The guest app does not work offline — there is no offline requirement, and Inertia needs the server for every page.
+
+Keeping the guest app the only Inertia surface on a subdomain is what keeps its bundle free of Filament assets. Do not import Filament into it, and do not add a Filament panel for a phone audience.
 
 ## The menu is four levels, one of which nests once, and a guest lands on tiles
 `menus` → `menu_categories` → `menu_items` → `menu_item_additions`, where `menu_categories` holds **both** levels of section: a row with no `parent_id` is a section of the menu, and one with a parent is a subdivision of that section. A restaurant that serves one card all day simply keeps one menu; one that serves a different card at lunch has two.
@@ -78,4 +92,4 @@ Prices carry an optional `compare_at_price_minor_units` — the higher "was" pri
 
 Like the India assumption above, the pair of languages is a "for now". The one thing that does not scale for free is the expression unique indexes, which are built on English — see `.ai/rules/migrations.md`.
 
-All four surfaces switch language, not just the phone apps: the guest and staff apps through their toggle, and both Filament panels through a switcher in the top bar. What that switch reaches is the restaurant's own words — menu, category, dish, addition and tile names. Roles and permissions stay English too, and for a second reason: code refers to those names.
+All three surfaces switch language: the guest app through its toggle, and both Filament panels through a switcher in the top bar. What that switch reaches is the restaurant's own words — menu, category, dish, addition and tile names. Roles and permissions stay English too, and for a second reason: code refers to those names.

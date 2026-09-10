@@ -265,7 +265,13 @@ class Settings extends Page
     {
         $restaurant = $this->restaurant();
 
-        return $restaurant->settings()->firstOrCreate([]);
+        // Remembered on the tenant, so filling the form, formatting a charge
+        // and saving all read the one row once.
+        $settings = $restaurant->resolvedSettings() ?? $restaurant->settings()->create([]);
+
+        $restaurant->setRelation('settings', $settings);
+
+        return $settings;
     }
 
     /**

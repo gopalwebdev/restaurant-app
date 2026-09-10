@@ -3,7 +3,6 @@
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
-use App\Models\Restaurant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -34,24 +33,6 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
-
-        // Signing in is per restaurant, so where a guest is sent depends on
-        // which subdomain they were on. Anything outside a tenant gets the
-        // usual 401: the panels carry their own sign-in pages, and there is no
-        // application-wide login route to fall back to.
-        $middleware->redirectGuestsTo(function (Request $request): ?string {
-            $restaurant = $request->route('restaurant');
-
-            // Depending on where in the stack this is reached, the domain
-            // parameter is either the resolved model or still the raw slug.
-            $slug = match (true) {
-                $restaurant instanceof Restaurant => $restaurant->slug,
-                is_string($restaurant) => $restaurant,
-                default => null,
-            };
-
-            return $slug === null ? null : route('staff.login', ['restaurant' => $slug]);
-        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

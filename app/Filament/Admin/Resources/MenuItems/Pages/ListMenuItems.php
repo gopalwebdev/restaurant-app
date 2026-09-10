@@ -47,8 +47,9 @@ class ListMenuItems extends ListRecords
      */
     private function hasAnyCategory(): bool
     {
-        return MenuCategory::query()
+        // Asked by the button's disabled state and by its tooltip.
+        return once(fn (): bool => MenuCategory::query()
             ->where('tenant_id', Filament::getTenant()?->getKey())
-            ->exists();
+            ->exists());
     }
 }

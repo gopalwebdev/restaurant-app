@@ -37,8 +37,6 @@ return new class extends Migration
         Schema::table('menu_items', function (Blueprint $table): void {
             $table->dropColumn('is_available');
         });
-
-        $this->restoreNameIndex();
     }
 
     /**
@@ -58,22 +56,5 @@ return new class extends Migration
         Schema::table('menu_items', function (Blueprint $table): void {
             $table->dropColumn('availability');
         });
-
-        $this->restoreNameIndex();
-    }
-
-    /**
-     * Put the dish-name unique index back after SQLite has rebuilt the table.
-     *
-     * Dropping a column makes SQLite recreate the whole table, and the copied
-     * indexes lose their expressions — `(menu_category_id, (name ->> 'en'))`
-     * comes back as `(menu_category_id)`, which would allow one dish per
-     * category. Same reason and same fix as
-     * add_sub_category_to_menu_items_table; the note there has the detail.
-     */
-    private function restoreNameIndex(): void
-    {
-        DB::statement('DROP INDEX IF EXISTS menu_items_menu_category_id_name_en_unique');
-        DB::statement("CREATE UNIQUE INDEX menu_items_menu_category_id_name_en_unique ON menu_items (menu_category_id, (name ->> 'en'))");
     }
 };

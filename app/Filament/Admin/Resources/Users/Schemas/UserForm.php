@@ -33,17 +33,28 @@ class UserForm
                 // handing out product team access or reaching into another
                 // restaurant's staff.
                 CheckboxList::make('roles')
-                    ->options(fn (): array => Role::query()
+                    ->options(fn (): array => once(fn (): array => Role::query()
                         ->assignableWithinRestaurant()
                         ->orderBy('name')
                         ->pluck('name', 'name')
-                        ->all())
+                        ->all()))
                     ->columns(2)
                     ->columnSpanFull()
-                    ->disabled(fn (?User $record): bool => $record instanceof User && $record->restaurants()->count() > 1)
-                    ->helperText(fn (?User $record): string => $record instanceof User && $record->restaurants()->count() > 1
+                    ->disabled(fn (?User $record): bool => self::staffsSeveralRestaurants($record))
+                    ->helperText(fn (?User $record): string => self::staffsSeveralRestaurants($record)
                         ? 'This person staffs more than one restaurant, so only the product team can change their roles.'
                         : 'Roles carrying product team permissions are never offered here.'),
             ]);
+    }
+
+    /**
+     * Whether this account is on more than one restaurant's roster.
+     *
+     * Asked twice while the form renders — to disable the roles and to say why
+     * — so it is remembered for the request.
+     */
+    private static function staffsSeveralRestaurants(?User $record): bool
+    {
+        return $record instanceof User && $record->staffsSeveralRestaurants();
     }
 }

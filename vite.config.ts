@@ -5,19 +5,83 @@ import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
+import type { Plugin } from 'vite';
 import { defineConfig, lazyPlugins } from 'vite-plus';
+
+/**
+ * Every file under a build directory, walked from the top down.
+ */
+function builtFiles(directory: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const path = join(directory, entry.name);
+
+        return entry.isDirectory() ? builtFiles(path) : [path];
+    });
+}
+
+/**
+ * A Brotli and a gzip copy beside every built text asset.
+ *
+ * Compressed once, at build time and at Brotli's highest quality, rather than
+ * by the server on every request. Whatever serves /build — nginx with
+ * `brotli_static` and `gzip_static`, or the CDN in front of Laravel Cloud —
+ * hands each browser the copy its Accept-Encoding asks for. Node's own zlib
+ * does both, so this needs no dependency.
+ */
+function precompress(): Plugin {
+    return {
+        name: 'precompress-built-assets',
+        apply: 'build',
+        writeBundle(options) {
+            if (options.dir === undefined) {
+                return;
+            }
+
+            for (const file of builtFiles(options.dir)) {
+                if (!/\.(?:css|html|js|json|mjs|svg|txt)$/.test(file)) {
+                    continue;
+                }
+
+                const source = readFileSync(file);
+
+                // Below a kilobyte a compressed copy saves less than it costs.
+                if (source.length < 1024) {
+                    continue;
+                }
+
+                writeFileSync(
+                    `${file}.br`,
+                    brotliCompressSync(source, {
+                        params: {
+                            [constants.BROTLI_PARAM_QUALITY]:
+                                constants.BROTLI_MAX_QUALITY,
+                            [constants.BROTLI_PARAM_SIZE_HINT]: source.length,
+                        },
+                    }),
+                );
+
+                writeFileSync(
+                    `${file}.gz`,
+                    gzipSync(source, { level: constants.Z_BEST_COMPRESSION }),
+                );
+            }
+        },
+    };
+}
 
 export default defineConfig({
     plugins: lazyPlugins(() => [
         laravel({
             // One entry per app. Inertia loads the page component as its own
             // chunk on top of these, so a guest downloads the guest entry and
-            // one page, and never a byte of the staff app or of Filament.
+            // one page, and never a byte of the welcome page or of Filament.
             input: [
                 'resources/css/app.css',
                 'resources/js/app.tsx',
                 'resources/js/guest.tsx',
-                'resources/js/staff.tsx',
             ],
             refresh: true,
             fonts: [
@@ -35,6 +99,7 @@ export default defineConfig({
         wayfinder({
             formVariants: true,
         }),
+        precompress(),
     ]),
     server: {
         watch: {

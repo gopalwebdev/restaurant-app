@@ -88,6 +88,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # The application runs on Postgres and nothing else, so the suite does too:
+    # jsonb, CHECK constraints and expression indexes are part of what it tests.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: restaurant_app_testing
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Real environment variables win over both .env and phpunit.xml, so the
+    # migrate step and the suite reach this service rather than a local server.
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: restaurant_app_testing
+      DB_USERNAME: root
+      DB_PASSWORD: password
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

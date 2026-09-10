@@ -131,13 +131,19 @@ final class TranslatedFields
                     // `mixed` rather than `?Model`: a schema's record is a
                     // plain array when the form was opened from a table built
                     // on custom data, and a typed parameter would be handed one.
-                    fn (Get $get, mixed $record): Closure => self::uniqueFallbackValue(
-                        fn (): Builder => $uniqueWithin($get),
-                        $editing ?? ($record instanceof Model ? $record : null),
-                        $name,
-                        $uniqueMessage,
-                        $get($name.'.'.Locale::default()->value),
-                    ),
+                    //
+                    // Every language's input carries the rule, but they all ask
+                    // the same question about the English value, so only the
+                    // input for the language on screen asks the database.
+                    fn (Get $get, mixed $record): Closure => $locale === self::editingLocale($get)
+                        ? self::uniqueFallbackValue(
+                            fn (): Builder => $uniqueWithin($get),
+                            $editing ?? ($record instanceof Model ? $record : null),
+                            $name,
+                            $uniqueMessage,
+                            $get($name.'.'.Locale::default()->value),
+                        )
+                        : static function (): void {},
                 );
             },
             Locale::cases(),
@@ -245,7 +251,8 @@ final class TranslatedFields
      *
      * A translated column holds a JSON document, so a plain `like` would be
      * matching braces and locale keys as well as words — which is also why the
-     * language has to be named at all.
+     * language has to be named at all. `ilike`, because Postgres's `like` is
+     * case-sensitive and nobody searching a menu types its capital letters.
      *
      * @param  Builder<covariant Model>  $query
      * @return Builder<covariant Model>
@@ -254,7 +261,7 @@ final class TranslatedFields
     {
         return $query->where(function (Builder $query) use ($column, $search): void {
             foreach (self::searchableAttributes($query->qualifyColumn($column)) as $path) {
-                $query->orWhere($path, 'like', '%'.$search.'%');
+                $query->orWhere($path, 'ilike', '%'.$search.'%');
             }
         });
     }
@@ -265,17 +272,15 @@ final class TranslatedFields
      * That is the panel's language where there is one and English where there
      * is not, so the order matches the column rather than a language that is
      * not on screen. `coalesce` rather than two sort keys, because an
-     * untranslated row sorted on a null would land first on SQLite and last on
-     * Postgres (`.ai/rules/tables.md`) instead of among its neighbours.
+     * untranslated row sorted on a null would land after every translated one
+     * instead of among its neighbours.
      *
      * Filament hands the direction through as a plain string; only the two
      * values are ever sent, and this is where that is made explicit.
      *
      * The SQL is built from nothing but the column a table names and the
-     * locales' own values, so it stays a literal string: `->>` reads a JSON key
-     * identically on Postgres and on SQLite (3.38 and later), where the
-     * grammar's own wrapping would differ per driver and could only be spliced
-     * in at runtime.
+     * locales' own values, so it stays a literal string rather than something
+     * spliced together at runtime.
      *
      * @param  Builder<covariant Model>  $query
      * @param  literal-string  $column
@@ -286,12 +291,10 @@ final class TranslatedFields
         $working = self::workingLocale();
         $english = Locale::default();
 
-        // SQLite refuses coalesce() with a single argument.
-        $displayed = $working === $english
-            ? $column." ->> '".$english->value."'"
-            : 'coalesce('.$column." ->> '".$working->value."', ".$column." ->> '".$english->value."')";
-
-        return $query->orderByRaw($displayed.' '.($direction === 'desc' ? 'desc' : 'asc'));
+        return $query->orderByRaw(
+            'coalesce('.$column." ->> '".$working->value."', ".$column." ->> '".$english->value."') "
+            .($direction === 'desc' ? 'desc' : 'asc'),
+        );
     }
 
     /**

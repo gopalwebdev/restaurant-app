@@ -23,8 +23,10 @@ These are house rules, not preferences to be re-litigated:
 - **Spend as little memory in PHP as possible.** Name the columns a query needs rather than selecting everything, walk rows in chunks rather than loading them (`chunkById`, not `get()`, in migrations and commands), and hand raw values to the client rather than building strings per row.
 - **Format in React, decide in PHP.** Money, dates and numbers are formatted client-side — prices cross the wire as integers and `resources/js/lib/money.ts` turns them into money in the reader's own language. Anything that is security-relevant or a decision — authorisation, validation, what a guest may see, what a tile points at — stays in PHP.
 - **Delete what is no longer used.** A dead column, an unread helper or a leftover starter-kit file is worse than none: the next reader has to work out whether it matters.
+- **PostgreSQL only.** Development, the test suite and CI all run Postgres; there is no SQLite connection and no driver branching. Use Postgres where it states a rule better than PHP can — `jsonb`, CHECK constraints, expression and partial indexes, `ilike`. See `.ai/rules/config.md` and `.ai/rules/migrations.md`.
+- **No N+1s and no duplicate queries.** Local and the test suite throw on both (`.ai/rules/app.md`). Fix the cause; do not widen the guard to make a page pass.
 
-## The staff PWA is parked; work the two panels and the guest app
-Standing scope decision from the project owner: active work is the two Filament panels and the guest PWA. The staff PWA (`resources/js/pages/staff`, `staff.tsx`, the `staff.*` routes, `lang/en/staff.php`) is deferred and comes back later.
+## The staff app has been removed; the guest app and the two panels are the product
+Standing scope decision from the project owner: the staff PWA — its pages, entry, root template, `staff.*` routes, sign-in flow and `lang/en/staff.php` — was deleted outright rather than parked. What remains is the guest app (the one Inertia surface, itself an installable PWA) and the two Filament panels.
 
-Leave the staff surface working — do not delete it, and keep it compiling and passing its tests when a shared change touches it — but do not extend it, redesign it, or spend effort on its UI. A feature described for "the app" means the guest app unless it says otherwise. `.ai/rules/js.md`'s two-apps rule still describes the architecture; this is about where effort goes, not about the shape.
+The **Staff role** is untouched: it is a Spatie role with a per-restaurant limit (`restaurants.max_staff`), and accounts still hold it. It simply has no surface of its own until a staff app comes back. A feature described for "the app" means the guest app.

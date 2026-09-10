@@ -60,7 +60,7 @@ class RestaurantSeeder extends Seeder
      * The name of the one menu every seeded restaurant gets, in both languages.
      *
      * Seeded copy is bilingual on purpose: it is the only way to see that the
-     * language toggle in the guest and staff apps really does anything without
+     * language toggle in the guest app really does anything without
      * typing a Tamil menu out by hand first.
      *
      * @var array<string, string>
@@ -635,7 +635,7 @@ class RestaurantSeeder extends Seeder
             $admin->syncRoles([Role::Admin->value]);
             $restaurant->users()->syncWithoutDetaching([$admin->getKey()]);
 
-            // Someone to open the staff app with. Plus-addressing means every
+            // A staff account for the roster and its limits. Plus-addressing means every
             // seeded account's sign-in code lands in the same real inbox.
             $staff = User::query()->firstOrCreate(
                 ['email' => $definition['staff_email']],

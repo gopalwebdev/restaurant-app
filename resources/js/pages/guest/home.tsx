@@ -115,6 +115,10 @@ function HomeRow({ row }: { row: Row }) {
  *
  * An external link is a plain anchor: Inertia would otherwise try to fetch
  * Instagram as a page of this app and fail.
+ *
+ * Any other tile prefetches its page the moment a finger lands on it, or on
+ * hover where there is a pointer, so the menu is usually already loaded by the
+ * time the tap completes.
  */
 function TileLink({ tile, row }: { tile: Tile; row: Row }) {
     const className =
@@ -136,7 +140,11 @@ function TileLink({ tile, row }: { tile: Tile; row: Row }) {
     }
 
     return (
-        <Link href={tile.href} className={className}>
+        <Link
+            href={tile.href}
+            className={className}
+            prefetch={['hover', 'click']}
+        >
             {inner}
         </Link>
     );
@@ -180,6 +188,7 @@ function Tile({ tile, row }: { tile: Tile; row: Row }) {
                     alt={tile.label}
                     className="size-full object-cover"
                     loading="lazy"
+                    decoding="async"
                 />
 
                 {/* On a rectangle the label sits over the picture, so the tile

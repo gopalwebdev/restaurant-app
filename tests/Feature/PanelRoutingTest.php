@@ -23,7 +23,7 @@ beforeEach(function (): void {
 */
 
 it('serves the product team panel on the root domain', function (): void {
-    $this->get('http://restaurant-app.test/super-admin/login')
+    $this->get('http://restaurant-app.test/admin/login')
         ->assertOk()
         ->assertSee('Restaurant Platform');
 });
@@ -32,15 +32,21 @@ it('serves each panel from the path its enum declares', function (AdminPanel $pa
     expect(Filament::getPanel($panel->value)->getPath())->toBe($panel->path());
 })->with(AdminPanel::cases());
 
-it('keeps the product team panel off the restaurant panel path', function (): void {
-    $this->get('http://restaurant-app.test/super-admin/restaurants')
-        ->assertRedirect('http://restaurant-app.test/super-admin/login');
+it('sends a guest on the product team panel to its own sign-in', function (): void {
+    $this->get('http://restaurant-app.test/admin/restaurants')
+        ->assertRedirect('http://restaurant-app.test/admin/login');
 });
 
 it('does not serve the product team panel from a restaurant subdomain', function (): void {
     Restaurant::factory()->create(['slug' => 't1']);
 
-    $this->get('http://t1.restaurant-app.test/super-admin/login')->assertNotFound();
+    // Same path, other host: /admin on a subdomain is that restaurant's panel,
+    // and the product team's pages are not part of it.
+    $this->get('http://t1.restaurant-app.test/admin/login')
+        ->assertOk()
+        ->assertDontSee('Restaurant Platform');
+
+    $this->get('http://t1.restaurant-app.test/admin/restaurants')->assertNotFound();
 });
 
 it('serves the restaurant panel on a restaurant subdomain', function (): void {
@@ -51,11 +57,16 @@ it('serves the restaurant panel on a restaurant subdomain', function (): void {
         ->assertDontSee('Restaurant Platform');
 });
 
-it('keeps the two panels on separate hosts and paths', function (): void {
+it('serves both panels at /admin, told apart by host', function (): void {
+    $restaurant = Restaurant::factory()->make(['slug' => 't1']);
+
+    // The restaurant panel's sign-in route carries no domain — nobody has a
+    // tenant before signing in — so its link is built with the subdomain on,
+    // and the root domain's /admin/login is the product team's.
     expect(route('filament.super-admin.auth.login'))
-        ->toBe('http://restaurant-app.test/super-admin/login')
-        ->and(route('filament.admin.auth.login'))
-        ->toBe('http://restaurant-app.test/admin/login');
+        ->toBe('http://restaurant-app.test/admin/login')
+        ->and($restaurant->adminSignInUrl())
+        ->toBe('http://t1.restaurant-app.test/admin/login');
 });
 
 /*
@@ -68,7 +79,7 @@ it('lets a super admin into the product team panel', function (): void {
     $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/super-admin')
+        ->get('http://restaurant-app.test/admin')
         ->assertOk();
 });
 
@@ -81,13 +92,13 @@ it('gates the product team panel on the is_super_admin column alone', function (
     }
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/super-admin')
+        ->get('http://restaurant-app.test/admin')
         ->assertForbidden();
 
     $user->forceFill(['is_super_admin' => true])->save();
 
     $this->actingAs($user->fresh())
-        ->get('http://restaurant-app.test/super-admin')
+        ->get('http://restaurant-app.test/admin')
         ->assertOk();
 });
 
@@ -98,7 +109,7 @@ it('keeps a restaurant admin out of the product team panel', function (): void {
     $user->assignRole(Role::Admin->value);
 
     $this->actingAs($user)
-        ->get('http://restaurant-app.test/super-admin')
+        ->get('http://restaurant-app.test/admin')
         ->assertForbidden();
 });
 

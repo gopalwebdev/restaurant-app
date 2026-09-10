@@ -46,6 +46,8 @@ class AddUserToRestaurant
 
         ($this->setRoles)($user->refresh(), $roleNames);
 
-        return $user->refresh();
+        // Already fresh: syncing roles resets the relation it changed, and a
+        // second refresh would only read the same row again.
+        return $user;
     }
 }

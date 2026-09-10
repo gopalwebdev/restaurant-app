@@ -3,11 +3,11 @@ import type { TenantSharedProps, Translations } from '@/types';
 /**
  * The shared Inertia props a page sees, for tests that render one on its own.
  *
- * Both phone apps read the restaurant, the language and the chrome strings from
+ * The guest app reads the restaurant, the language and the chrome strings from
  * usePage(), which only exists inside createInertiaApp. setup.ts mocks that to
  * read from here instead.
  *
- * The strings below mirror lang/en/{guest,staff}.php closely enough for a
+ * The strings below mirror lang/en/guest.php closely enough for a
  * component test to assert on, but they are not the real ones and are not meant
  * to be: what the apps actually say in each language is pinned by
  * tests/Feature/LocalizationTest.php, against the files themselves.
@@ -45,7 +45,6 @@ const DEFAULT_TRANSLATIONS: Translations = {
 
 const DEFAULTS: TenantSharedProps = {
     restaurant: { name: 'Spice Garden', slug: 'spice' },
-    auth: { user: null },
     locale: {
         current: 'en',
         next: 'ta',

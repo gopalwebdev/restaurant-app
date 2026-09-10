@@ -96,6 +96,10 @@ class MenuSubCategoryForm
     /**
      * The categories of one menu, in the order the restaurant arranged them.
      *
+     * Every option list in this class is memoized for the request with once():
+     * Filament asks a select for its options more than once while it builds and
+     * validates one form.
+     *
      * @return array<int, string>
      */
     public static function categoryOptions(?int $menuId): array
@@ -106,13 +110,13 @@ class MenuSubCategoryForm
 
         // Top level only: a menu is two levels deep, so a subdivision can only
         // ever be filed under a section.
-        return MenuCategory::query()
+        return once(fn (): array => MenuCategory::query()
             ->where('menu_id', $menuId)
             ->topLevel()
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (MenuCategory $category): array => [$category->getKey() => $category->name])
-            ->all();
+            ->all());
     }
 
     /**
@@ -126,15 +130,15 @@ class MenuSubCategoryForm
      */
     public static function categoryOptionsOnMenu(int $menuId): array
     {
-        return MenuCategory::query()
+        return once(fn (): array => MenuCategory::query()
             ->where('menu_id', $menuId)
-            ->with('parent')
+            ->with('parent:id,name')
             ->inMenuOrder()
             ->get()
             ->mapWithKeys(fn (MenuCategory $category): array => [
                 $category->getKey() => $category->path(),
             ])
-            ->all();
+            ->all());
     }
 
     /**
@@ -150,10 +154,11 @@ class MenuSubCategoryForm
     {
         // Both levels, because a dish may be filed at either — labelled with
         // the menu and, for a subdivision, the section it sits under, so
-        // "Lunch · Biryani › Chicken" reads as one place.
-        return MenuCategory::query()
+        // "Lunch · Biryani › Chicken" reads as one place. Only the columns a
+        // label needs are read from the menu and the parent.
+        return once(fn (): array => MenuCategory::query()
             ->where('tenant_id', $tenantId)
-            ->with(['menu', 'parent'])
+            ->with(['menu:id,name', 'parent:id,name'])
             ->inMenuOrder()
             ->get()
             // menu_id is not nullable and cascades, so a category always has a
@@ -161,15 +166,9 @@ class MenuSubCategoryForm
             ->mapWithKeys(fn (MenuCategory $category): array => [
                 $category->getKey() => sprintf('%s · %s', $category->menu->name, $category->path()),
             ])
-            ->all();
+            ->all());
     }
 
-    /**
-     * The sub-categories of one category, or none when it has not been
-     * subdivided.
-     *
-     * @return array<int, string>
-     */
     /**
      * The category to preselect when the menu has only one to choose.
      */

@@ -24,11 +24,12 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The product team panel, served at restaurant-app.com/super-admin.
+ * The product team panel, served at restaurant-app.com/admin.
  *
  * It is bound to the bare host so it can never be reached from a tenant
- * subdomain, and it is the default panel because it carries no tenancy. Its
- * own path keeps it clear of the per-restaurant panel at /admin.
+ * subdomain, and it is the default panel because it carries no tenancy. It
+ * shares /admin with every restaurant's panel and is told apart by host, which
+ * holds because this provider is registered first (bootstrap/providers.php).
  */
 class SuperAdminPanelProvider extends PanelProvider
 {
@@ -67,17 +68,16 @@ class SuperAdminPanelProvider extends PanelProvider
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): View => view('filament.language-switcher'),
             )
+            // Page to page inside a panel is a Livewire visit rather than a
+            // browser load, which puts a progress bar across the top while the
+            // next page is fetched. Hovering a link fetches its page ahead of
+            // the click, so most navigation is done by the time it lands. The
+            // guest app gets the same from Inertia's prefetching.
+            ->spa(hasPrefetching: true)
             // A resource with no policy, or a policy missing the method being
             // asked about, is refused rather than waved through. Without this a
             // page added tomorrow is open to anyone who can reach the panel,
             // and nothing says so.
-            // Page to page inside a panel is a Livewire visit rather than a
-            // browser load, which is what puts a progress bar across the top
-            // while the next page is fetched instead of leaving an admin
-            // looking at the old one wondering whether the click registered.
-            // The phone apps get the same thing from Inertia, plus a splash for
-            // the first load — see resources/views/partials/boot-loader.blade.php.
-            ->spa()
             ->strictAuthorization()
             // A create or edit page runs with no transaction otherwise, so a
             // validation exception thrown mid-save (EnsureRoleFitsWithinLimit,

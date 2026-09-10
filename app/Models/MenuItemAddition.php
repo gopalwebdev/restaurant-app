@@ -72,10 +72,14 @@ class MenuItemAddition extends Model
                 return;
             }
 
-            $addition->tenant_id = MenuItem::query()
+            $menuItemId = $addition->menu_item_id;
+
+            // A repeater saves every addition of one dish in the same request,
+            // and they all belong to the same restaurant.
+            $addition->tenant_id = once(fn (): mixed => MenuItem::query()
                 ->withoutGlobalScopes()
-                ->whereKey($addition->menu_item_id)
-                ->value('tenant_id');
+                ->whereKey($menuItemId)
+                ->value('tenant_id'));
         });
     }
 

@@ -8,7 +8,7 @@ paths:
 # Tables
 
 ## Never group or sort a Filament table on a translated (JSON) column
-Filament's table grouping (`->groups()`/`->defaultGroup()`) orders the query by the group's raw column or relationship attribute unless you override `orderQueryUsing()`. If that attribute is a translated column (json), Postgres throws "could not identify an ordering operator for type json" — SQLite tolerates it silently, so the test suite (SQLite) will not catch this; it only surfaces against Postgres dev/prod.
+Filament's table grouping (`->groups()`/`->defaultGroup()`) orders the query by the group's raw column or relationship attribute unless you override `orderQueryUsing()`. On a translated column that orders whole JSON documents rather than names. While those columns were plain `json` it was worse — Postgres has no ordering operator for `json`, and pages 500'd in production while the SQLite test suite passed. They are `jsonb` now, which sorts without an error and still sorts wrong, so the rule stands; and the suite runs on Postgres, so a page test would catch it.
 
 Group on the parent's integer foreign key instead (e.g. `menu_id`, not `menu.name`), and supply `getTitleFromRecordUsing()` for the header text and `orderQueryUsing()` ordering by the parent's own `position` column via a correlated subquery. See PermissionsTable for the pattern, and MenuItemsTable for what replaced grouping on the menu side. This bit twice in production (menu categories and menu items both 500'd) before being fixed, and the menu's own tables have since stopped grouping altogether — the arrangement is one list built in reading order instead.
 
@@ -19,7 +19,7 @@ Two things broke it. Filament turns grouping **off** while reordering (below), s
 
 What replaced it: a **Menu** filter and a **Category** filter, the second narrowed to the first, and a category column showing the branch (`MenuCategory::path()`, "Biryani › Chicken") so a flat row still says where it sits. Ordering that grouping used to imply is now stated by the query — menu position, then the category a dish reads under, then a category's own dishes before its subdivisions', then `position`. It is `orderByRaw` because each rank is a correlated subquery over `menu_categories`, which appears twice: once as the dish's own category and once as that category's parent.
 
-Every rank is `COALESCE`d rather than left null. Postgres sorts nulls last ascending and SQLite sorts them first, so a null would put the categories at opposite ends of the list on the two engines — and the suite runs on SQLite.
+Every rank is `COALESCE`d rather than left null, so a dish filed straight under a category and one inside a subdivision rank against each other by value rather than by where Postgres puts a null.
 
 Linking *into* that page with a filter already set — which every category row on the arrangement does — uses `filters`, not `tableFilters`: `ListRecords` binds the property as `#[Url(as: 'filters')]`. The wrong key is not an error, it is an unread query parameter and a page showing every dish on every menu, so the link is pinned by a test that reads the rendered state back.
 
@@ -33,7 +33,7 @@ Filament reorders by running one UPDATE over `$table->getQuery()`, keyed on the 
 `ManageMenuFeaturedItems` hits the join problem below.
 
 ### The HasManyThrough case
-When the table is backed by a `HasManyThrough` that query carries a join, and both the `where in (id, ...)` and the `case when id = ...` it builds become "ambiguous column name: id" — on SQLite and Postgres alike. Dragging a row 500s.
+When the table is backed by a `HasManyThrough` that query carries a join, and both the `where in (id, ...)` and the `case when id = ...` it builds become an ambiguous column reference to `id` on Postgres. Dragging a row 500s.
 
 `ManageMenuFeaturedItems` hits this, because it hangs off `Menu::menuItems()` — a HasManyThrough that reaches dishes through their categories. It overrides `reorderTable()` and issues the same update against `menu_items` alone, with the menu named as a plain subquery instead of a join. `makeTableReorderColumnExpression()` is `protected` on the trait, so the expression itself is reused rather than rewritten.
 

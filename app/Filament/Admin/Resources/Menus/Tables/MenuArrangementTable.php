@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Resources\Menus\Tables;
 use App\Actions\Menus\ApplyMenuArrangement;
 use App\Actions\Menus\MoveCategoryToMenu;
 use App\Enums\Currency;
-use App\Enums\Locale;
 use App\Enums\MenuBlock;
 use App\Filament\Admin\Resources\MenuItems\MenuItemResource;
 use App\Filament\Admin\Resources\Menus\MenuResource;
@@ -412,16 +411,7 @@ class MenuArrangementTable
                     // a clash is caught here rather than at the expression
                     // index after the form has passed.
                     ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record, $menu): void {
-                        $taken = MenuCategory::query()
-                            ->where('menu_id', $value)
-                            ->whereNull('parent_id')
-                            ->where(
-                                'name->'.Locale::default()->value,
-                                self::category($record, $menu)->getTranslation('name', Locale::default()->value),
-                            )
-                            ->exists();
-
-                        if ($taken) {
+                        if (MoveCategoryToMenu::nameIsTakenOn(self::category($record, $menu), (int) $value)) {
                             $fail(__('panel.categories.unique'));
                         }
                     }),
@@ -505,9 +495,14 @@ class MenuArrangementTable
      */
     private static function category(array $record, Menu $menu): MenuCategory
     {
-        return MenuCategory::query()
-            ->where('menu_id', $menu->getKey())
-            ->findOrFail((int) $record['id']);
+        $menuId = $menu->getKey();
+        $categoryId = (int) $record['id'];
+
+        // The schema, the form fill, a validation rule and the write all ask
+        // for the row an action is about, so it is read once for the request.
+        return once(fn (): MenuCategory => MenuCategory::query()
+            ->where('menu_id', $menuId)
+            ->findOrFail($categoryId));
     }
 
     /**

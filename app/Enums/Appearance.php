@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * How the guest and staff apps are shaded on the phone reading them.
+ * How the guest app is shaded on the phone reading it.
  *
  * Light and dark are the whole of it: there is no brand colour, no per
  * restaurant default, and nothing to configure in the admin panel. The choice

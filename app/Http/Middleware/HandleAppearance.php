@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * The same unencrypted cookie the two phone apps use, read through the same
  * enum, so there is one vocabulary for shading across the whole application.
- * The tenant apps do not go through here — HandleTenantInertiaRequests reads
+ * The guest app does not go through here — HandleGuestAppRequests reads
  * the cookie itself, because it has a root template of its own to paint.
  */
 class HandleAppearance

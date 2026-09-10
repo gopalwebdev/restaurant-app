@@ -18,7 +18,7 @@ interface AppBarProps {
 }
 
 /**
- * The header both phone apps wear.
+ * The header the guest app wears.
  *
  * Always carries the two things a visitor can change for themselves — light or
  * dark, and the language — because on a phone there is nowhere else to put
@@ -27,9 +27,6 @@ interface AppBarProps {
  * There is deliberately no logo. A restaurant's name is set and its brand
  * colour is already carried by every button and price on the screen; a logo
  * slot would be an empty box on every restaurant that has not uploaded one.
- *
- * Shared between the two apps, which .ai/rules/js.md allows for components —
- * only pages/guest and pages/staff may never import from each other.
  */
 export function AppBar({ title, eyebrow, backHref, children }: AppBarProps) {
     const { t } = useTranslations();
@@ -44,7 +41,9 @@ export function AppBar({ title, eyebrow, backHref, children }: AppBarProps) {
                         size="icon"
                         aria-label={t('actions.back')}
                     >
-                        <Link href={backHref}>
+                        {/* The screen behind is where most guests go next, so
+                            it is fetched as soon as a finger lands on the arrow. */}
+                        <Link href={backHref} prefetch={['hover', 'click']}>
                             <ChevronLeftIcon />
                         </Link>
                     </Button>

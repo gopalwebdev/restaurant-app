@@ -52,7 +52,6 @@
     </p>
 
     <p style="font-size: 0.875rem; margin: 0; max-width: 26rem; opacity: 0.75;">
-        This panel is a back-office tool and needs a wider screen. If you are
-        floor staff, the staff app is built for your phone.
+        This panel is a back-office tool and needs a wider screen.
     </p>
 </div>

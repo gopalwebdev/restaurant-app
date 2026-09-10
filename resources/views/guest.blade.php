@@ -9,6 +9,14 @@
         {{-- A table's QR code should not turn up in search results. --}}
         <meta name="robots" content="noindex">
 
+        {{-- Installable, so a guest who comes back keeps the restaurant on their
+             home screen. The manifest and the worker are served per restaurant
+             from the root of its subdomain — see ProgressiveWebAppController. --}}
+        <link rel="manifest" href="{{ route('guest.manifest', ['restaurant' => $tenantSlug]) }}">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        <meta name="apple-mobile-web-app-title" content="{{ $theme['name'] }}">
+
         @include('partials.theme')
 
         <link rel="icon" href="/favicon.ico" sizes="any">
@@ -17,7 +25,7 @@
         @fonts
         @viteReactRefresh
         {{-- Only this app's entry and only the page being shown: a guest never
-             downloads the staff app, and neither downloads Filament. --}}
+             downloads the welcome page's entry, or any of Filament. --}}
         @vite(['resources/css/app.css', 'resources/js/guest.tsx', "resources/js/pages/guest/{$page['component']}.tsx"])
 
         <x-inertia::head>
@@ -28,5 +36,18 @@
         <x-inertia::app />
 
         @include('partials.boot-loader')
+
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker
+                        .register(@json(route('guest.service-worker', ['restaurant' => $tenantSlug], absolute: false)))
+                        .catch(function () {
+                            // An app that cannot register a worker still works;
+                            // it just cannot be installed. Never block on it.
+                        });
+                });
+            }
+        </script>
     </body>
 </html>

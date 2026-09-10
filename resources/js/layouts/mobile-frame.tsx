@@ -5,11 +5,11 @@ interface MobileFrameProps {
 }
 
 /**
- * Holds both phone apps at phone width, whatever they are opened on.
+ * Holds the guest app at phone width, whatever it is opened on.
  *
- * Guests are on their own phones and staff are on theirs, so a phone is the
- * only size either app is designed for. Opened on a laptop — which happens
- * constantly while building them — the app stays in a phone-shaped column in
+ * Guests are on their own phones, so a phone is the only size the app is
+ * designed for. Opened on a laptop — which happens constantly while building
+ * it — the app stays in a phone-shaped column in
  * the middle of the screen rather than stretching into a layout nobody
  * designed. That is deliberately not a desktop breakpoint: there is no second
  * layout to fall back to, and inventing one would be a second design to keep
