@@ -116,7 +116,7 @@ class CategoriesRelationManager extends RelationManager
                     ->schema([
                         Select::make('menu_id')
                             ->label(__('panel.categories.move_target'))
-                            ->options(fn (MenuCategory $record): array => self::otherMenus($record))
+                            ->options(fn (MenuCategory $record): array => $this->otherMenus($record))
                             ->required()
                             ->native(false)
                             ->prefixIcon(Heroicon::OutlinedBookOpen)
@@ -133,8 +133,8 @@ class CategoriesRelationManager extends RelationManager
                                     $fail(__('panel.categories.unique'));
                                 }
                             })
-                            ->helperText(fn (MenuCategory $record): ?string => self::otherMenus($record) === []
-                                ? self::text('panel.categories.move_none')
+                            ->helperText(fn (MenuCategory $record): ?string => $this->otherMenus($record) === []
+                                ? $this->text('panel.categories.move_none')
                                 : null),
                     ])
                     ->action(function (MenuCategory $record, array $data): void {
@@ -170,7 +170,7 @@ class CategoriesRelationManager extends RelationManager
      * the call sites with a declared return type check rather than cast — the
      * same shape as ListMenuItems::needsASectionTooltip().
      */
-    private static function text(string $key): ?string
+    private function text(string $key): ?string
     {
         $text = __($key);
 
@@ -183,7 +183,7 @@ class CategoriesRelationManager extends RelationManager
      *
      * @return array<int, string>
      */
-    private static function otherMenus(MenuCategory $record): array
+    private function otherMenus(MenuCategory $record): array
     {
         return array_diff_key(MenuCategoryForm::menuOptions(), [$record->menu_id => null]);
     }

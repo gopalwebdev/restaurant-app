@@ -74,7 +74,7 @@ class TilesRelationManager extends RelationManager
 
                 TextColumn::make('destination')
                     ->label(__('panel.tiles.goes_to'))
-                    ->state(fn (HomeTile $record): string => self::destinationOf($record))
+                    ->state(fn (HomeTile $record): string => $this->destinationOf($record))
                     ->icon(fn (HomeTile $record): Heroicon => match ($record->action) {
                         HomeTileAction::Menu => Heroicon::OutlinedBookOpen,
                         HomeTileAction::Pdf => Heroicon::OutlinedDocumentText,
@@ -123,7 +123,7 @@ class TilesRelationManager extends RelationManager
      * nullable because a PDF or link tile has none, so the menu is checked
      * rather than assumed.
      */
-    private static function destinationOf(HomeTile $tile): string
+    private function destinationOf(HomeTile $tile): string
     {
         if ($tile->action === HomeTileAction::Pdf) {
             return __('panel.tiles.an_uploaded_pdf');

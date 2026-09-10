@@ -41,10 +41,10 @@ class AdminPanelProvider extends PanelProvider
             ->tenant(Restaurant::class, slugAttribute: 'slug')
             ->tenantDomain('{tenant:slug}.'.config('app.domain'))
             ->login(Login::class)
-            ->brandName(fn (): string => self::brandName())
+            ->brandName(fn (): string => $this->brandName())
             ->brandLogo(fn (): View => view('filament.brand', [
                 'panel' => AdminPanel::Admin,
-                'name' => self::brandName(),
+                'name' => $this->brandName(),
             ]))
             ->brandLogoHeight('2rem')
             ->colors([
@@ -113,7 +113,7 @@ class AdminPanelProvider extends PanelProvider
      * signed in and a tenant is known, and the generic panel name on the
      * sign-in page, where there is no tenant yet to name.
      */
-    private static function brandName(): string
+    private function brandName(): string
     {
         $tenant = Filament::getTenant();
 

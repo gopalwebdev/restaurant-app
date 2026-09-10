@@ -163,7 +163,7 @@ class SubCategoriesRelationManager extends RelationManager
                     ->disabled(fn (): bool => $this->menu()->menuCategories()->doesntExist())
                     ->tooltip(fn (): ?string => $this->menu()->menuCategories()->exists()
                         ? null
-                        : self::text('panel.sub_categories.needs_a_category')),
+                        : $this->text('panel.sub_categories.needs_a_category')),
             ])
             ->recordActions([
                 EditAction::make()
@@ -200,7 +200,7 @@ class SubCategoriesRelationManager extends RelationManager
                                 }
                             })
                             ->helperText(fn (MenuSubCategory $record): ?string => $this->otherCategories($record) === []
-                                ? self::text('panel.sub_categories.move_none')
+                                ? $this->text('panel.sub_categories.move_none')
                                 : null),
                     ])
                     ->action(function (MenuSubCategory $record, array $data): void {
@@ -236,7 +236,7 @@ class SubCategoriesRelationManager extends RelationManager
      * `__()` is typed as string|array|null because a key may hold either, so
      * the call sites with a declared return type check rather than cast.
      */
-    private static function text(string $key): ?string
+    private function text(string $key): ?string
     {
         $text = __($key);
 
