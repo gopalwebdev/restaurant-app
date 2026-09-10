@@ -696,7 +696,9 @@ class RestaurantSeeder extends Seeder
         // After the cards, because a combo names dishes that have to exist.
         $this->seedCombos($restaurant, $menu);
 
-        $this->seedHomeScreen($restaurant, $menu);
+        // Every menu gets a way in. A card a guest cannot reach is a card that
+        // may as well not be there.
+        $this->seedHomeScreen($restaurant, [$menu, $drinks, $breakfast]);
     }
 
     /**
@@ -857,37 +859,53 @@ class RestaurantSeeder extends Seeder
     }
 
     /**
-     * The one tile a freshly seeded restaurant's guests land on.
+     * The tiles a freshly seeded restaurant's guests land on: one per menu.
+     *
+     * A guest only ever reaches a menu through a tile, so seeding one tile left
+     * the drinks and breakfast cards with no way in — they existed, and nobody
+     * arriving at a table could get to them.
+     *
+     * Matched on the menu each tile opens rather than on its label, so
+     * re-seeding never doubles up and the tile a restaurant has already
+     * relabelled keeps its own words.
      *
      * No picture: there is no photography to seed, and a tile without one is a
-     * working tile — the guest app draws the label on the brand colour. The
-     * restaurant replaces it from the admin panel.
+     * working tile — the guest app draws the label on the brand colour.
+     *
+     * @param  list<Menu>  $menus  in the order a guest should read them
      */
-    private function seedHomeScreen(Restaurant $restaurant, Menu $menu): void
+    private function seedHomeScreen(Restaurant $restaurant, array $menus): void
     {
-        // One banner row holding one tile into the menu: the smallest home
-        // screen that actually works, and the shape most restaurants start
-        // from before they add a rail of photographs beside it.
+        // One banner row: full-width rectangles, one tap target per line, which
+        // is the shape a menu tile wants. A rail of photographs beside it is
+        // something a restaurant adds from the panel.
         $row = HomeRow::query()->firstOrCreate(
             ['tenant_id' => $restaurant->getKey(), 'position' => 0],
             ['layout' => HomeRowLayout::Banner, 'is_active' => true],
         );
 
-        $this->firstOrCreateByEnglishName(
-            HomeTile::query()->where('home_row_id', $row->getKey()),
-            ['en' => 'Menu', 'ta' => 'மெனு'],
-            fn (): HomeTile => new HomeTile([
+        foreach ($menus as $position => $menu) {
+            $existing = HomeTile::query()
+                ->where('home_row_id', $row->getKey())
+                ->where('menu_id', $menu->getKey())
+                ->exists();
+
+            if ($existing) {
+                continue;
+            }
+
+            HomeTile::query()->create([
+                // The menu's own name, in every language it is stored in, so
+                // the tile reads as the card it opens.
+                'label' => $menu->getTranslations('name'),
                 'action' => HomeTileAction::Menu,
-                'position' => 0,
+                'position' => $position,
                 'is_active' => true,
-            ]),
-            [
                 'tenant_id' => $restaurant->getKey(),
                 'home_row_id' => $row->getKey(),
                 'menu_id' => $menu->getKey(),
-            ],
-            column: 'label',
-        );
+            ]);
+        }
     }
 
     /**

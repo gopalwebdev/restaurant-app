@@ -306,6 +306,21 @@ it("links straight to a restaurant's own admin sign-in, now that the tenant menu
         ->assertTableActionHasUrl('openAdmin', $restaurant->adminSignInUrl(), $restaurant);
 });
 
+it('leaves the link to another host as a real browser visit', function (): void {
+    $restaurant = Restaurant::factory()->create(['slug' => 't1']);
+    enterProductTeamPanel();
+
+    // Both panels run ->spa(), which puts wire:navigate on links inside a
+    // panel. A restaurant's own panel is on its subdomain, and a Livewire visit
+    // cannot cross an origin — Filament compares the host and leaves this one
+    // alone, which is why no spaUrlExceptions() is needed.
+    $html = Livewire::test(ListRestaurants::class)->html();
+
+    $link = str($html)->after($restaurant->adminSignInUrl())->before('>')->toString();
+
+    expect($link)->not->toContain('wire:navigate');
+});
+
 it('updates a restaurant', function (): void {
     $restaurant = Restaurant::factory()->create(['phone' => '9000000000']);
     enterProductTeamPanel();

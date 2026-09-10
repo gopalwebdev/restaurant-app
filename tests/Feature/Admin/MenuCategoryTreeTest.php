@@ -4,6 +4,7 @@ use App\Actions\Menus\MoveCategoryToMenu;
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
+use App\Filament\Admin\Resources\Menus\MenuResource;
 use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -94,6 +95,39 @@ it('subdivides a category from the menu page', function (): void {
         ->and($subCategory->tenant_id)->toBe($restaurant->getKey())
         ->and($subCategory->isSubCategory())->toBeTrue()
         ->and($subCategory->getTranslation('name', Locale::Tamil->value))->toBe('சிக்கன்');
+});
+
+it('opens its modals the way the browser asks for them', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // callAction() builds its own context, so it cannot catch this: the *page*
+    // has a record — the menu — and Filament hands it to any action that has
+    // not been given one. Action::getContext() only filters that out by
+    // comparing it against the table's model, which custom data has none of, so
+    // the menu's id shipped as the row key. Mounting then looked for a row
+    // keyed `1` among rows keyed `category-3`, found none, and quietly declined:
+    // every button on this page did nothing at all, and nothing was logged.
+    $html = (string) $this->get(MenuResource::getUrl('arrange', ['record' => $menu, 'tenant' => $restaurant]))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)
+        ->toContain('mountAction(\'createCategory\', {}, JSON.parse(\'{\u0022table\u0022:true}\')')
+        ->toContain('\u0022recordKey\u0022:\u0022'.categoryRow($category).'\u0022');
+
+    // And the mount those handlers make really does open the modal.
+    $page = Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->call('mountAction', 'createCategory', [], ['table' => true]);
+
+    expect($page->get('mountedActions'))->toHaveCount(1);
+
+    $page->call('mountAction', 'rename', [], ['recordKey' => categoryRow($category), 'table' => true]);
+
+    expect($page->get('mountedActions'))->toHaveCount(1);
 });
 
 it('adds a category to the end of the menu rather than the top', function (): void {

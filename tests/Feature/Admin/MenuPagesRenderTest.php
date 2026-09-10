@@ -70,6 +70,23 @@ it('renders the menu page for a restaurant with nothing on it yet', function ():
     Livewire::test(ListMenuItems::class)->assertOk();
 });
 
+it('moves between panel pages without a blank browser load', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // The panel is a SPA, so a click fetches the next page over Livewire and
+    // shows a progress bar while it does — rather than leaving an admin looking
+    // at the page they have just left. The phone apps get the same from Inertia,
+    // plus a splash for the first load.
+    $html = (string) $this->get(MenuResource::getUrl('index', ['tenant' => $restaurant]))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('wire:navigate');
+});
+
 it('serves every menu tab over HTTP, tab strip and all', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);

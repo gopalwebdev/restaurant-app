@@ -71,9 +71,11 @@ Prices carry an optional `compare_at_price_minor_units` — the higher "was" pri
 
 `menu_items`, `menu_item_additions` and `menu_combos` each carry a nullable `tax_rate_basis_points` that falls back to `restaurant_settings.tax_rate_basis_points`, so a restaurant sets its rate once and only genuinely different lines — a sealed bottle taxed as goods rather than as restaurant service — override it. See the settings page for the global rate, `prices_include_tax`, and the two optional charges.
 
-## Two languages, English default, and everyone picks their own
-`App\Enums\Locale` has one case per language the app is available in — English and Tamil for now — and is the single source of truth: the cookie middleware validates against it, the toggle is built from it, and every translated column stores one key per case. English is the default, the fallback, and the only language an admin form requires.
+## Two languages a restaurant writes in; the application itself is English
+`App\Enums\Locale` has one case per language a restaurant may write its menu in — English and Tamil for now — and is the single source of truth: the cookie middleware validates against it, the toggle is built from it, and every translated column stores one key per case. English is the default, the fallback, and the only language an admin form requires.
 
-Like the India assumption above, this is a "for now": add a language by adding a case and a `lang/<value>` directory, not by branching on a locale at a call site. The one thing that does not scale for free is the expression unique indexes, which are built on English — see `.ai/rules/migrations.md`.
+**The application's own words are not part of that.** `lang/en` is the only language directory; a `lang/ta` mirroring every string existed and was deleted on the project owner's instruction — the codebase is written in English and translation lives at the database level only. So switching language changes the menu a guest reads and leaves the words around it alone. Do not reintroduce a second language directory; adding a language is a case and nothing else. See `.ai/rules/lang.md`.
 
-All four surfaces switch language, not just the phone apps: the guest and staff apps through their toggle, and both Filament panels through a switcher in the top bar. Only what a guest reads is translated, though — menu content in translated columns, and the panel's menu-related labels in `lang/*/panel.php`. Roles and permissions stay English; see `.ai/rules/lang.md`.
+Like the India assumption above, the pair of languages is a "for now". The one thing that does not scale for free is the expression unique indexes, which are built on English — see `.ai/rules/migrations.md`.
+
+All four surfaces switch language, not just the phone apps: the guest and staff apps through their toggle, and both Filament panels through a switcher in the top bar. What that switch reaches is the restaurant's own words — menu, category, dish, addition and tile names. Roles and permissions stay English too, and for a second reason: code refers to those names.

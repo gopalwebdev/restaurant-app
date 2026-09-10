@@ -19,6 +19,12 @@
     $action = $tenant instanceof \App\Models\Restaurant
         ? route('preferences.language.update', ['restaurant' => $tenant->slug])
         : route('panel.language.update');
+
+    // Normalised rather than compared raw: an application locale that is not one
+    // of these cases would leave every option unselected, and a language picker
+    // showing nothing is worse than one showing the language in use. English is
+    // what anything unrecognised means here.
+    $current = \App\Enums\Locale::fromRequestValue(app()->getLocale());
 @endphp
 
 <form method="POST" action="{{ $action }}" style="display:flex;align-items:center">
@@ -37,7 +43,7 @@
         title="{{ __('panel.language.label') }}"
     >
         @foreach (\App\Enums\Locale::cases() as $locale)
-            <option value="{{ $locale->value }}" @selected($locale->value === app()->getLocale())>
+            <option value="{{ $locale->value }}" @selected($locale === $current)>
                 {{ $locale->label() }}
             </option>
         @endforeach

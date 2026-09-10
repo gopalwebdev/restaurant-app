@@ -22,5 +22,9 @@ void createInertiaApp({
     withApp(app) {
         return <MobileFrame>{app}</MobileFrame>;
     },
-    progress: { color: 'var(--primary)' },
+    // A short delay rather than Inertia's default quarter second: a guest on a
+    // phone should see that a tap registered, and the splash in
+    // resources/views/partials/boot-loader.blade.php covers the load before
+    // this one.
+    progress: { color: 'var(--primary)', delay: 100 },
 });

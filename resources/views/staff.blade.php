@@ -30,6 +30,8 @@
     <body class="font-sans antialiased">
         <x-inertia::app />
 
+        @include('partials.boot-loader')
+
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function () {

@@ -3,12 +3,19 @@
 namespace App\Enums;
 
 /**
- * The languages the guest and staff apps are read in.
+ * The languages a restaurant's own words are stored in.
  *
  * This is the single source of truth for what "a language" means here: the
  * cookie middleware validates against it, the language toggle is built from it,
  * and every translated column stores one key per case. Adding a language is a
- * case plus a `lang/<value>` directory, and nothing else.
+ * case and nothing else.
+ *
+ * What is translated is what a **restaurant wrote** — menu, category, dish,
+ * addition and tile names, all of them database columns. What this application
+ * writes is English and stays English: `lang/en` is the only directory in
+ * `lang/`, so switching language changes the menu a guest reads without
+ * changing the words around it. A `lang/ta` existed and was deliberately
+ * deleted; do not reintroduce a second copy of the chrome.
  *
  * English is the default and the fallback, which is also why it is the locale
  * the database's unique indexes are built on — see App\Models\Concerns\HasTranslatedNames.

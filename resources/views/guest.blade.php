@@ -26,5 +26,7 @@
     </head>
     <body class="font-sans antialiased">
         <x-inertia::app />
+
+        @include('partials.boot-loader')
     </body>
 </html>

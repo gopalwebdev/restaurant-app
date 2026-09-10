@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\HomeTile;
 use App\Models\Restaurant;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -93,6 +94,19 @@ it('lists every account and where it signs in', function (): void {
         ->toContain($restaurant->slug.'.restaurant-app.test/admin');
 });
 
+it('opens a way into every menu it seeds', function (): void {
+    Restaurant::query()->get()->each(function (Restaurant $restaurant): void {
+        $menus = $restaurant->menus()->pluck('id');
+
+        // A guest only ever reaches a menu through a tile, so a seeded card
+        // with no tile is a card nobody at a table can get to. There were three
+        // menus and one tile.
+        expect($menus)->toHaveCount(3)
+            ->and(HomeTile::query()->where('tenant_id', $restaurant->getKey())->pluck('menu_id')->sort()->values()->all())
+            ->toBe($menus->sort()->values()->all());
+    });
+});
+
 it('can be seeded again without duplicating anything', function (): void {
     $this->seed(DatabaseSeeder::class);
 
@@ -105,6 +119,9 @@ it('can be seeded again without duplicating anything', function (): void {
 
     Restaurant::query()->get()->each(function (Restaurant $restaurant) use ($perRestaurant): void {
         expect($restaurant->users()->count())->toBe($perRestaurant)
-            ->and($restaurant->settings()->count())->toBe(1);
+            ->and($restaurant->settings()->count())->toBe(1)
+            // Tiles are matched on the menu they open rather than on their
+            // label, so a relabelled tile is found rather than seeded again.
+            ->and(HomeTile::query()->where('tenant_id', $restaurant->getKey())->count())->toBe(3);
     });
 });

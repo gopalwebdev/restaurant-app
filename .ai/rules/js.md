@@ -37,12 +37,20 @@ The language is a real form `PUT`ing to `preferences.language.update`, not a cli
 
 There is deliberately **no logo** in either app's chrome. The restaurant's name is text and its brand colour is already on every button and price; a logo slot would be an empty box for every restaurant that has not uploaded one. The PWA manifest keeps the generic app icon, which is what makes the staff app installable.
 
-## Chrome strings come from lang/, dish names come from the page's props
-`lang/{en,ta}/guest.php` and `lang/{en,ta}/staff.php` hold each app's chrome and are shared as one `translations` prop; read them with `useTranslations()` and a dotted path, `t('menu.empty')`. Laravel's `:name` placeholders are filled in the browser, so `t('login.code_intro', { length: 6 })` — not a second string with the number baked in.
+## Chrome strings come from lang/en, dish names come from the page's props
+`lang/en/guest.php` and `lang/en/staff.php` hold each app's chrome and are shared as one `translations` prop; read them with `useTranslations()` and a dotted path, `t('menu.empty')`. Laravel's `:name` placeholders are filled in the browser, so `t('login.code_intro', { length: 6 })` — not a second string with the number baked in.
 
-A missing key falls back to the English one (merged server-side) and then to the path itself, so a half-translated file degrades into a readable screen. `tests/Feature/LocalizationTest.php` asserts the two files have matching keys.
+There is **one** language directory, deliberately: this application's words are English, and what gets translated is what a restaurant wrote (`.ai/rules/lang.md`). A guest who switches to Tamil gets their menu in Tamil and this chrome unchanged. A missing key falls back to the path itself, so a typo reads as `menu.empy` rather than as nothing.
 
-Everything a restaurant wrote — menu, section, dish, addition and tile names — arrives on the page's own props, already in the right language. Never translate those in React.
+Everything a restaurant wrote — menu, category, dish, addition and tile names — arrives on the page's own props, already in the right language. Never translate those in React.
+
+## Nothing waits on a blank screen
+Two layers, and both are needed because they cover different gaps:
+
+- **The first load** is covered by `resources/views/partials/boot-loader.blade.php`, included in both root templates after `<x-inertia::app />`. It is CSS only — `#app:not(:empty) ~ #boot-loader { display: none }` — so it is correct on the first paint, before any JavaScript has run, and it disappears the moment Inertia renders into `#app`, with nothing to unmount and no timer to get wrong. The combinator is `~` and not `+` because the partial's own `<style>` block is a sibling sitting between the two: with `+` the rule matched nothing and the spinner sat over a fully loaded page for ever. A test asserts the selector and that the app div comes first, because nothing else here can catch a rule that simply never matches.
+- **Every navigation after it** is Inertia's own progress bar, configured in each entry with a 100ms delay rather than its default 250 — a guest tapping on a phone should see that the tap registered.
+
+The panels have the same pair from their own stack: `->spa()` makes a click a Livewire visit with a progress bar across the top (`.ai/rules/filament.md`).
 
 ## Three page directories now, and the guest app has three screens
 `pages/guest` holds `home` (the tiles a guest lands on), `menu` (one menu: its featured rail, its combos, its sections with their subdivisions, the dishes in each and their additions, and the small print about tax and charges) and `document` (a tile's PDF, embedded so the app keeps its back arrow).

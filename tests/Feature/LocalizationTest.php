@@ -140,8 +140,9 @@ it('answers in Tamil once the language has been chosen', function (): void {
             ->where('sections.0.items.0.name', $item->getTranslation('name', 'ta'))
             ->where('sections.0.items.0.description', $item->getTranslation('description', 'ta'))
             ->where('sections.0.items.0.additions.0.name', $addition->getTranslation('name', 'ta'))
-            // ...and the chrome, from lang/ta/guest.php.
-            ->where('translations.status.open', 'திறந்துள்ளது'),
+            // ...while the chrome this application supplies stays English,
+            // because lang/en is the only language directory there is.
+            ->where('translations.status.open', 'Open'),
         );
 });
 
@@ -169,7 +170,7 @@ it('serves the staff app its own strings, not the guest app\'s', function (): vo
         ->get('http://'.$restaurant->slug.'.restaurant-app.test/staff/login')
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
-            ->where('translations.login.heading', 'பணியாளர் உள்நுழைவு')
+            ->where('translations.login.heading', __('staff.login.heading'))
             // A guest never downloads "Sold out" and staff never download the
             // tile empty state.
             ->missing('translations.home.empty_tiles')
@@ -195,6 +196,22 @@ it('offers a language switcher in the restaurant panel', function (): void {
         ->assertSee(Locale::Tamil->label());
 });
 
+it('shows the panel switcher on English until a language is chosen', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    // A picker showing nothing selected is worse than one showing the language
+    // in use, so the current locale is normalised rather than compared raw.
+    $html = (string) $this->get('http://'.$restaurant->slug.'.restaurant-app.test/admin')
+        ->assertOk()
+        ->getContent();
+
+    $selected = str($html)->after('id="panel-locale"')->before('</select>')->toString();
+
+    expect($selected)->toContain('value="'.Locale::English->value.'" selected')
+        ->and($selected)->not->toContain('value="'.Locale::Tamil->value.'" selected');
+});
+
 it('offers a language switcher in the product team panel', function (): void {
     $this->actingAs(User::factory()->superAdmin()->create());
 
@@ -204,7 +221,7 @@ it('offers a language switcher in the product team panel', function (): void {
         ->assertSee(Locale::Tamil->label());
 });
 
-it('translates the menu pages of the panel into the chosen language', function (): void {
+it('shows the panel\'s own labels in English and the restaurant\'s words in the chosen language', function (): void {
     $restaurant = Restaurant::factory()->create();
     Menu::factory()->create([
         'tenant_id' => $restaurant->getKey(),
@@ -212,12 +229,13 @@ it('translates the menu pages of the panel into the chosen language', function (
     ]);
     enterRestaurantPanel($restaurant, Role::Admin);
 
-    // Both halves again: the panel's own labels come from lang/ta/panel.php,
-    // and the menu's name comes out of its translated column.
+    // The two halves are answered differently on purpose: this application's
+    // labels are written once, in English, and only what a restaurant typed
+    // is translated — and that lives in the database.
     $this->withUnencryptedCookie(SetLocale::COOKIE, Locale::Tamil->value)
         ->get('http://'.$restaurant->slug.'.restaurant-app.test/admin/menus')
         ->assertOk()
-        ->assertSee(__('panel.menus.create', locale: 'ta'))
+        ->assertSee(__('panel.menus.create'))
         ->assertSee('இரவு உணவு');
 });
 
@@ -266,27 +284,21 @@ it('ignores a tampered cookie rather than breaking the page', function (): void 
 |--------------------------------------------------------------------------
 */
 
-it('offers a Tamil file for every English one, with matching keys', function (): void {
-    foreach (['guest', 'staff'] as $file) {
-        $english = require lang_path('en/'.$file.'.php');
-        $tamil = require lang_path('ta/'.$file.'.php');
-
-        // A missing key falls back to English at runtime, but a file that has
-        // drifted is worth catching here rather than in front of a guest.
-        expect(array_keys(dotKeys($tamil)))
-            ->toEqualCanonicalizing(array_keys(dotKeys($english)));
-    }
+it('ships its own strings in English and in no other language', function (): void {
+    // A lang/ta existed and was deliberately deleted: this application's words
+    // are written once, and a restaurant's words are translated in the database
+    // instead. A second directory here would be a second copy of the chrome to
+    // keep in step, for a panel whose framework chrome is English anyway.
+    expect(array_map('basename', glob(lang_path('*'), GLOB_ONLYDIR) ?: []))->toBe(['en'])
+        ->and(dotKeys(require lang_path('en/guest.php')))->not->toBeEmpty()
+        ->and(dotKeys(require lang_path('en/staff.php')))->not->toBeEmpty();
 });
 
-it('lists exactly the languages the application supports', function (): void {
+it('lists exactly the languages a restaurant may write in', function (): void {
     expect(Locale::values())->toBe(['en', 'ta'])
         ->and(Locale::default())->toBe(Locale::English)
         ->and(Locale::English->next())->toBe(Locale::Tamil)
         ->and(Locale::Tamil->next())->toBe(Locale::English);
-
-    foreach (Locale::cases() as $locale) {
-        expect(is_dir(lang_path($locale->value)))->toBeTrue();
-    }
 });
 
 /**

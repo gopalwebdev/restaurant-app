@@ -49,6 +49,14 @@ final class TranslatedFields
      * Place it once, at the top of the form. Toggle buttons rather than a
      * select: with a handful of languages the whole choice should be readable
      * without opening anything, and switching should be one tap.
+     *
+     * English is selected whatever the form was opened with, and `default()` is
+     * not enough to promise that: a default only applies to a form that is
+     * *filled with nothing*. Every edit form — and every modal handed data,
+     * which includes "New sub-category" and its prefilled parent — skips it, so
+     * this control came up with neither language lit and the form's own rules
+     * had to guess what was on screen. `formatStateUsing()` runs on the way in
+     * whatever the state is, which is why the answer lives there.
      */
     public static function localeSwitcher(): ToggleButtons
     {
@@ -64,6 +72,9 @@ final class TranslatedFields
                 [],
             ))
             ->default(Locale::default()->value)
+            ->formatStateUsing(static fn (mixed $state): string => Locale::fromRequestValue(
+                is_string($state) ? $state : null,
+            )->value)
             ->live()
             ->inline()
             ->grouped()

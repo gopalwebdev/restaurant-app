@@ -106,28 +106,22 @@ abstract class HandleTenantInertiaRequests extends Middleware
     }
 
     /**
-     * This app's chrome, in the language being served.
+     * This app's chrome, which is written in English and stays that way.
      *
-     * Falls back key by key to English, so a Tamil file that is missing a
-     * string shows the English one rather than the key itself.
+     * The application's own strings live in one language: `lang/en` is the only
+     * directory there is. What a restaurant *wrote* — menu, section, dish,
+     * addition and tile names — is translated, and that lives in the database
+     * (`.ai/rules/models.md`), so switching language changes the menu a guest
+     * reads without changing the words this application supplies around it.
      *
      * @return array<string, mixed>
      */
     protected function translationsFor(Locale $locale): array
     {
-        $file = $this->translationFile();
+        /** @var array<string, mixed> $chrome */
+        $chrome = Lang::get($this->translationFile(), [], Locale::default()->value);
 
-        /** @var array<string, mixed> $fallback */
-        $fallback = Lang::get($file, [], Locale::default()->value);
-
-        if ($locale === Locale::default()) {
-            return $fallback;
-        }
-
-        /** @var array<string, mixed> $translated */
-        $translated = Lang::get($file, [], $locale->value);
-
-        return array_replace_recursive($fallback, $translated);
+        return $chrome;
     }
 
     /**

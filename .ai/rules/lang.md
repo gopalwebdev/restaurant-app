@@ -5,16 +5,26 @@ paths:
 
 # Lang
 
-## One file per app per language, keys mirrored, placeholders filled in the browser
-lang/{en,ta}/guest.php and lang/{en,ta}/staff.php hold the chrome of the two phone apps — one file per app so a guest never downloads "Sold out" and staff never download the tile empty state. Nothing a restaurant wrote belongs here: menu, section, dish, addition and tile names are translated database columns (see .ai/rules/models.md).
+## This application's own words are English, and there is one directory
+`lang/en` is the only language directory, and that is a decision rather than an omission. A `lang/ta` existed — a full mirror of `guest.php`, `staff.php` and `panel.php` — and the project owner deleted it: **the codebase is written in English, and translation lives at the database level only.**
 
-Each file is sent to the browser whole as the `translations` Inertia prop and read with useTranslations()'s dotted path. Laravel's `:name` placeholders are therefore filled in JavaScript, not PHP — keep them in the string rather than writing a second string with the number baked in.
+What that splits, cleanly:
 
-Every non-English file must mirror the English one's keys; a missing key falls back to English (merged in HandleTenantInertiaRequests::translationsFor()) and then to the path itself. tests/Feature/LocalizationTest.php asserts the key sets match and that each App\Enums\Locale case has a directory, so adding a language means adding a case, a directory, and a full file.
+- **What a restaurant wrote** — menu, category, dish, addition and tile names — is translated, in `json` columns, one key per `App\Enums\Locale` case (`.ai/rules/models.md`). A guest switching language changes *this*.
+- **What the application supplies** — "Sold out", "Rearrange", the panel's labels — is English, once. `HandleTenantInertiaRequests::translationsFor()` therefore always reads the default locale's file; it used to merge a translated file over the English one and no longer has anything to merge.
+
+`App\Enums\Locale` still has both cases and still drives the toggles: it is the list of languages a *restaurant may write in*, not the list of languages this application ships. Adding one is a case and nothing else — do not add a second directory here.
+
+Filament's own chrome was always English regardless (the framework ships no `ta` locale), which is half of why a translated panel file was a poor trade: it half-translated a screen and left a second copy of every label to keep in step.
+
+## One file per app, keys read in the browser
+`lang/en/guest.php` and `lang/en/staff.php` hold the chrome of the two phone apps — one file per app so a guest never downloads "Sold out" and staff never download the tile empty state. Nothing a restaurant wrote belongs here.
+
+Each file is sent to the browser whole as the `translations` Inertia prop and read with `useTranslations()`'s dotted path. Laravel's `:name` placeholders are therefore filled in JavaScript, not PHP — keep them in the string rather than writing a second string with the number baked in. A key that is missing falls back to the path itself, so a typo reads as `menu.empy` rather than as nothing.
 
 ## panel.php is the admin panel, and only its menu surfaces
-`lang/{en,ta}/panel.php` holds the labels of the Filament resources a restaurant works in daily — menus, sections, dishes, additions and home screen tiles — plus the navigation groups they sit under.
+`lang/en/panel.php` holds the labels of the Filament resources a restaurant works in daily — menus, the arrangement, dishes, additions and home screen tiles — plus the navigation groups they sit under.
 
-Roles, permissions, accounts and restaurants are deliberately **not** in here. They are the product team's vocabulary, code refers to those names, and translating them would make a `hasRole('admin')` check read as though it might not be English. Filament's own chrome also stays English under Tamil: the framework ships no `ta` locale, and a half-translated panel reads worse than a consistent one.
+Roles, permissions, accounts and restaurants are deliberately **not** in here. They are the product team's vocabulary and code refers to those names, so translating them would make a `hasRole('admin')` check read as though it might not be English.
 
-Labels reach Filament through `getModelLabel()` / `getNavigationGroup()` methods rather than static properties — see `.ai/rules/filament.md` for why a static property can never translate.
+Labels still reach Filament through `getModelLabel()` / `getNavigationGroup()` methods rather than static properties. That is now about the request rather than the language — see `.ai/rules/filament.md`.

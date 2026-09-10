@@ -48,8 +48,9 @@ There is still an input per `App\Enums\Locale` case underneath — that is how e
 
 This replaced two-inputs-side-by-side. That arrangement was defended here as "less machinery", and it was, but it doubled the height of every form and left half of each line to a language most restaurants fill in later. Do not go back to it without saying so.
 
-Three things the switcher costs, all handled inside `TranslatedFields` and none of them optional if you add a field type there:
+Four things the switcher costs, all handled inside `TranslatedFields` and none of them optional if you add a field type there:
 
+- **The switcher itself is set with `formatStateUsing()`, not `default()`.** A default only applies to a form filled with *nothing*, so every edit form — and every modal handed data, which includes a create modal with one field prefilled — opened with neither language lit. That is not cosmetic: the switcher decides which box is on screen and which value the "required in English" rule reads. Formatting the state normalises whatever the form was opened with, `null` included, to English.
 - Hidden languages carry `->dehydratedWhenHidden()`. Without it, typing the Tamil and saving would blank the English.
 - The "English is required" rule rides on **every** language's input, reading the English value out of the form state. Left only on the English input it would never fire, because that input is hidden at exactly the moment it needs to.
 - The uniqueness rule does the same, for the same reason. It is built on the English name because the database's expression index is — a rule that skipped while Tamil was on screen would let a duplicate through to fail at the index instead.
@@ -63,9 +64,12 @@ Both panels carry a language switcher in the top bar (`resources/views/filament/
 
 The form posts to the host it was rendered on, because a cross-host post loses the session: the tenant panel uses `preferences.language.update` with the tenant's slug, and the product team's panel uses the root-domain `panel.language.update`. Both hit the same controller.
 
-**Labels must be methods, not static properties.** A `protected static ?string $modelLabel = 'menu'` is evaluated when the class loads, before the request has chosen a language, so it can never translate. Use `getModelLabel()`, `getPluralModelLabel()` and `getNavigationGroup()` returning `__('panel....')`.
+**Labels must be methods, not static properties.** A `protected static ?string $modelLabel = 'menu'` is evaluated when the class loads, before the request has been served, so it cannot read anything request-scoped. Use `getModelLabel()`, `getPluralModelLabel()` and `getNavigationGroup()` returning `__('panel....')`.
 
-What is translated is deliberately bounded: the menu and storefront resources, in `lang/{en,ta}/panel.php`. **Roles, permissions, accounts and restaurants stay in English** — that is the product team's vocabulary and code refers to those names. Filament's own chrome falls back to English under Tamil, because the framework ships no `ta` locale.
+The panel's own labels are English and stay English: `lang/en/panel.php` is the only file, and a `lang/ta/panel.php` was deleted deliberately (`.ai/rules/lang.md`). What the switcher still changes is the **restaurant's** words — a menu or dish name comes out of a translated column and follows the chosen language, so a Tamil-reading manager reads their own menu in Tamil with the panel's labels in English around it. **Roles, permissions, accounts and restaurants** are English for a second reason: code refers to those names.
+
+## Both panels navigate as a SPA
+`->spa()` on both providers, so moving between pages is a Livewire visit with a progress bar across the top rather than a browser load that leaves an admin looking at the page they just left. Links inside a panel carry `wire:navigate`; a form post — the language switcher, for one — is unaffected, and so is anything pointing off the panel.
 
 ## No theming in the panel
 A restaurant chooses no colours and no light/dark default. `App\Enums\Appearance` has two cases and lives on the phone. Do not add a theme section back without asking.

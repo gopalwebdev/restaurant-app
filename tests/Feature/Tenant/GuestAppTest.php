@@ -252,6 +252,34 @@ it('leads a menu with the dishes the restaurant featured', function (): void {
         );
 });
 
+it('paints a loader before the app it is waiting for', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    // React runs after the first paint, so without this a guest on a slow
+    // connection is looking at a blank screen with nothing to say the page is
+    // coming. It is CSS only and it hides itself the moment Inertia renders
+    // into #app, which is what `#app:not(:empty)` is doing.
+    foreach (['/', '/menus/'.$menu->getKey()] as $path) {
+        $html = (string) $this->get('http://'.$restaurant->slug.'.restaurant-app.test'.$path)
+            ->assertOk()
+            ->assertSee('id="boot-loader"', escape: false)
+            ->getContent();
+
+        // A general sibling, because the rule's own <style> block sits between
+        // the app div and the spinner: `+` matched nothing and left the spinner
+        // covering a page that had finished loading.
+        expect($html)->toContain('#app:not(:empty) ~ #boot-loader');
+
+        $appAt = strpos($html, '<div id="app"');
+        $loaderAt = strpos($html, 'id="boot-loader"');
+
+        expect($appAt)->not->toBeFalse()
+            ->and($loaderAt)->not->toBeFalse()
+            ->and($appAt)->toBeLessThan($loaderAt);
+    }
+});
+
 it('reads a menu in the order the restaurant arranged, rails and all', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);

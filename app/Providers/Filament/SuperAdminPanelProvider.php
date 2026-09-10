@@ -71,6 +71,13 @@ class SuperAdminPanelProvider extends PanelProvider
             // asked about, is refused rather than waved through. Without this a
             // page added tomorrow is open to anyone who can reach the panel,
             // and nothing says so.
+            // Page to page inside a panel is a Livewire visit rather than a
+            // browser load, which is what puts a progress bar across the top
+            // while the next page is fetched instead of leaving an admin
+            // looking at the old one wondering whether the click registered.
+            // The phone apps get the same thing from Inertia, plus a splash for
+            // the first load — see resources/views/partials/boot-loader.blade.php.
+            ->spa()
             ->strictAuthorization()
             // A create or edit page runs with no transaction otherwise, so a
             // validation exception thrown mid-save (EnsureRoleFitsWithinLimit,

@@ -3,6 +3,7 @@
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
 use App\Filament\Admin\Resources\Menus\Pages\ArrangeMenu;
+use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Schemas\TranslatedFields;
 use App\Models\Menu;
 use App\Models\MenuCategory;
@@ -39,6 +40,45 @@ it('shows only the language the form is switched to', function (): void {
         ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, Locale::default()->value)
         ->assertSchemaComponentVisible('name.'.Locale::English->value)
         ->assertSchemaComponentHidden('name.'.Locale::Tamil->value);
+});
+
+it('opens on English on a form that was filled, not just a blank one', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+    $category = MenuCategory::factory()->inMenu($menu)->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // `default()` only applies to a form filled with nothing, so every edit
+    // form — and every modal handed data, "New sub-category" and its prefilled
+    // parent included — came up with neither language lit. The switcher decides
+    // which box is on screen and which language the "required in English" rule
+    // reads, so nothing selected is not a cosmetic state.
+    $english = Locale::default()->value;
+
+    Livewire::test(EditMenu::class, ['record' => $menu->getKey()])
+        ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, $english);
+
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->mountAction(TestAction::make('rename')->table('category-'.$category->getKey()))
+        ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, $english);
+
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->mountAction(TestAction::make('createSubCategory')->table('category-'.$category->getKey()))
+        ->assertSchemaComponentStateSet(TranslatedFields::LOCALE_KEY, $english);
+});
+
+it('falls back to English when the form is handed a language it does not have', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // The switcher is a form field like any other and can arrive as anything.
+    Livewire::test(ArrangeMenu::class, ['record' => $menu->getKey()])
+        ->mountAction(TestAction::make('createCategory')->table())
+        ->set('mountedActions.0.data.'.TranslatedFields::LOCALE_KEY, 'klingon')
+        ->assertSchemaComponentVisible('name.'.Locale::English->value);
 });
 
 it('shows the other language once the switcher is moved', function (): void {

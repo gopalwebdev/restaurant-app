@@ -7,12 +7,14 @@ use App\Filament\Admin\Resources\Menus\MenuResource;
 use App\Filament\Admin\Resources\Menus\Tables\MenuArrangementTable;
 use App\Models\Menu;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
@@ -103,6 +105,26 @@ class ArrangeMenu extends Page implements HasTable
         );
 
         $this->resetTable();
+    }
+
+    /**
+     * A table action on this page is about a row, never about the menu.
+     *
+     * `Resources\Pages\Concerns\InteractsWithRecord` hands the page's own
+     * record to any action that has not been given one, and `Action::getContext()`
+     * only filters that out when the record's class differs from the table's
+     * model — which a custom data table does not have. So the menu's id rode
+     * along as the row key, Filament looked for a row keyed `1` while the rows
+     * here are keyed `category-3`, found none, and **silently declined to
+     * mount**: every button on this page did nothing, with no error anywhere.
+     *
+     * Filament's own ManageRelatedRecords does exactly this for the same
+     * reason. There are no page-level actions here, so a table action is the
+     * only kind there is.
+     */
+    public function getDefaultActionRecord(Action $action): ?Model
+    {
+        return $action->getTable() ? null : parent::getDefaultActionRecord($action);
     }
 
     /**
