@@ -6,7 +6,6 @@ use App\Enums\AdminPanel;
 use App\Enums\CountryCallingCode;
 use App\Enums\Currency;
 use App\Enums\Role as RoleEnum;
-use App\Enums\TaxRate;
 use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -195,25 +194,29 @@ class Restaurant extends Model
     }
 
     /**
-     * The GST slab this restaurant charges on anything that names no rate.
+     * The GST rate this restaurant charges on anything that names no rate.
      *
      * Resolved exactly as currency() is, and for the same reason: every dish on
      * a menu falls back to this one rate, so it is read once for a list rather
      * than per row, and reaching through $this->settings would be a lazy load.
      */
-    public function taxRate(): TaxRate
+    public function taxRateBasisPoints(): int
     {
         if ($this->relationLoaded('settings')) {
             $settings = $this->getRelation('settings');
 
-            return $settings instanceof RestaurantSetting ? $settings->taxRate() : TaxRate::default();
+            return $settings instanceof RestaurantSetting
+                ? $settings->taxRateBasisPoints()
+                : RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS;
         }
 
         $stored = RestaurantSetting::query()
             ->where('tenant_id', $this->getKey())
             ->value('tax_rate_basis_points');
 
-        return $stored instanceof TaxRate ? $stored : TaxRate::default();
+        return $stored === null
+            ? RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS
+            : (int) $stored;
     }
 
     /**

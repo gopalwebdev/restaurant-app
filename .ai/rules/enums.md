@@ -18,9 +18,12 @@ There are exactly four kinds of account: the product team (`users.is_super_admin
 
 What a role *grants* is not owned by the code. `App\Enums\Role::permissions()` is a starting point the seeder writes only on the run that first creates the role — re-running never reverts it, because after that the product team edits permissions from the panel. Only the **name** is binding, because code calls `hasRole('admin')`; the name is `disabled()` in RoleForm for built-in roles and `Role::booting()` throws on a rename or delete.
 
-## A GST slab is basis points, and availability is a reason
-Two enums back the menu's money and its shelf state, and both are deliberately not the obvious type.
+## Availability is a reason, not a boolean
+`App\Enums\ItemAvailability` replaced a boolean on `menu_items` and `menu_combos` because "off the menu" has a reason worth carrying, and because nothing here is ever hard-deleted to hide it. `isOrderable()` and `orderableValues()` are the only places the distinction between "showing" and "orderable" is made, so a fourth case cannot leave a query behind.
 
-`App\Enums\TaxRate` is backed by **basis points** — 5% is `500`, not `5` and not `0.05`. That keeps the whole tax calculation in integers, exactly as money is stored in minor units, so nothing between the database and a payment provider ever sees a float; a percentage backing would make 12.5% unrepresentable the moment a slab changed. The cases are India's GST slabs (0, 5, 12, 18, 28), which is a fixed government set, not a number a restaurant picks. `taxOn()` runs the arithmetic both ways round, and getting that backwards is the classic bug: 5% *of* 105 is 5.25, but the tax *inside* 105 is 5.00. `halfBasisPoints()` is the CGST/SGST split an intra-state invoice prints — presentation, not a second amount.
+## A tax rate is a number, not an enum — this was tried and reverted
+GST rates are **not** a fixed value set, and modelling them as one was a mistake worth recording. `App\Enums\TaxRate` existed briefly with cases for the 0/5/12/18/28 slabs; India's GST 2.0 reform of 22 September 2025 collapsed those to 0/5/18 plus a 40% demerit rate, so the enum was wrong on the day it was written. Rates also vary by choice, not just by law — a standalone restaurant may elect 5% without input tax credit or 18% with it.
 
-`App\Enums\ItemAvailability` replaced a boolean because "off the menu" has a reason worth carrying, and because nothing here is ever hard-deleted to hide it. `isOrderable()` and `orderableValues()` are the only places the distinction is made, so a fourth case cannot leave a query behind.
+So `tax_rate_basis_points` is a plain nullable integer on `menu_items`, `menu_item_additions` and `menu_combos`, and a non-nullable one on `restaurant_settings`. A restaurant types the percentage its accountant gives it.
+
+Basis points rather than a percentage float, though — 5% is `500`. That keeps every rate an exact integer, exactly as money is an exact integer in minor units, so nothing between the database and a payment provider ever sees a float. `App\Filament\Schemas\PricingFields` is the only place a typed percentage becomes basis points and back, so the rounding happens once; `RestaurantSetting::BASIS_POINTS_PER_WHOLE` is the unit and `::DEFAULT_TAX_RATE_BASIS_POINTS` the starting point.

@@ -44,7 +44,6 @@ class FeaturedItemsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('name')
             ->heading(__('panel.items.featured_heading'))
-            ->description(__('panel.items.featured_description'))
             ->columns([
                 TextColumn::make('name')
                     ->label(__('panel.shared.name'))
@@ -76,8 +75,7 @@ class FeaturedItemsRelationManager extends RelationManager
                             ->label(__('panel.items.featured_pick'))
                             ->options(fn (): array => $this->featurableItems())
                             ->searchable()
-                            ->required()
-                            ->helperText(__('panel.items.featured_pick_help')),
+                            ->required(),
                     ])
                     ->action(function (array $data): void {
                         // Scoped to this menu's own dishes, whatever the form

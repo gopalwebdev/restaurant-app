@@ -68,9 +68,6 @@ final class TranslatedFields
             ->inline()
             ->grouped()
             ->dehydrated(false)
-            ->helperText(__('panel.shared.editing_language_help', [
-                'language' => Locale::default()->englishName(),
-            ]))
             ->columnSpanFull();
     }
 
@@ -237,23 +234,6 @@ final class TranslatedFields
     }
 
     /**
-     * The note under a non-English input, in the panel's own language.
-     *
-     * `__()` is typed as string|array|null because a key may hold either, and
-     * helperText() takes neither an array nor a guess — so the one call site
-     * checks rather than casts.
-     */
-    private static function translationOptionalHint(Locale $locale): ?string
-    {
-        $hint = __('panel.shared.translation_optional', [
-            'language' => $locale->englishName(),
-            'fallback' => Locale::default()->englishName(),
-        ]);
-
-        return is_string($hint) ? $hint : null;
-    }
-
-    /**
      * Which language the form is currently showing.
      *
      * Falls back rather than trusting the state: the switcher is a form field
@@ -291,8 +271,7 @@ final class TranslatedFields
             // The languages not on screen still travel with the save, or
             // editing one would blank the others.
             ->dehydratedWhenHidden()
-            ->required($requireFallback && $isFallback)
-            ->helperText($isFallback ? null : self::translationOptionalHint($locale));
+            ->required($requireFallback && $isFallback);
 
         if (! $requireFallback || $isFallback) {
             return $field;

@@ -41,8 +41,7 @@ class MenusTable
                 IconColumn::make('is_active')
                     ->label(__('panel.shared.showing'))
                     ->boolean()
-                    ->sortable()
-                    ->tooltip(__('panel.menus.showing_tooltip')),
+                    ->sortable(),
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label(__('panel.shared.showing')),

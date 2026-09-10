@@ -20,8 +20,8 @@ export interface MenuItem {
     name: string;
     description: string | null;
     priceMinorUnits: number;
-    /** A higher price to strike through, or null when this is not on offer. */
-    strikePriceMinorUnits: number | null;
+    /** A higher price to show struck through, or null when not on offer. */
+    compareAtPriceMinorUnits: number | null;
     foodType: FoodType;
     additions: Addition[];
 }
@@ -38,7 +38,7 @@ export interface Combo {
     name: string;
     description: string | null;
     priceMinorUnits: number;
-    strikePriceMinorUnits: number | null;
+    compareAtPriceMinorUnits: number | null;
     contents: ComboContent[];
 }
 
@@ -349,7 +349,7 @@ function ComboCard({ combo }: { combo: Combo }) {
 
             <Price
                 priceMinorUnits={combo.priceMinorUnits}
-                strikePriceMinorUnits={combo.strikePriceMinorUnits}
+                compareAtPriceMinorUnits={combo.compareAtPriceMinorUnits}
                 className="mt-3"
             />
         </article>
@@ -361,25 +361,25 @@ function ComboCard({ combo }: { combo: Combo }) {
  *
  * The old price is deliberately smaller and quieter than the real one: it is
  * context for the number a guest is being asked to pay, not a second number
- * competing with it. The server only ever sends a strike price that is higher
+ * competing with it. The server only ever sends a compare-at price that is higher
  * than what is charged, so there is no case here for one that is not.
  */
 function Price({
     priceMinorUnits,
-    strikePriceMinorUnits,
+    compareAtPriceMinorUnits,
     className = '',
 }: {
     priceMinorUnits: number;
-    strikePriceMinorUnits: number | null;
+    compareAtPriceMinorUnits: number | null;
     className?: string;
 }) {
     const money = useMoney();
 
     return (
         <p className={`flex items-baseline gap-1.5 tabular-nums ${className}`}>
-            {strikePriceMinorUnits !== null && (
+            {compareAtPriceMinorUnits !== null && (
                 <span className="text-muted-foreground text-sm line-through">
-                    {money(strikePriceMinorUnits)}
+                    {money(compareAtPriceMinorUnits)}
                 </span>
             )}
             <span className="text-primary font-semibold">
@@ -454,7 +454,7 @@ function Dish({
                 line, and the price column is the narrowest thing here. */}
             <Price
                 priceMinorUnits={item.priceMinorUnits}
-                strikePriceMinorUnits={item.strikePriceMinorUnits}
+                compareAtPriceMinorUnits={item.compareAtPriceMinorUnits}
                 className="shrink-0 flex-col items-end gap-0"
             />
         </article>

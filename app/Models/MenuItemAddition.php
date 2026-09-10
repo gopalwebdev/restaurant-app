@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\TaxRate;
 use App\Models\Concerns\HasTranslatedNames;
 use Carbon\CarbonImmutable;
 use Database\Factories\MenuItemAdditionFactory;
@@ -29,7 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $menu_item_id
  * @property string $name
  * @property int $price_minor_units
- * @property TaxRate|null $tax_rate_basis_points
+ * @property int|null $tax_rate_basis_points
  * @property bool $is_available
  * @property int $position
  * @property CarbonImmutable|null $created_at
@@ -112,7 +111,7 @@ class MenuItemAddition extends Model
     }
 
     /**
-     * The GST slab this addition is taxed at.
+     * The GST rate this addition is taxed at, in basis points.
      *
      * Its own rate when it has one, and otherwise the restaurant's default —
      * the same fallback MenuItem uses, and for the same reason: an addition is
@@ -123,23 +122,25 @@ class MenuItemAddition extends Model
      * overriding because it differs from the food, so inheriting from the dish
      * would be inheriting the wrong number.
      *
-     * Pass $default when rendering a list; every row shares it.
+     * Pass $restaurantRate when rendering a list; every row shares it.
      */
-    public function taxRate(?TaxRate $default = null): TaxRate
+    public function taxRateBasisPoints(?int $restaurantRate = null): int
     {
-        if ($this->tax_rate_basis_points instanceof TaxRate) {
+        if ($this->tax_rate_basis_points !== null) {
             return $this->tax_rate_basis_points;
         }
 
-        if ($default instanceof TaxRate) {
-            return $default;
+        if ($restaurantRate !== null) {
+            return $restaurantRate;
         }
 
         $stored = RestaurantSetting::query()
             ->where('tenant_id', $this->tenant_id)
             ->value('tax_rate_basis_points');
 
-        return $stored instanceof TaxRate ? $stored : TaxRate::default();
+        return $stored === null
+            ? RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS
+            : (int) $stored;
     }
 
     /**
@@ -169,7 +170,7 @@ class MenuItemAddition extends Model
     {
         return [
             'price_minor_units' => 'integer',
-            'tax_rate_basis_points' => TaxRate::class,
+            'tax_rate_basis_points' => 'integer',
             'is_available' => 'boolean',
             'position' => 'integer',
         ];

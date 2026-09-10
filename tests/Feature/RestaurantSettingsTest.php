@@ -3,9 +3,9 @@
 use App\Enums\AdminPanel;
 use App\Enums\Currency;
 use App\Enums\Role;
-use App\Enums\TaxRate;
 use App\Filament\Admin\Pages\Settings;
 use App\Models\Restaurant;
+use App\Models\RestaurantSetting;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -158,11 +158,11 @@ it('is open to a super admin supporting a restaurant', function (): void {
 it('starts a restaurant on the standalone restaurant slab, tax added at the bill', function (): void {
     $restaurant = Restaurant::factory()->create();
 
-    // The default in $attributes and TaxRate::default() have to agree; a
+    // The default in $attributes and RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS have to agree; a
     // property initialiser cannot call the static method, so this is what
     // keeps the two in step.
-    expect($restaurant->settings->taxRate())->toBe(TaxRate::default())
-        ->and($restaurant->taxRate())->toBe(TaxRate::default())
+    expect($restaurant->settings->taxRateBasisPoints())->toBe(RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS)
+        ->and($restaurant->taxRateBasisPoints())->toBe(RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS)
         ->and($restaurant->settings->prices_include_tax)->toBeFalse()
         ->and($restaurant->settings->service_charge_enabled)->toBeFalse()
         ->and($restaurant->settings->parcel_charge_enabled)->toBeFalse();
@@ -175,7 +175,9 @@ it('saves the GST rate and whether prices already include it', function (): void
     Livewire::test(Settings::class)
         ->fillForm([
             'gstin' => '29ABCDE1234F1Z5',
-            'tax_rate_basis_points' => TaxRate::Eighteen->value,
+            // Typed as the percentage an accountant quotes, stored as basis
+            // points — 18% is 1800.
+            'tax_rate_percentage' => '18',
             'prices_include_tax' => true,
         ])
         ->call('save')
@@ -184,7 +186,7 @@ it('saves the GST rate and whether prices already include it', function (): void
     $settings = $restaurant->refresh()->settings;
 
     expect($settings->gstin)->toBe('29ABCDE1234F1Z5')
-        ->and($settings->taxRate())->toBe(TaxRate::Eighteen)
+        ->and($settings->taxRateBasisPoints())->toBe(1800)
         ->and($settings->prices_include_tax)->toBeTrue();
 });
 
@@ -245,6 +247,35 @@ it('charges nothing while a charge is switched off, whatever its amount says', f
         ->and($settings->parcelCharge())->toBe(0)
         ->and($settings->service_charge_basis_points)->toBe(1000)
         ->and($settings->parcel_charge_minor_units)->toBe(2000);
+});
+
+it('accepts a GST rate no fixed list of slabs would have held', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    // India's GST 2.0 reform of September 2025 restructured the slabs; a rate
+    // is typed rather than picked so the next notification is a number, not a
+    // deployment.
+    Livewire::test(Settings::class)
+        ->fillForm(['tax_rate_percentage' => '12.5'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($restaurant->refresh()->settings->tax_rate_basis_points)->toBe(1250);
+});
+
+it('round-trips the GST rate through the form without drift', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $restaurant->settings->update(['tax_rate_basis_points' => 1250]);
+
+    enterRestaurantPanel($restaurant, Role::Admin);
+
+    Livewire::test(Settings::class)
+        ->assertFormSet(['tax_rate_percentage' => 12.5])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($restaurant->refresh()->settings->tax_rate_basis_points)->toBe(1250);
 });
 
 it('round-trips a service charge through the form without drift', function (): void {

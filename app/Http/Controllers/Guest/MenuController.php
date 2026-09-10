@@ -101,7 +101,7 @@ class MenuController extends Controller
             ->get();
 
         $combos = MenuCombo::query()
-            ->select(['id', 'name', 'description', 'price_minor_units', 'strike_price_minor_units'])
+            ->select(['id', 'name', 'description', 'price_minor_units', 'compare_at_price_minor_units'])
             ->where('menu_id', $menu->getKey())
             ->whereIn('availability', $orderable)
             ->with(['comboItems' => fn ($comboItems) => $comboItems
@@ -130,7 +130,7 @@ class MenuController extends Controller
                 'name' => $combo->name,
                 'description' => $combo->description,
                 'priceMinorUnits' => $combo->price_minor_units,
-                'strikePriceMinorUnits' => $combo->hasStrikePrice() ? $combo->strike_price_minor_units : null,
+                'compareAtPriceMinorUnits' => $combo->hasComparePrice() ? $combo->compare_at_price_minor_units : null,
                 'contents' => $combo->comboItems->map(fn (MenuComboItem $comboItem): array => [
                     'id' => $comboItem->getKey(),
                     'name' => $comboItem->menuItem->name,
@@ -178,7 +178,7 @@ class MenuController extends Controller
             'name',
             'description',
             'price_minor_units',
-            'strike_price_minor_units',
+            'compare_at_price_minor_units',
             'food_type',
         ];
     }
@@ -230,7 +230,7 @@ class MenuController extends Controller
 
         if (! $settings instanceof RestaurantSetting) {
             return [
-                'taxRateBasisPoints' => $restaurant->taxRate()->value,
+                'taxRateBasisPoints' => $restaurant->taxRateBasisPoints(),
                 'pricesIncludeTax' => false,
                 'serviceChargeBasisPoints' => null,
                 'parcelChargeMinorUnits' => null,
@@ -238,7 +238,7 @@ class MenuController extends Controller
         }
 
         return [
-            'taxRateBasisPoints' => $settings->taxRate()->value,
+            'taxRateBasisPoints' => $settings->taxRateBasisPoints(),
             'pricesIncludeTax' => $settings->prices_include_tax,
             'serviceChargeBasisPoints' => $settings->service_charge_enabled
                 ? $settings->service_charge_basis_points
@@ -261,10 +261,10 @@ class MenuController extends Controller
             'name' => $item->name,
             'description' => $item->description,
             'priceMinorUnits' => $item->price_minor_units,
-            // Null unless there is a real offer to show. hasStrikePrice()
+            // Null unless there is a real offer to show. hasComparePrice()
             // refuses one at or below the price being charged, so the app never
             // has to decide whether what it was handed is believable.
-            'strikePriceMinorUnits' => $item->hasStrikePrice() ? $item->strike_price_minor_units : null,
+            'compareAtPriceMinorUnits' => $item->hasComparePrice() ? $item->compare_at_price_minor_units : null,
             'foodType' => $item->food_type->value,
             'additions' => $item->additions->map(fn (MenuItemAddition $addition): array => [
                 'id' => $addition->getKey(),

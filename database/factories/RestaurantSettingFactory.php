@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Enums\Currency;
-use App\Enums\TaxRate;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -26,9 +25,9 @@ class RestaurantSettingFactory extends Factory
             'contact_phone' => fake()->numerify('+91 ##### #####'),
             'currency' => Currency::IndianRupee,
             'gstin' => null,
-            // The restaurant slab, prices quoted before tax, and neither
+            // The restaurant rate, prices quoted before tax, and neither
             // charge levied — which is how a restaurant starts out.
-            'tax_rate_basis_points' => TaxRate::default(),
+            'tax_rate_basis_points' => RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS,
             'prices_include_tax' => false,
             'service_charge_enabled' => false,
             'service_charge_basis_points' => 0,

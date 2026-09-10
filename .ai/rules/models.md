@@ -48,7 +48,7 @@ Keep both columns in step when writing rows. The factories exist for exactly thi
 
 A booted Filament panel stamps `tenant_id` on **every** model created during the request, so a factory that picks its own restaurant will now trip these keys. Create fixtures before `enterRestaurantPanel()`, or name the parent explicitly.
 
-Never resolve an item's currency or tax rate through `$item->restaurant->settings`: that is a lazy load, which `Model::shouldBeStrict()` throws on outside production and which is an N+1 down a list of dishes. `App\Models\Concerns\IsPricedOnAMenu` holds `currency()`, `taxRate()`, `formattedPrice()` and `formattedStrikePrice()` once for both `MenuItem` and `MenuCombo`; every reader takes an optional override, and a list should pass one, because every row shares the restaurant's answer.
+Never resolve an item's currency or tax rate through `$item->restaurant->settings`: that is a lazy load, which `Model::shouldBeStrict()` throws on outside production and which is an N+1 down a list of dishes. `App\Models\Concerns\IsPricedOnAMenu` holds `currency()`, `taxRateBasisPoints()`, `formattedPrice()` and `formattedComparePrice()` once for both `MenuItem` and `MenuCombo`; every reader takes an optional override, and a list should pass one, because every row shares the restaurant's answer.
 
 ## Nothing on the menu is hard-deleted to take it off
 `menu_items.availability` and `menu_combos.availability` are `App\Enums\ItemAvailability` — Available, OutOfStock, TemporarilyUnavailable — not a boolean. The boolean could only say *whether* a dish was off, so a kitchen that had run out of prawns and one that had stopped serving biryani looked identical, and both read to a guest as though the dish had been withdrawn.

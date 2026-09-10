@@ -49,6 +49,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['menu_category_id', 'position']);
+            // The same tenant index menus and menu_categories carry: every
+            // panel query starts "this restaurant's".
+            $table->index(['tenant_id', 'position']);
 
             $table->unique(['id', 'tenant_id']);
             $table->unique(['id', 'menu_category_id']);

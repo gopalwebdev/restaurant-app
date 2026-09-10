@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Enums\Locale;
-use App\Enums\TaxRate;
 use App\Models\MenuItem;
 use App\Models\MenuItemAddition;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -77,11 +76,13 @@ class MenuItemAdditionFactory extends Factory
 
     /**
      * An addition taxed at a rate of its own rather than the restaurant's.
+     *
+     * Basis points, as stored: 1800 is 18%.
      */
-    public function taxedAt(TaxRate $rate): static
+    public function taxedAt(int $basisPoints): static
     {
         return $this->state(fn (array $attributes): array => [
-            'tax_rate_basis_points' => $rate,
+            'tax_rate_basis_points' => $basisPoints,
         ]);
     }
 

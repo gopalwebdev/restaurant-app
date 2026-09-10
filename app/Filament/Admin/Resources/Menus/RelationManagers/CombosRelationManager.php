@@ -55,7 +55,6 @@ class CombosRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('name')
             ->heading(__('panel.combos.plural'))
-            ->description(__('panel.combos.heading_help'))
             ->columns([
                 TextColumn::make('name')
                     ->label(__('panel.shared.name'))
@@ -79,7 +78,7 @@ class CombosRelationManager extends RelationManager
                     // The struck-through price rides under the real one rather
                     // than taking a column of its own, which would be empty for
                     // every combo that is not on offer.
-                    ->description(fn (MenuCombo $record): ?string => $record->formattedStrikePrice($currency))
+                    ->description(fn (MenuCombo $record): ?string => $record->formattedComparePrice($currency))
                     ->sortable()
                     ->alignEnd(),
 
@@ -94,17 +93,17 @@ class CombosRelationManager extends RelationManager
                 CreateAction::make()
                     ->label(__('panel.combos.create'))
                     ->icon(Heroicon::OutlinedPlus)
-                    ->mutateDataUsing(fn (array $data): array => PricingFields::storePrices($data, $currency)),
+                    ->mutateDataUsing(fn (array $data): array => PricingFields::store($data, $currency)),
             ])
             ->recordActions([
                 EditAction::make()
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
                     ->mutateRecordDataUsing(fn (array $data, MenuCombo $record): array => MenuComboForm::fillTranslations(
-                        PricingFields::fillPrices($data, $currency),
+                        PricingFields::fill($data, $currency),
                         $record,
                     ))
-                    ->mutateDataUsing(fn (array $data): array => PricingFields::storePrices($data, $currency)),
+                    ->mutateDataUsing(fn (array $data): array => PricingFields::store($data, $currency)),
 
                 DeleteAction::make()
                     ->iconButton()

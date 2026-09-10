@@ -5,7 +5,6 @@ namespace Database\Factories;
 use App\Enums\FoodType;
 use App\Enums\ItemAvailability;
 use App\Enums\Locale;
-use App\Enums\TaxRate;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Models\MenuSubCategory;
@@ -37,7 +36,7 @@ class MenuItemFactory extends Factory
             'price_minor_units' => fake()->numberBetween(5000, 90000),
             // Most dishes carry neither: no offer, and the restaurant's own
             // GST slab. Both are set by a state when a test is about them.
-            'strike_price_minor_units' => null,
+            'compare_at_price_minor_units' => null,
             'tax_rate_basis_points' => null,
             'hsn_code' => null,
             'food_type' => fake()->randomElement(FoodType::cases()),
@@ -76,20 +75,22 @@ class MenuItemFactory extends Factory
     /**
      * A dish advertised with a higher price struck through beside it.
      */
-    public function discounted(?int $strikeMinorUnits = null): static
+    public function discounted(?int $compareAtMinorUnits = null): static
     {
         return $this->state(fn (array $attributes): array => [
-            'strike_price_minor_units' => $strikeMinorUnits ?? $attributes['price_minor_units'] + 5000,
+            'compare_at_price_minor_units' => $compareAtMinorUnits ?? $attributes['price_minor_units'] + 5000,
         ]);
     }
 
     /**
      * A dish taxed at a rate of its own rather than the restaurant's default.
+     *
+     * Basis points, as stored: 1800 is 18%.
      */
-    public function taxedAt(TaxRate $rate): static
+    public function taxedAt(int $basisPoints): static
     {
         return $this->state(fn (array $attributes): array => [
-            'tax_rate_basis_points' => $rate,
+            'tax_rate_basis_points' => $basisPoints,
         ]);
     }
 

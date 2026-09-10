@@ -44,6 +44,12 @@ return new class extends Migration
             $table->unique(['menu_combo_id', 'menu_item_id']);
             $table->index(['menu_combo_id', 'position']);
 
+            // Postgres does not index a foreign key for you, and the unique
+            // above leads with the combo — so without this, deleting a dish
+            // (which cascades here) and asking "which combos contain this
+            // dish" both scan the whole table.
+            $table->index(['menu_item_id', 'tenant_id']);
+
             $table->foreign(['menu_combo_id', 'tenant_id'])
                 ->references(['id', 'tenant_id'])
                 ->on('menu_combos')

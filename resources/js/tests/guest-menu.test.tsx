@@ -35,7 +35,7 @@ function dish(overrides: Partial<MenuItem> = {}): MenuItem {
         name: 'Paneer Tikka',
         description: null,
         priceMinorUnits: 24950,
-        strikePriceMinorUnits: null,
+        compareAtPriceMinorUnits: null,
         foodType: 'vegetarian' as const,
         additions: [],
         ...overrides,
@@ -192,7 +192,7 @@ describe('guest menu', () => {
                     items: [
                         dish({
                             priceMinorUnits: 29900,
-                            strikePriceMinorUnits: 36000,
+                            compareAtPriceMinorUnits: 36000,
                         }),
                     ],
                     subSections: [],
@@ -212,7 +212,7 @@ describe('guest menu', () => {
                     name: 'Family Feast',
                     description: 'Enough for four.',
                     priceMinorUnits: 99900,
-                    strikePriceMinorUnits: 120000,
+                    compareAtPriceMinorUnits: 120000,
                     contents: [
                         {
                             id: 30,

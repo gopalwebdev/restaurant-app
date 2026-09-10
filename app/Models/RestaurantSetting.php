@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\Currency;
-use App\Enums\TaxRate;
 use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantSettingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -17,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Exactly one row per restaurant, enforced by a unique key on tenant_id.
  *
  * It carries the tax and the charges every price on the menu is read against:
- * the default GST slab a dish falls back to, whether the prices already include
+ * the default GST rate a dish falls back to, whether the prices already include
  * it, and the two optional charges. Each charge is a switch and an amount
  * rather than an amount alone, so "we do not levy a service charge" is a thing
  * a restaurant can say — which matters here, because the CCPA's 2022 guidelines
@@ -29,7 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $contact_phone
  * @property Currency $currency
  * @property string|null $gstin
- * @property TaxRate $tax_rate_basis_points
+ * @property int $tax_rate_basis_points
  * @property bool $prices_include_tax
  * @property bool $service_charge_enabled
  * @property int $service_charge_basis_points
@@ -62,20 +61,37 @@ class RestaurantSetting extends Model
     use HasFactory;
 
     /**
+     * How many basis points make one whole: 100% is 10,000, so 5% is 500.
+     *
+     * Every rate in the application is stored this way — the GST rate here and
+     * on each dish, and the service charge below — so that percentages stay
+     * exact integers, exactly as money stays exact integers in minor units. A
+     * float rate would put rounding error in the middle of an amount that has
+     * to reconcile to the paisa.
+     */
+    public const int BASIS_POINTS_PER_WHOLE = 10_000;
+
+    /**
+     * What a restaurant charges GST at until it says otherwise.
+     *
+     * 5% is standalone restaurant service without input tax credit, which is
+     * what almost every restaurant on this platform charges. It is a starting
+     * point, not a constraint: rates are typed, because India's GST 2.0 reform
+     * of September 2025 restructured the slabs and the next notification may do
+     * so again.
+     */
+    public const int DEFAULT_TAX_RATE_BASIS_POINTS = 500;
+
+    /**
      * The database defaults only land on insert, so an unsaved row would throw
      * under Model::shouldBeStrict() when the settings page reads it before the
      * first save. Same reason as User::$attributes.
-     *
-     * The tax rate is spelled as the enum case rather than as TaxRate::default(),
-     * because a property initialiser may only hold a constant expression and a
-     * static call is not one. The two have to agree, and a test in
-     * RestaurantSettingsTest asserts they do.
      *
      * @var array<string, mixed>
      */
     protected $attributes = [
         'currency' => Currency::IndianRupee->value,
-        'tax_rate_basis_points' => TaxRate::Five->value,
+        'tax_rate_basis_points' => self::DEFAULT_TAX_RATE_BASIS_POINTS,
         'prices_include_tax' => false,
         'service_charge_enabled' => false,
         'service_charge_basis_points' => 0,
@@ -95,9 +111,9 @@ class RestaurantSetting extends Model
     }
 
     /**
-     * The GST slab a dish falls back to when it names none of its own.
+     * The GST rate a dish falls back to when it names none of its own.
      */
-    public function taxRate(): TaxRate
+    public function taxRateBasisPoints(): int
     {
         return $this->tax_rate_basis_points;
     }
@@ -116,7 +132,7 @@ class RestaurantSetting extends Model
         }
 
         return (int) round(
-            $minorUnits * $this->service_charge_basis_points / TaxRate::BASIS_POINTS_PER_WHOLE,
+            $minorUnits * $this->service_charge_basis_points / self::BASIS_POINTS_PER_WHOLE,
         );
     }
 
@@ -135,7 +151,7 @@ class RestaurantSetting extends Model
     {
         return [
             'currency' => Currency::class,
-            'tax_rate_basis_points' => TaxRate::class,
+            'tax_rate_basis_points' => 'integer',
             'prices_include_tax' => 'boolean',
             'service_charge_enabled' => 'boolean',
             'service_charge_basis_points' => 'integer',

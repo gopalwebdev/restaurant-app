@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\FoodType;
 use App\Enums\ItemAvailability;
-use App\Enums\TaxRate;
 use App\Models\Concerns\HasTranslatedNames;
 use App\Models\Concerns\IsPricedOnAMenu;
 use Carbon\CarbonImmutable;
@@ -23,8 +22,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * The price is an integer count of the currency's minor unit, never a float:
  * ₹249.50 is stored as 24950. App\Enums\Currency converts at the edges, and
  * the currency itself comes from the restaurant's settings, so nothing here
- * assumes rupees. `strike_price_minor_units` is the higher price shown struck
- * through beside it and is null on almost every dish — see IsPricedOnAMenu.
+ * assumes rupees. `compare_at_price_minor_units` is the higher price shown
+ * struck through beside it and is null on almost every dish — see
+ * IsPricedOnAMenu.
  *
  * A dish is always filed under a **category**, and optionally under one of that
  * category's **sub-categories**. Both columns are kept because the pair is a
@@ -48,8 +48,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $name
  * @property string|null $description
  * @property int $price_minor_units
- * @property int|null $strike_price_minor_units
- * @property TaxRate|null $tax_rate_basis_points
+ * @property int|null $compare_at_price_minor_units
+ * @property int|null $tax_rate_basis_points
  * @property string|null $hsn_code
  * @property FoodType $food_type
  * @property ItemAvailability $availability
@@ -65,7 +65,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'name',
     'description',
     'price_minor_units',
-    'strike_price_minor_units',
+    'compare_at_price_minor_units',
     'tax_rate_basis_points',
     'hsn_code',
     'food_type',
@@ -265,8 +265,8 @@ class MenuItem extends Model
     {
         return [
             'price_minor_units' => 'integer',
-            'strike_price_minor_units' => 'integer',
-            'tax_rate_basis_points' => TaxRate::class,
+            'compare_at_price_minor_units' => 'integer',
+            'tax_rate_basis_points' => 'integer',
             'food_type' => FoodType::class,
             'availability' => ItemAvailability::class,
             'is_featured' => 'boolean',

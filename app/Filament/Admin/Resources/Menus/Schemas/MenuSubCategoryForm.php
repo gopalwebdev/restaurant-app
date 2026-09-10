@@ -38,7 +38,6 @@ class MenuSubCategoryForm
                 TranslatedFields::localeSwitcher(),
 
                 Section::make(__('panel.sub_categories.section'))
-                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedSquares2x2)
                     ->schema([
                         // Only this menu's categories, and the composite
@@ -52,8 +51,7 @@ class MenuSubCategoryForm
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->prefixIcon(Heroicon::OutlinedRectangleStack)
-                            ->helperText(__('panel.sub_categories.category_help')),
+                            ->prefixIcon(Heroicon::OutlinedRectangleStack),
 
                         ...TranslatedFields::text(
                             'name',
@@ -75,8 +73,7 @@ class MenuSubCategoryForm
                         Toggle::make('is_active')
                             ->label(__('panel.sub_categories.is_active'))
                             ->default(true)
-                            ->inline(false)
-                            ->helperText(__('panel.sub_categories.is_active_help')),
+                            ->inline(false),
                     ]),
             ]);
     }

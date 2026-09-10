@@ -48,6 +48,9 @@ class MenuItemsTable
     public static function configure(Table $table): Table
     {
         $currency = PricingFields::currency();
+        // Both resolved once for the page rather than per row: every dish here
+        // belongs to the same restaurant and shares its answers.
+        $restaurantTaxRate = PricingFields::restaurantTaxRateBasisPoints();
 
         return $table
             ->columns([
@@ -77,18 +80,20 @@ class MenuItemsTable
                     // The struck-through price rides under the real one rather
                     // than taking a column of its own, which would be empty for
                     // every dish that is not on offer — most of them.
-                    ->description(fn (MenuItem $record): ?string => $record->formattedStrikePrice($currency))
+                    ->description(fn (MenuItem $record): ?string => $record->formattedComparePrice($currency))
                     ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('tax_rate_basis_points')
                     ->label(__('panel.items.tax_rate'))
-                    ->formatStateUsing(fn (MenuItem $record): string => $record->taxRate()->label())
+                    ->formatStateUsing(fn (MenuItem $record): string => PricingFields::formatRate(
+                        $record->taxRateBasisPoints($restaurantTaxRate),
+                    ))
                     // A dish following the restaurant's rate is shown in grey
                     // and one that overrides it in colour, so the exceptions
                     // stand out down a long list.
                     ->badge()
-                    ->color(fn (MenuItem $record): string => $record->tax_rate_basis_points === null ? 'gray' : 'info')
+                    ->color(fn (MenuItem $record): string => $record->overridesTaxRate() ? 'info' : 'gray')
                     ->toggleable(),
 
                 TextColumn::make('additions_count')
@@ -110,8 +115,7 @@ class MenuItemsTable
                     ->boolean()
                     ->trueIcon(Heroicon::OutlinedStar)
                     ->falseIcon(Heroicon::OutlinedMinusSmall)
-                    ->sortable()
-                    ->tooltip(__('panel.items.is_featured_help')),
+                    ->sortable(),
             ])
             ->groups([
                 // The tree. One group per place a dish can sit — a category, or
@@ -167,10 +171,10 @@ class MenuItemsTable
                     ->label(__('panel.items.availability'))
                     ->options(ItemAvailability::options()),
 
-                Filter::make('discounted')
+                Filter::make('on_offer')
                     ->label(__('panel.items.on_offer'))
                     ->toggle()
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('strike_price_minor_units')),
+                    ->query(fn (Builder $query): Builder => $query->whereNotNull('compare_at_price_minor_units')),
 
                 TernaryFilter::make('is_featured')->label(__('panel.items.is_featured')),
             ])
@@ -179,10 +183,10 @@ class MenuItemsTable
                     ->iconButton()
                     ->icon(Heroicon::OutlinedPencilSquare)
                     ->mutateRecordDataUsing(fn (array $data, MenuItem $record): array => MenuItemForm::fillTranslations(
-                        MenuItemForm::fillPrice($data),
+                        MenuItemForm::fillPricing($data),
                         $record,
                     ))
-                    ->mutateDataUsing(fn (array $data): array => MenuItemForm::storePrice($data)),
+                    ->mutateDataUsing(fn (array $data): array => MenuItemForm::storePricing($data)),
 
                 // Refiling a dish is its own action rather than the two selects
                 // on the edit form, so moving twenty dishes into a new
@@ -194,7 +198,6 @@ class MenuItemsTable
                     ->color('gray')
                     ->authorize('update')
                     ->modalHeading(__('panel.items.move'))
-                    ->modalDescription(__('panel.items.move_help'))
                     ->fillForm(fn (MenuItem $record): array => [
                         'menu_category_id' => $record->menu_category_id,
                         'menu_sub_category_id' => $record->menu_sub_category_id,
@@ -217,8 +220,7 @@ class MenuItemsTable
                             ->preload()
                             ->prefixIcon(Heroicon::OutlinedSquares2x2)
                             ->visible(fn (Get $get): bool => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')) !== [])
-                            ->placeholder(__('panel.items.no_sub_category'))
-                            ->helperText(__('panel.items.move_sub_category_help')),
+                            ->placeholder(__('panel.items.no_sub_category')),
                     ])
                     ->action(function (MenuItem $record, array $data): void {
                         // firstOrFail() rather than findOrFail(), which is

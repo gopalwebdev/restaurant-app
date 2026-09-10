@@ -3,7 +3,6 @@
 use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Enums\Role as RoleEnum;
-use App\Enums\TaxRate;
 use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\RelationManagers\CombosRelationManager;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuComboForm;
@@ -79,7 +78,7 @@ it('creates a combo on the menu with the dishes it contains', function (): void 
             'name' => [Locale::English->value => 'Burger Meal', Locale::Tamil->value => 'பர்கர் உணவு'],
             'description' => [Locale::English->value => 'Burger, fries and a drink.'],
             'price' => '299',
-            'strike_price' => '360',
+            'compare_at_price' => '360',
             'availability' => ItemAvailability::Available->value,
             'comboItems' => [
                 ['menu_item_id' => $burger->getKey(), 'quantity' => 1],
@@ -94,13 +93,13 @@ it('creates a combo on the menu with the dishes it contains', function (): void 
         ->and($combo->menu_id)->toBe($menu->getKey())
         // ₹299.00 is 29900 paise, exactly. No float reaches the column.
         ->and($combo->price_minor_units)->toBe(29900)
-        ->and($combo->strike_price_minor_units)->toBe(36000)
+        ->and($combo->compare_at_price_minor_units)->toBe(36000)
         ->and($combo->getTranslation('name', Locale::Tamil->value))->toBe('பர்கர் உணவு')
         ->and($combo->comboItems()->count())->toBe(2)
         ->and($combo->comboItems()->where('menu_item_id', $fries->getKey())->value('quantity'))->toBe(2);
 });
 
-it('leaves the strike price empty rather than storing a zero', function (): void {
+it('leaves the compare-at price empty rather than storing a zero', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
@@ -115,10 +114,10 @@ it('leaves the strike price empty rather than storing a zero', function (): void
         ->assertHasNoActionErrors();
 
     // Null is "not on offer"; zero would be a price of nothing.
-    expect(comboNamed('Lunch Box')->strike_price_minor_units)->toBeNull();
+    expect(comboNamed('Lunch Box')->compare_at_price_minor_units)->toBeNull();
 });
 
-it('refuses a strike price that is not above what is charged', function (): void {
+it('refuses a compare-at price that is not above what is charged', function (): void {
     $restaurant = Restaurant::factory()->create();
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
@@ -130,10 +129,10 @@ it('refuses a strike price that is not above what is charged', function (): void
         ->callAction(TestAction::make('create')->table(), [
             'name' => [Locale::English->value => 'Lunch Box'],
             'price' => '150',
-            'strike_price' => '150',
+            'compare_at_price' => '150',
             'availability' => ItemAvailability::Available->value,
         ])
-        ->assertHasActionErrors(['strike_price']);
+        ->assertHasActionErrors(['compare_at_price']);
 });
 
 it('refuses a combo name the same menu already uses', function (): void {
@@ -235,14 +234,14 @@ it('prices a combo on its own rather than from its contents', function (): void 
 
 it('falls back to the restaurant\'s GST rate, and overrides it when told', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $restaurant->settings->update(['tax_rate_basis_points' => TaxRate::Eighteen]);
+    $restaurant->settings->update(['tax_rate_basis_points' => 1800]);
     $menu = Menu::factory()->create(['tenant_id' => $restaurant->getKey()]);
 
     $following = MenuCombo::factory()->onMenu($menu)->create();
-    $overriding = MenuCombo::factory()->onMenu($menu)->taxedAt(TaxRate::Twelve)->create();
+    $overriding = MenuCombo::factory()->onMenu($menu)->taxedAt(1200)->create();
 
-    expect($following->taxRate())->toBe(TaxRate::Eighteen)
-        ->and($overriding->taxRate())->toBe(TaxRate::Twelve);
+    expect($following->taxRateBasisPoints())->toBe(1800)
+        ->and($overriding->taxRateBasisPoints())->toBe(1200);
 });
 
 /*

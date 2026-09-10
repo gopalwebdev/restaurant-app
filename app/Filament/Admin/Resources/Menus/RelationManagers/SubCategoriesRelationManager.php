@@ -111,7 +111,6 @@ class SubCategoriesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('name')
             ->heading(__('panel.sub_categories.plural'))
-            ->description(__('panel.sub_categories.heading_help'))
             ->columns([
                 TextColumn::make('name')
                     ->label(__('panel.shared.name'))
@@ -134,8 +133,8 @@ class SubCategoriesRelationManager extends RelationManager
                 IconColumn::make('is_active')
                     ->label(__('panel.shared.showing'))
                     ->boolean()
-                    ->sortable()
-                    ->tooltip(__('panel.sub_categories.showing_tooltip')),
+                    ->sortable(),
+
             ])
             ->groups([
                 // Grouped on the foreign key rather than menuCategory.name:

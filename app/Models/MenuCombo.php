@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\ItemAvailability;
-use App\Enums\TaxRate;
 use App\Models\Concerns\HasTranslatedNames;
 use App\Models\Concerns\IsPricedOnAMenu;
 use Carbon\CarbonImmutable;
@@ -39,8 +38,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $name
  * @property string|null $description
  * @property int $price_minor_units
- * @property int|null $strike_price_minor_units
- * @property TaxRate|null $tax_rate_basis_points
+ * @property int|null $compare_at_price_minor_units
+ * @property int|null $tax_rate_basis_points
  * @property ItemAvailability $availability
  * @property int $position
  * @property CarbonImmutable|null $created_at
@@ -51,7 +50,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'name',
     'description',
     'price_minor_units',
-    'strike_price_minor_units',
+    'compare_at_price_minor_units',
     'tax_rate_basis_points',
     'availability',
     'position',
@@ -190,8 +189,8 @@ class MenuCombo extends Model
     {
         return [
             'price_minor_units' => 'integer',
-            'strike_price_minor_units' => 'integer',
-            'tax_rate_basis_points' => TaxRate::class,
+            'compare_at_price_minor_units' => 'integer',
+            'tax_rate_basis_points' => 'integer',
             'availability' => ItemAvailability::class,
             'position' => 'integer',
         ];

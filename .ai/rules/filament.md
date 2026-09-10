@@ -68,6 +68,13 @@ What is translated is deliberately bounded: the menu and storefront resources, i
 ## No theming in the panel
 A restaurant chooses no colours and no light/dark default. `App\Enums\Appearance` has two cases and lives on the phone. Do not add a theme section back without asking.
 
-The Settings page has four sections — Contact, Trading, Tax and Charges — and no others. Tax holds the GSTIN, the default GST slab every price falls back to, and whether menu prices already include it; Charges holds the service and parcel charges, each as a **switch plus an amount** rather than an amount alone, so a restaurant that levies neither says so rather than setting it to zero. (For the service charge that distinction is the point: the CCPA's 2022 guidelines make it voluntary.)
+The Settings page has four sections — Contact, Trading, Tax and Charges — and no others. Tax holds the GSTIN, the default GST rate every price falls back to, and whether menu prices already include it; Charges holds the service and parcel charges, each as a **switch plus an amount** rather than an amount alone, so a restaurant that levies neither says so rather than setting it to zero. (For the service charge that distinction is the point: the CCPA's 2022 guidelines make it voluntary.)
 
-Both charges are typed the way a person says them — "10" percent, "20" rupees — and stored the way the rest of the application stores their kind: the service charge in basis points like a tax rate, the parcel charge in minor units like every other amount of money. `Settings::readableCharges()` / `::storableCharges()` are the only place that conversion happens, so the rounding is done once.
+Every rate and amount is typed the way a person says it — "5" percent, "10" percent, "20" rupees — and stored the way the rest of the application stores its kind: rates in basis points, money in minor units. `Settings::readableCharges()` / `::storableCharges()` are the only place that conversion happens, so the rounding is done once.
+
+## Form fields carry no helper text
+A label and a sensible input say what a field is. A paragraph under every one of them turned the dish form into a page and a half of prose to fill in one line of prices, and an admin who fills that form daily reads none of it after the first time.
+
+So: no `helperText()` on a form field, and no `->description()` on a form section. Where a field genuinely needs explaining, the fix is usually a better label, a `placeholder` that shows what happens if it is left empty (see the tax rate, which shows the restaurant's own rate), or a `suffix`/`prefix` that names the unit.
+
+Three things are deliberately **not** covered by this and stay: empty-state headings and descriptions, which is where a restaurant with nothing set up needs telling what the page is for; the `modalDescription()` on a destructive action, because what a delete takes with it cannot be inferred from a button; and validation messages, which explain a refusal that has already happened.

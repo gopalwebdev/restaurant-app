@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\TaxRate;
+use App\Models\RestaurantSetting;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -10,10 +10,10 @@ return new class extends Migration
     /**
      * The tax and the charges a restaurant applies to every order.
      *
-     * The default GST slab lives here rather than on each dish, so a restaurant
+     * The default GST rate lives here rather than on each dish, so a restaurant
      * sets 5% once and only the genuinely different lines — a sealed bottle
-     * taxed as goods — override it. menu_items and menu_item_additions carry a
-     * nullable rate that falls back to this one.
+     * taxed as goods — override it. menu_items, menu_item_additions and
+     * menu_combos each carry a nullable rate that falls back to this one.
      *
      * `prices_include_tax` decides which way the arithmetic runs, and it is a
      * real question rather than a preference: an Indian menu may print prices
@@ -40,7 +40,7 @@ return new class extends Migration
             $table->string('gstin', 15)->nullable()->after('currency');
 
             $table->unsignedSmallInteger('tax_rate_basis_points')
-                ->default(TaxRate::default()->value)
+                ->default(RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS)
                 ->after('gstin');
 
             $table->boolean('prices_include_tax')->default(false)->after('tax_rate_basis_points');

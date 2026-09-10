@@ -3,7 +3,6 @@
 namespace App\Models\Concerns;
 
 use App\Enums\Currency;
-use App\Enums\TaxRate;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
 
@@ -11,15 +10,14 @@ use App\Models\RestaurantSetting;
  * Something a guest can buy off a menu: a dish, or a combo of them.
  *
  * Both carry the same four things — a price in minor units, an optional higher
- * price shown struck through beside it, an optional GST slab of their own, and
+ * price shown struck through beside it, an optional GST rate of their own, and
  * a currency that belongs to the restaurant rather than to them. This is where
- * that behaviour lives once, so the two models cannot drift on how a price is
- * rounded or which rate applies.
+ * that behaviour lives once, so the two models cannot drift.
  *
- * Using models must have `price_minor_units`, `strike_price_minor_units` and
- * `tax_rate_basis_points` columns, and a `tenant_id`.
+ * Using models must have `price_minor_units`, `compare_at_price_minor_units`
+ * and `tax_rate_basis_points` columns, and a `tenant_id`.
  *
- * Every reader here takes an optional override, and lists should pass one.
+ * Every reader takes an optional override, and lists should pass one.
  * Resolving the currency or the tax rate per row is a query per row that
  * answers the same thing for every one of them — every dish on a menu shares
  * one restaurant. See .ai/rules/models.md.
@@ -31,9 +29,7 @@ trait IsPricedOnAMenu
      *
      * Deliberately never reaches through $this->restaurant: that is a lazy
      * load, which Model::shouldBeStrict() turns into an exception outside
-     * production and which is an N+1 down a list of dishes inside it. A loaded
-     * relation is used when it is there, and otherwise this asks for the one
-     * column it needs.
+     * production and which is an N+1 down a list of dishes inside it.
      */
     public function currency(): Currency
     {
@@ -54,46 +50,57 @@ trait IsPricedOnAMenu
     }
 
     /**
-     * The GST slab this is taxed at.
+     * The GST rate this is taxed at, in basis points.
      *
      * A row of its own overrides, and null means "whatever the restaurant
-     * charges" — which is the answer for almost everything on a menu, so the
-     * rate is set once in settings rather than on every dish.
+     * charges" — the answer for almost everything on a menu, so the rate is set
+     * once in settings rather than on every dish.
      *
-     * Pass $default when rendering a list; every row on a menu shares it.
+     * Pass $restaurantRate when rendering a list; every row shares it.
      */
-    public function taxRate(?TaxRate $default = null): TaxRate
+    public function taxRateBasisPoints(?int $restaurantRate = null): int
     {
-        $own = $this->tax_rate_basis_points;
-
-        if ($own instanceof TaxRate) {
-            return $own;
+        if ($this->tax_rate_basis_points !== null) {
+            return $this->tax_rate_basis_points;
         }
 
-        if ($default instanceof TaxRate) {
-            return $default;
+        if ($restaurantRate !== null) {
+            return $restaurantRate;
         }
 
         $restaurant = $this->relationLoaded('restaurant') ? $this->getRelation('restaurant') : null;
 
         if ($restaurant instanceof Restaurant) {
-            return $restaurant->taxRate();
+            return $restaurant->taxRateBasisPoints();
         }
 
         $stored = RestaurantSetting::query()
             ->where('tenant_id', $this->tenant_id)
             ->value('tax_rate_basis_points');
 
-        return $stored instanceof TaxRate ? $stored : TaxRate::default();
+        return $stored === null
+            ? RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS
+            : (int) $stored;
+    }
+
+    /**
+     * Whether this sets its own rate rather than following the restaurant's.
+     *
+     * What the panel colours a badge on, so the exceptions stand out down a
+     * long list of dishes that all follow the default.
+     */
+    public function overridesTaxRate(): bool
+    {
+        return $this->tax_rate_basis_points !== null;
     }
 
     /**
      * Whether a higher price is shown struck through beside the real one.
      */
-    public function hasStrikePrice(): bool
+    public function hasComparePrice(): bool
     {
-        return $this->strike_price_minor_units !== null
-            && $this->strike_price_minor_units > $this->price_minor_units;
+        return $this->compare_at_price_minor_units !== null
+            && $this->compare_at_price_minor_units > $this->price_minor_units;
     }
 
     /**
@@ -101,8 +108,8 @@ trait IsPricedOnAMenu
      */
     public function discountMinorUnits(): int
     {
-        return $this->hasStrikePrice()
-            ? $this->strike_price_minor_units - $this->price_minor_units
+        return $this->hasComparePrice()
+            ? $this->compare_at_price_minor_units - $this->price_minor_units
             : 0;
     }
 
@@ -120,17 +127,17 @@ trait IsPricedOnAMenu
     /**
      * The struck-through price as money, or null when there is not one.
      */
-    public function formattedStrikePrice(?Currency $currency = null): ?string
+    public function formattedComparePrice(?Currency $currency = null): ?string
     {
-        $strike = $this->strike_price_minor_units;
+        $compareAt = $this->compare_at_price_minor_units;
 
-        // Read into a local rather than checked through hasStrikePrice(): the
+        // Read into a local rather than checked through hasComparePrice(): the
         // two say the same thing, but only this makes the value non-null to a
         // reader and to static analysis.
-        if ($strike === null || $strike <= $this->price_minor_units) {
+        if ($compareAt === null || $compareAt <= $this->price_minor_units) {
             return null;
         }
 
-        return ($currency ?? $this->currency())->format($strike);
+        return ($currency ?? $this->currency())->format($compareAt);
     }
 }

@@ -7,13 +7,13 @@ use App\Enums\ItemAvailability;
 use App\Enums\Locale;
 use App\Enums\Permission as PermissionEnum;
 use App\Enums\Role as RoleEnum;
-use App\Enums\TaxRate;
 use App\Filament\Admin\Resources\MenuItems\Pages\ListMenuItems;
 use App\Filament\Admin\Resources\Menus\Pages\EditMenu;
 use App\Filament\Admin\Resources\Menus\Pages\ListMenus;
 use App\Filament\Admin\Resources\Menus\RelationManagers\CategoriesRelationManager;
 use App\Filament\Admin\Resources\Menus\RelationManagers\FeaturedItemsRelationManager;
 use App\Filament\Admin\Resources\Menus\RelationManagers\SubCategoriesRelationManager;
+use App\Filament\Schemas\PricingFields;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
@@ -758,7 +758,7 @@ it('stores a struck-through price beside the one being charged', function (): vo
             'menu_category_id' => $category->getKey(),
             'food_type' => FoodType::Vegetarian->value,
             'price' => '299',
-            'strike_price' => '360',
+            'compare_at_price' => '360',
             'availability' => ItemAvailability::Available->value,
         ])
         ->assertHasNoActionErrors();
@@ -766,10 +766,10 @@ it('stores a struck-through price beside the one being charged', function (): vo
     $item = byEnglishName(MenuItem::class, 'Paneer Tikka');
 
     expect($item->price_minor_units)->toBe(29900)
-        ->and($item->strike_price_minor_units)->toBe(36000)
-        ->and($item->hasStrikePrice())->toBeTrue()
+        ->and($item->compare_at_price_minor_units)->toBe(36000)
+        ->and($item->hasComparePrice())->toBeTrue()
         ->and($item->discountMinorUnits())->toBe(6100)
-        ->and($item->formattedStrikePrice())->toBe('₹360.00');
+        ->and($item->formattedComparePrice())->toBe('₹360.00');
 });
 
 it('refuses a struck-through price that is not above what is charged', function (): void {
@@ -786,20 +786,20 @@ it('refuses a struck-through price that is not above what is charged', function 
             'menu_category_id' => $category->getKey(),
             'food_type' => FoodType::Vegetarian->value,
             'price' => '299',
-            'strike_price' => '250',
+            'compare_at_price' => '250',
             'availability' => ItemAvailability::Available->value,
         ])
-        ->assertHasActionErrors(['strike_price']);
+        ->assertHasActionErrors(['compare_at_price']);
 });
 
-it('leaves a dish that is not on offer with no strike price at all', function (): void {
+it('leaves a dish that is not on offer with no compare-at price at all', function (): void {
     $item = MenuItem::factory()->create();
 
     // Null is "not on offer". A zero would be a price of nothing, and the
     // guest app would have to decide whether to believe it.
-    expect($item->strike_price_minor_units)->toBeNull()
-        ->and($item->hasStrikePrice())->toBeFalse()
-        ->and($item->formattedStrikePrice())->toBeNull()
+    expect($item->compare_at_price_minor_units)->toBeNull()
+        ->and($item->hasComparePrice())->toBeFalse()
+        ->and($item->formattedComparePrice())->toBeNull()
         ->and($item->discountMinorUnits())->toBe(0);
 });
 
@@ -817,38 +817,64 @@ it('says why a dish is off the menu rather than only that it is', function (): v
 
 it('falls back to the restaurant GST rate on a dish, and overrides it when told', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $restaurant->settings->update(['tax_rate_basis_points' => TaxRate::Five]);
+    $restaurant->settings->update(['tax_rate_basis_points' => 500]);
     $category = MenuCategory::factory()
         ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
         ->create();
 
     $food = MenuItem::factory()->inCategory($category)->create();
     // A sealed bottle sold alongside the food is taxed as goods, not service.
-    $bottle = MenuItem::factory()->inCategory($category)->taxedAt(TaxRate::Eighteen)->create();
+    $bottle = MenuItem::factory()->inCategory($category)->taxedAt(1800)->create();
 
-    expect($food->taxRate())->toBe(TaxRate::Five)
-        ->and($bottle->taxRate())->toBe(TaxRate::Eighteen)
-        ->and($bottle->taxRate()->taxOn($bottle->price_minor_units))
-        ->toBe(TaxRate::Eighteen->taxOn($bottle->price_minor_units));
+    expect($food->taxRateBasisPoints())->toBe(500)
+        ->and($food->overridesTaxRate())->toBeFalse()
+        ->and($bottle->taxRateBasisPoints())->toBe(1800)
+        ->and($bottle->overridesTaxRate())->toBeTrue();
+});
+
+it('accepts a rate no fixed list of GST slabs would have held', function (): void {
+    $restaurant = Restaurant::factory()->create();
+    $category = MenuCategory::factory()
+        ->inMenu(Menu::factory()->create(['tenant_id' => $restaurant->getKey()]))
+        ->create();
+
+    enterRestaurantPanel($restaurant, RoleEnum::Admin);
+
+    // 40% is the demerit rate GST 2.0 introduced in September 2025, and 12.5%
+    // is not a slab at all — the point of typing the rate rather than picking
+    // it from a list is that neither has to be anticipated here.
+    Livewire::test(ListMenuItems::class)
+        ->callAction('create', [
+            'name' => [Locale::English->value => 'Cola'],
+            'menu_category_id' => $category->getKey(),
+            'food_type' => FoodType::Vegetarian->value,
+            'price' => '60',
+            'availability' => ItemAvailability::Available->value,
+            'tax_rate_percentage' => '40',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect(byEnglishName(MenuItem::class, 'Cola')->tax_rate_basis_points)->toBe(4000)
+        ->and(PricingFields::toBasisPoints('12.5'))->toBe(1250);
 });
 
 it('taxes an addition at its own rate rather than the dish it sits on', function (): void {
     $restaurant = Restaurant::factory()->create();
-    $restaurant->settings->update(['tax_rate_basis_points' => TaxRate::Five]);
+    $restaurant->settings->update(['tax_rate_basis_points' => 500]);
     $dish = MenuItem::factory()
         ->inCategory(MenuCategory::factory()->inMenu(
             Menu::factory()->create(['tenant_id' => $restaurant->getKey()])
         )->create())
-        ->taxedAt(TaxRate::Twelve)
+        ->taxedAt(1200)
         ->create();
 
     $following = MenuItemAddition::factory()->onItem($dish)->create();
-    $overriding = MenuItemAddition::factory()->onItem($dish)->taxedAt(TaxRate::Eighteen)->create();
+    $overriding = MenuItemAddition::factory()->onItem($dish)->taxedAt(1800)->create();
 
     // An addition that overrides is overriding because it differs from the
     // food, so inheriting the dish's 12% would be inheriting the wrong number.
-    expect($following->taxRate())->toBe(TaxRate::Five)
-        ->and($overriding->taxRate())->toBe(TaxRate::Eighteen);
+    expect($following->taxRateBasisPoints())->toBe(500)
+        ->and($overriding->taxRateBasisPoints())->toBe(1800);
 });
 
 it('refiles a dish into a sub-category from the dishes page', function (): void {

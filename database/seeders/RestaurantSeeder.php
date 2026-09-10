@@ -90,7 +90,7 @@ class RestaurantSeeder extends Seeder
      *     name: array<string, string>,
      *     description: array<string, string>,
      *     price_minor_units: int,
-     *     strike_price_minor_units: int,
+     *     compare_at_price_minor_units: int,
      *     contents: list<array{name: array<string, string>, quantity: int}>
      * }>
      */
@@ -102,7 +102,7 @@ class RestaurantSeeder extends Seeder
                 'ta' => 'சிக்கன் பிரியாணி, ஒரு தொடக்கம், ஒரு ரொட்டி.',
             ],
             'price_minor_units' => 59900,
-            'strike_price_minor_units' => 75900,
+            'compare_at_price_minor_units' => 75900,
             'contents' => [
                 ['name' => ['en' => 'Hyderabadi Chicken Biryani'], 'quantity' => 1],
                 ['name' => ['en' => 'Chicken 65'], 'quantity' => 1],
@@ -198,7 +198,7 @@ class RestaurantSeeder extends Seeder
                             'price_minor_units' => 38000,
                             // The one dish on offer, so the struck-through
                             // price has somewhere to show.
-                            'strike_price_minor_units' => 45000,
+                            'compare_at_price_minor_units' => 45000,
                             'food_type' => FoodType::NonVegetarian,
                             'additions' => [
                                 ['name' => ['en' => 'Extra raita', 'ta' => 'கூடுதல் ராய்தா'], 'price_minor_units' => 3000],
@@ -397,7 +397,7 @@ class RestaurantSeeder extends Seeder
                 'price_minor_units' => $item['price_minor_units'],
                 // Null on almost every dish: not on offer. A zero would be a
                 // price of nothing.
-                'strike_price_minor_units' => $item['strike_price_minor_units'] ?? null,
+                'compare_at_price_minor_units' => $item['compare_at_price_minor_units'] ?? null,
                 'food_type' => $item['food_type'],
                 'availability' => ItemAvailability::Available,
                 'position' => $position,
@@ -440,7 +440,7 @@ class RestaurantSeeder extends Seeder
                 fn (): MenuCombo => new MenuCombo([
                     'description' => $definition['description'],
                     'price_minor_units' => $definition['price_minor_units'],
-                    'strike_price_minor_units' => $definition['strike_price_minor_units'],
+                    'compare_at_price_minor_units' => $definition['compare_at_price_minor_units'],
                     'availability' => ItemAvailability::Available,
                     'position' => $position,
                 ]),

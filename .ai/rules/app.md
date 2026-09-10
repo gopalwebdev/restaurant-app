@@ -63,9 +63,9 @@ A menu opens with two rows above its sections: the dishes the restaurant leads w
 
 Featuring belongs to **one menu**, so a dish that leaves a menu stops being featured — `MoveItemToSection` and `MoveCategoryToMenu` both clear the flag when the move crosses menus, rather than letting a dish appear at the top of a menu nobody chose it for.
 
-Prices carry an optional `strike_price_minor_units` — the higher "was" price shown struck through — which is null on almost every row, because null is how a dish says it is not on offer and a zero would be a price of nothing. It is refused unless it is strictly above what is charged.
+Prices carry an optional `compare_at_price_minor_units` — the higher "was" price shown struck through — which is null on almost every row, because null is how a dish says it is not on offer and a zero would be a price of nothing. It is refused unless it is strictly above what is charged. Named for what it is rather than "strike price", which in every other software context means the exercise price of an option.
 
-Money is not the only tax-relevant thing here: `menu_items` and `menu_item_additions` each carry a nullable GST slab (`tax_rate_basis_points`, cast to `App\Enums\TaxRate`) that falls back to `restaurant_settings.tax_rate_basis_points`, so a restaurant sets 5% once and only genuinely different lines — a sealed bottle taxed as goods rather than as restaurant service — override it. See `.ai/rules/config.md` and the settings page for the global rate, `prices_include_tax`, and the two optional charges.
+`menu_items`, `menu_item_additions` and `menu_combos` each carry a nullable `tax_rate_basis_points` that falls back to `restaurant_settings.tax_rate_basis_points`, so a restaurant sets its rate once and only genuinely different lines — a sealed bottle taxed as goods rather than as restaurant service — override it. See the settings page for the global rate, `prices_include_tax`, and the two optional charges.
 
 ## Two languages, English default, and everyone picks their own
 `App\Enums\Locale` has one case per language the app is available in — English and Tamil for now — and is the single source of truth: the cookie middleware validates against it, the toggle is built from it, and every translated column stores one key per case. English is the default, the fallback, and the only language an admin form requires.

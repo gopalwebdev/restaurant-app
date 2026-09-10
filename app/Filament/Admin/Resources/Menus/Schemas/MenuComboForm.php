@@ -47,7 +47,6 @@ class MenuComboForm
                 TranslatedFields::localeSwitcher(),
 
                 Section::make(__('panel.combos.section'))
-                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedSparkles)
                     ->schema([
                         ...TranslatedFields::text(
@@ -69,14 +68,13 @@ class MenuComboForm
                     ->icon(Heroicon::OutlinedBanknotes)
                     ->schema([
                         PricingFields::price($currency),
-                        PricingFields::strikePrice($currency),
-                        PricingFields::taxRate(PricingFields::restaurantTaxRate()),
+                        PricingFields::compareAtPrice($currency),
+                        PricingFields::taxRatePercentage(PricingFields::restaurantTaxRateBasisPoints()),
                         PricingFields::availability(),
                     ])
                     ->columns(2),
 
                 Section::make(__('panel.combos.contents'))
-                    ->description(__('panel.combos.contents_help'))
                     ->icon(Heroicon::OutlinedListBullet)
                     ->schema([
                         self::contents($menuId),

@@ -31,7 +31,6 @@ class MenuForm
                 TranslatedFields::localeSwitcher(),
 
                 Section::make(__('panel.menus.name_section'))
-                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedBookOpen)
                     ->schema(TranslatedFields::text(
                         'name',
@@ -45,7 +44,6 @@ class MenuForm
                     )),
 
                 Section::make(__('panel.menus.description_section'))
-                    ->description(__('panel.menus.description_help'))
                     ->icon(Heroicon::OutlinedDocumentText)
                     ->schema(TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 300, rows: 2))
                     ->collapsed(),
@@ -58,13 +56,11 @@ class MenuForm
                         Toggle::make('is_active')
                             ->label(__('panel.menus.is_active'))
                             ->default(true)
-                            ->inline(false)
-                            ->helperText(__('panel.menus.is_active_help')),
+                            ->inline(false),
                     ])
                     ->columns(2),
 
                 Section::make(__('panel.menus.service_window'))
-                    ->description(__('panel.menus.service_window_help'))
                     ->icon(Heroicon::OutlinedClock)
                     ->schema([
                         // Both or neither: a window with one end is not a
@@ -80,8 +76,7 @@ class MenuForm
                             ->label(__('panel.menus.available_until'))
                             ->seconds(false)
                             ->live(onBlur: true)
-                            ->requiredWith('available_from')
-                            ->helperText(__('panel.menus.available_until_help')),
+                            ->requiredWith('available_from'),
                     ])
                     ->columns(2)
                     ->collapsed(fn (?Menu $record): bool => ! ($record?->hasServiceWindow() ?? false)),

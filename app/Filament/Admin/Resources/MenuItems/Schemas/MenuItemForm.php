@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\MenuItems\Schemas;
 
 use App\Enums\Currency;
 use App\Enums\FoodType;
-use App\Enums\TaxRate;
 use App\Filament\Admin\Resources\Menus\Schemas\MenuSubCategoryForm;
 use App\Filament\Schemas\PricingFields;
 use App\Filament\Schemas\TranslatedFields;
@@ -44,7 +43,6 @@ class MenuItemForm
                 TranslatedFields::localeSwitcher(),
 
                 Section::make(__('panel.items.dish'))
-                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedListBullet)
                     ->schema([
                         // Two selects rather than one flat list of every place
@@ -65,8 +63,7 @@ class MenuItemForm
                             // sub-category was chosen — it belonged to the old
                             // one, and the database would refuse the pair.
                             ->afterStateUpdated(fn (Set $set): mixed => $set('menu_sub_category_id', null))
-                            ->prefixIcon(Heroicon::OutlinedRectangleStack)
-                            ->helperText(__('panel.items.section_help')),
+                            ->prefixIcon(Heroicon::OutlinedRectangleStack),
 
                         Select::make('menu_sub_category_id')
                             ->label(__('panel.sub_categories.label'))
@@ -78,8 +75,7 @@ class MenuItemForm
                             // subdivisions, which is most of them. An empty
                             // select is a question with no answers.
                             ->visible(fn (Get $get): bool => MenuSubCategoryForm::subCategoryOptions($get('menu_category_id')) !== [])
-                            ->placeholder(__('panel.items.no_sub_category'))
-                            ->helperText(__('panel.items.sub_category_help')),
+                            ->placeholder(__('panel.items.no_sub_category')),
 
                         ...self::spanningFull(TranslatedFields::text(
                             'name',
@@ -99,8 +95,7 @@ class MenuItemForm
                             ->options(FoodType::options())
                             ->required()
                             ->default(FoodType::Vegetarian->value)
-                            ->native(false)
-                            ->helperText(__('panel.items.food_type_help')),
+                            ->native(false),
 
                         ...self::spanningFull(TranslatedFields::textarea('description', __('panel.shared.description'), maxLength: 500, rows: 3)),
                     ])
@@ -114,7 +109,7 @@ class MenuItemForm
                         // conversion in one place for this form and the combo
                         // one, so no float ever reaches the database.
                         PricingFields::price($currency),
-                        PricingFields::strikePrice($currency),
+                        PricingFields::compareAtPrice($currency),
                         PricingFields::availability(),
 
                         // Featuring puts a dish in the row above the sections
@@ -123,16 +118,14 @@ class MenuItemForm
                         Toggle::make('is_featured')
                             ->label(__('panel.items.is_featured'))
                             ->default(false)
-                            ->inline(false)
-                            ->helperText(__('panel.items.is_featured_help')),
+                            ->inline(false),
                     ])
                     ->columns(2),
 
                 Section::make(__('panel.items.tax_section'))
-                    ->description(__('panel.items.tax_section_help'))
                     ->icon(Heroicon::OutlinedReceiptPercent)
                     ->schema([
-                        PricingFields::taxRate(PricingFields::restaurantTaxRate()),
+                        PricingFields::taxRatePercentage(PricingFields::restaurantTaxRateBasisPoints()),
                         PricingFields::hsnCode(),
                     ])
                     ->columns(2)
@@ -142,7 +135,6 @@ class MenuItemForm
                     ->collapsed(fn (?MenuItem $record): bool => blank($record?->tax_rate_basis_points) && blank($record?->hsn_code)),
 
                 Section::make(__('panel.additions.section'))
-                    ->description(__('panel.additions.section_help'))
                     ->icon(Heroicon::OutlinedPlusCircle)
                     ->schema([
                         self::additions($currency),
@@ -196,7 +188,7 @@ class MenuItemForm
             ->table([
                 TableColumn::make(__('panel.additions.label'))->markAsRequired(),
                 TableColumn::make(__('panel.additions.price'))->width('10rem'),
-                TableColumn::make(__('panel.additions.tax_rate'))->width('12rem'),
+                TableColumn::make(__('panel.items.tax_rate'))->width('9rem'),
                 TableColumn::make(__('panel.additions.is_available'))->width('7rem')->alignment(Alignment::Center),
             ])
             ->schema([
@@ -215,13 +207,14 @@ class MenuItemForm
                     ->default(0)
                     ->prefix($currency->symbol()),
 
-                Select::make('tax_rate_basis_points')
-                    ->label(__('panel.additions.tax_rate'))
-                    ->options(TaxRate::options())
-                    ->placeholder(__('panel.items.tax_rate_default', [
-                        'rate' => PricingFields::restaurantTaxRate()->label(),
-                    ]))
-                    ->native(false),
+                TextInput::make('tax_rate_percentage')
+                    ->label(__('panel.items.tax_rate'))
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->step(0.01)
+                    ->suffix('%')
+                    ->placeholder(PricingFields::formatRate(PricingFields::restaurantTaxRateBasisPoints())),
 
                 Toggle::make('is_available')
                     ->label(__('panel.additions.is_available'))
@@ -236,39 +229,47 @@ class MenuItemForm
             ->columnSpanFull()
             // The repeater edits a major-unit price the same way the dish above
             // does, and each row is converted on its own way in and out.
-            ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::storeAdditionPrice($data, $currency))
-            ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::storeAdditionPrice($data, $currency))
-            ->mutateRelationshipDataBeforeFillUsing(fn (array $data): array => self::fillAdditionPrice($data, $currency));
+            ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::storeAddition($data, $currency))
+            ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::storeAddition($data, $currency))
+            ->mutateRelationshipDataBeforeFillUsing(fn (array $data): array => self::fillAddition($data, $currency));
     }
 
     /**
-     * Turn an addition's typed price into the integer that gets stored.
+     * Turn an addition's typed price and rate into what gets stored.
      *
-     * An addition has no strike price — it is a delta on the dish, and
-     * "was +₹40, now +₹30" is not a thing a menu says — so this is its own
-     * small conversion rather than PricingFields::storePrices().
+     * An addition has no compare-at price — it is a delta on the dish, and
+     * "was +₹40, now +₹30" is not something a menu says — so this is its own
+     * small conversion rather than PricingFields::store().
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private static function storeAdditionPrice(array $data, Currency $currency): array
+    private static function storeAddition(array $data, Currency $currency): array
     {
         $data['price_minor_units'] = $currency->toMinorUnits($data['price'] ?? 0);
 
-        unset($data['price']);
+        $data['tax_rate_basis_points'] = blank($data['tax_rate_percentage'] ?? null)
+            ? null
+            : PricingFields::toBasisPoints($data['tax_rate_percentage']);
+
+        unset($data['price'], $data['tax_rate_percentage']);
 
         return $data;
     }
 
     /**
-     * Turn a stored addition price back into the value the form edits.
+     * Turn a stored addition back into the values the form edits.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private static function fillAdditionPrice(array $data, Currency $currency): array
+    private static function fillAddition(array $data, Currency $currency): array
     {
         $data['price'] = $currency->toMajorUnits((int) ($data['price_minor_units'] ?? 0));
+
+        $data['tax_rate_percentage'] = blank($data['tax_rate_basis_points'] ?? null)
+            ? null
+            : PricingFields::toPercentage((int) $data['tax_rate_basis_points']);
 
         return $data;
     }
@@ -285,25 +286,25 @@ class MenuItemForm
     }
 
     /**
-     * Turn the typed major-unit prices into the integers that get stored.
+     * Turn the typed prices and rate into what gets stored.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public static function storePrice(array $data): array
+    public static function storePricing(array $data): array
     {
-        return PricingFields::storePrices($data, self::currency());
+        return PricingFields::store($data, self::currency());
     }
 
     /**
-     * Turn the stored integers back into the values the form edits.
+     * Turn what is stored back into the values the form edits.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public static function fillPrice(array $data): array
+    public static function fillPricing(array $data): array
     {
-        return PricingFields::fillPrices($data, self::currency());
+        return PricingFields::fill($data, self::currency());
     }
 
     /**

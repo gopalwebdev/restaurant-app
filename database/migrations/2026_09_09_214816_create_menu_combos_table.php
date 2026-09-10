@@ -39,7 +39,7 @@ return new class extends Migration
             $table->json('description')->nullable();
 
             $table->unsignedInteger('price_minor_units');
-            $table->unsignedInteger('strike_price_minor_units')->nullable();
+            $table->unsignedInteger('compare_at_price_minor_units')->nullable();
             $table->unsignedSmallInteger('tax_rate_basis_points')->nullable();
 
             $table->string('availability', 32)->default(ItemAvailability::Available->value);
@@ -48,6 +48,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['menu_id', 'position']);
+            $table->index(['tenant_id', 'position']);
 
             // Referenced by the composite foreign key on menu_combo_items.
             $table->unique(['id', 'tenant_id']);

@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Enums\Permission;
-use App\Enums\TaxRate;
 use App\Filament\Schemas\PricingFields;
 use App\Models\Restaurant;
 use App\Models\RestaurantSetting;
@@ -11,7 +10,6 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
@@ -83,7 +81,6 @@ class Settings extends Page
         return $schema
             ->components([
                 Section::make('Contact')
-                    ->description('How guests reach this restaurant.')
                     ->schema([
                         TextInput::make('contact_email')
                             ->label('Contact email')
@@ -97,7 +94,6 @@ class Settings extends Page
                     ->columns(2),
 
                 Section::make('Trading')
-                    ->description('When this restaurant is open.')
                     ->schema([
                         TimePicker::make('opens_at')
                             ->label('Opens at')
@@ -107,45 +103,41 @@ class Settings extends Page
                             ->seconds(false),
                         Toggle::make('accepts_orders')
                             ->label('Accepting orders')
-                            ->helperText('Turn this off to stop taking new orders without closing the storefront.')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
 
                 Section::make('Tax')
-                    ->description('The GST every price on the menu is read against. A dish or an addition may name a rate of its own; anything that does not uses the one set here.')
                     ->schema([
                         TextInput::make('gstin')
                             ->label('GSTIN')
-                            ->maxLength(15)
-                            ->helperText('The 15-character registration number printed on every tax invoice. Leave empty if this restaurant is not registered.'),
+                            ->maxLength(15),
 
-                        Select::make('tax_rate_basis_points')
+                        TextInput::make('tax_rate_percentage')
                             ->label('Default GST rate')
-                            ->options(TaxRate::options())
                             ->required()
-                            ->native(false)
-                            ->helperText('Standalone restaurant service is 5%. Packaged goods sold alongside carry their own rate, set on the item.'),
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->step(0.01)
+                            ->suffix('%'),
 
                         Toggle::make('prices_include_tax')
                             ->label('Menu prices already include GST')
                             ->inline(false)
-                            ->helperText('On: ₹100 on the menu is what a guest pays, with the tax already inside it. Off: GST is added to ₹100 at the bill.')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
 
                 Section::make('Charges')
-                    ->description('Added to an order on top of what was ordered. Each one is off until it is switched on, so a restaurant that levies neither says so rather than setting it to nothing.')
                     ->schema([
+                        // A switch rather than a rate that happens to be zero:
+                        // a service charge is voluntary under the CCPA's 2022
+                        // guidelines, so "we do not levy one" has to be sayable.
                         Toggle::make('service_charge_enabled')
                             ->label('Levy a service charge')
                             ->live()
-                            ->inline(false)
-                            // A service charge is voluntary under the CCPA's
-                            // 2022 guidelines, which is why this is a switch
-                            // rather than a rate that happens to be zero.
-                            ->helperText('Voluntary in India — a guest may ask for it to be removed.'),
+                            ->inline(false),
 
                         TextInput::make('service_charge_percentage')
                             ->label('Service charge')
@@ -155,8 +147,7 @@ class Settings extends Page
                             ->step(0.01)
                             ->suffix('%')
                             ->required(fn (Get $get): bool => (bool) $get('service_charge_enabled'))
-                            ->visible(fn (Get $get): bool => (bool) $get('service_charge_enabled'))
-                            ->helperText('A percentage of what was ordered, before tax.'),
+                            ->visible(fn (Get $get): bool => (bool) $get('service_charge_enabled')),
 
                         Toggle::make('parcel_charge_enabled')
                             ->label('Charge for packing a takeaway')
@@ -171,8 +162,7 @@ class Settings extends Page
                             ->step(0.01)
                             ->prefix(fn (): string => PricingFields::currency()->symbol())
                             ->required(fn (Get $get): bool => (bool) $get('parcel_charge_enabled'))
-                            ->visible(fn (Get $get): bool => (bool) $get('parcel_charge_enabled'))
-                            ->helperText('A flat amount added to an order that is packed to take away.'),
+                            ->visible(fn (Get $get): bool => (bool) $get('parcel_charge_enabled')),
                     ])
                     ->columns(2),
             ]);
@@ -218,20 +208,25 @@ class Settings extends Page
     }
 
     /**
-     * Turn the stored charges into the values the form edits.
+     * Turn the stored rates and charges into the values the form edits.
      *
-     * Both are stored the way the rest of the application stores their kind —
-     * the service charge in basis points like a tax rate, the parcel charge in
-     * minor units like every other amount of money — and both are typed here
-     * the way a person says them: "10" percent and "20" rupees.
+     * Each is stored the way the rest of the application stores its kind — the
+     * two rates in basis points, the parcel charge in minor units like every
+     * other amount of money — and each is typed here the way a person says it:
+     * "5" percent, "10" percent and "20" rupees.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     private function readableCharges(array $data): array
     {
-        $data['service_charge_percentage'] = ((int) ($data['service_charge_basis_points'] ?? 0))
-            / (TaxRate::BASIS_POINTS_PER_WHOLE / 100);
+        $data['tax_rate_percentage'] = PricingFields::toPercentage(
+            (int) ($data['tax_rate_basis_points'] ?? RestaurantSetting::DEFAULT_TAX_RATE_BASIS_POINTS),
+        );
+
+        $data['service_charge_percentage'] = PricingFields::toPercentage(
+            (int) ($data['service_charge_basis_points'] ?? 0),
+        );
 
         $data['parcel_charge'] = PricingFields::currency()
             ->toMajorUnits((int) ($data['parcel_charge_minor_units'] ?? 0));
@@ -240,7 +235,7 @@ class Settings extends Page
     }
 
     /**
-     * Turn the typed charges back into what gets stored.
+     * Turn the typed rates and charges back into what gets stored.
      *
      * The rounding happens here, once, so nothing downstream ever sees a float.
      *
@@ -249,14 +244,16 @@ class Settings extends Page
      */
     private function storableCharges(array $data): array
     {
-        $data['service_charge_basis_points'] = (int) round(
-            ((float) ($data['service_charge_percentage'] ?? 0)) * (TaxRate::BASIS_POINTS_PER_WHOLE / 100),
+        $data['tax_rate_basis_points'] = PricingFields::toBasisPoints($data['tax_rate_percentage'] ?? 0);
+
+        $data['service_charge_basis_points'] = PricingFields::toBasisPoints(
+            $data['service_charge_percentage'] ?? 0,
         );
 
         $data['parcel_charge_minor_units'] = PricingFields::currency()
             ->toMinorUnits($data['parcel_charge'] ?? 0);
 
-        unset($data['service_charge_percentage'], $data['parcel_charge']);
+        unset($data['tax_rate_percentage'], $data['service_charge_percentage'], $data['parcel_charge']);
 
         return $data;
     }

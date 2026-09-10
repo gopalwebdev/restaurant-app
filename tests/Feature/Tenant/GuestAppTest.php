@@ -3,7 +3,6 @@
 use App\Enums\Appearance;
 use App\Enums\ItemAvailability;
 use App\Enums\Locale;
-use App\Enums\TaxRate;
 use App\Models\Menu;
 use App\Models\MenuCategory;
 use App\Models\MenuCombo;
@@ -356,7 +355,7 @@ it('sends the combos a menu leads with, in the order they were arranged', functi
             ->has('combos', 2)
             ->where('combos.0.id', $first->getKey())
             ->where('combos.0.name', 'Burger Meal')
-            ->where('combos.0.strikePriceMinorUnits', $first->strike_price_minor_units)
+            ->where('combos.0.compareAtPriceMinorUnits', $first->compare_at_price_minor_units)
             ->has('combos.0.contents', 1)
             ->where('combos.0.contents.0.name', 'Burger')
             ->where('combos.0.contents.0.quantity', 2)
@@ -380,7 +379,7 @@ it('sends a struck-through price only when there is a real offer', function (): 
     $onOffer = MenuItem::factory()->inCategory($category)->create([
         'name' => [Locale::English->value => 'A Discounted'],
         'price_minor_units' => 29900,
-        'strike_price_minor_units' => 36000,
+        'compare_at_price_minor_units' => 36000,
         'position' => 0,
     ]);
     MenuItem::factory()->inCategory($category)->create([
@@ -392,17 +391,17 @@ it('sends a struck-through price only when there is a real offer', function (): 
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
             ->where('sections.0.items.0.id', $onOffer->getKey())
-            ->where('sections.0.items.0.strikePriceMinorUnits', 36000)
+            ->where('sections.0.items.0.compareAtPriceMinorUnits', 36000)
             // Null rather than the stored value, so the app never has to judge
             // whether what it was handed is believable.
-            ->where('sections.0.items.1.strikePriceMinorUnits', null),
+            ->where('sections.0.items.1.compareAtPriceMinorUnits', null),
         );
 });
 
 it('tells a guest what the prices do not include before they order', function (): void {
     $restaurant = Restaurant::factory()->create();
     $restaurant->settings->update([
-        'tax_rate_basis_points' => TaxRate::Five,
+        'tax_rate_basis_points' => 500,
         'prices_include_tax' => false,
         'service_charge_enabled' => true,
         'service_charge_basis_points' => 1000,

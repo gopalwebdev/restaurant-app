@@ -61,7 +61,6 @@ class CategoriesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('name')
             ->heading(__('panel.categories.plural'))
-            ->description(__('panel.categories.heading_help'))
             ->columns([
                 TextColumn::make('name')
                     ->label(__('panel.shared.name'))
@@ -86,8 +85,8 @@ class CategoriesRelationManager extends RelationManager
                 IconColumn::make('is_active')
                     ->label(__('panel.shared.showing'))
                     ->boolean()
-                    ->sortable()
-                    ->tooltip(__('panel.categories.showing_tooltip')),
+                    ->sortable(),
+
             ])
             ->headerActions([
                 CreateAction::make()

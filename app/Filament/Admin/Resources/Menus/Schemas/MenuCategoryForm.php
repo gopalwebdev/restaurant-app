@@ -40,7 +40,6 @@ class MenuCategoryForm
                 TranslatedFields::localeSwitcher(),
 
                 Section::make(__('panel.categories.section'))
-                    ->description(__('panel.shared.both_languages'))
                     ->icon(Heroicon::OutlinedRectangleStack)
                     ->schema(TranslatedFields::text(
                         'name',
@@ -61,8 +60,7 @@ class MenuCategoryForm
                         Toggle::make('is_active')
                             ->label(__('panel.categories.is_active'))
                             ->default(true)
-                            ->inline(false)
-                            ->helperText(__('panel.categories.is_active_help')),
+                            ->inline(false),
                     ]),
             ]);
     }
